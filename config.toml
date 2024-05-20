@@ -1,6 +1,19 @@
+# This is an example config file that can be used for development.
+#
+# NOTE: This file is checked into the repo and should **only** ever be used
+# for local development. For a real deployment, use strong passwords and handle
+# secrets in the appropriate manner.
+
+# Toggle debugging information and tools in the app.
 debug = true
 
 [db]
+# Specify the database backend. We primarily target MS SQL support, however
+# SQLite may also be used for development. In theory, we can support any
+# backend that's configured in Glowplug: https://github.com/jnu/python-glowplug
+# However, this is not guaranteed to work out of the box.
 engine = "mssql"
+# Development password. Must match that used in the MS SQL server used for dev.
 password = "bc2Password"
+# Development database.
 database = "blindcharging"
