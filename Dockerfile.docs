@@ -17,10 +17,11 @@ WORKDIR /code
 
 # Copy dependency manifests
 COPY poetry.lock pyproject.toml README.md /code/
-COPY app/ /code/app
-COPY lib/ /code/lib
 
 # Install dependencies
 RUN poetry install --without dev --with server --no-interaction --no-ansi
+
+# Copy app code
+COPY app/ /code/app
 
 CMD gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 4
