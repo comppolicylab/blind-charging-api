@@ -19,7 +19,7 @@ WORKDIR /code
 COPY poetry.lock pyproject.toml README.md /code/
 
 # Install dependencies
-RUN poetry install --without dev --with server --no-interaction --no-ansi
+RUN poetry install --without dev --no-interaction --no-ansi
 
 # Copy app code
 COPY app/ /code/app
