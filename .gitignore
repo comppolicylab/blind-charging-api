@@ -1,0 +1,14 @@
+*.pyc
+*.swp
+dist/
+__pycache__/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+badge.svg
+.DS_Store
+!config.toml
+config.*.toml
+.cache/
