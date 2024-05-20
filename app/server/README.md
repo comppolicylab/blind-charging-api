@@ -10,7 +10,7 @@ Note that until Pydantic2 support is merged into the main project,
 we need to use [Joe's fork of the repo](https://github.com/jnu/fastapi-code-generator).
 
 ```
-poetry run python -m fastapi_code_generator -i ../../stanford-policylab/bc2/app/server/schema/api.yaml -o ../../stanford-policylab/bc2/app/server/generated -r -t ../../stanford-policylab/bc2/app/server/schema/templates -d pydantic_v2.BaseModel -p 3.11
+poetry run python -m fastapi_code_generator -i ../../stanford-policylab/blind-charging-api/app/schema/openapi.yaml -o ../../stanford-policylab/blind-charging-api/app/server/generated -r -t ../../stanford-policylab/blind-charging-api/app/schema/templates -d pydantic_v2.BaseModel -p 3.11
 ```
 
 ### Implementations
@@ -34,7 +34,7 @@ You can develop against a MS SQL database running in Docker:
 ```bash
 docker run \
     --platform linux/amd64 \
-    --name bc2-mssql \
+    --name blind-charging-mssql \
     -e "ACCEPT_EULA=Y" \
     -e "MSSQL_SA_PASSWORD=bc2Password" \
     -p 1433:1433 \

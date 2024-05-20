@@ -12,7 +12,7 @@ app = FastAPI()
 
 DEFAULT_SECRET = "not a real secret!"
 app_secret: str = os.getenv("GITHUB_CLIENT_SECRET", DEFAULT_SECRET)
-app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/bc2")
+app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/blind-charging-api")
 secure: bool = os.getenv("VALIDATE_TOKEN", "true").lower() in {"true", "1", "on"}
 
 
