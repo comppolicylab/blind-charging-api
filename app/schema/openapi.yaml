@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.1.2
+  version: 0.1.3
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -258,6 +258,23 @@ components:
         content:
           type: string
 
+    DocumentContent:
+      type: object
+      required:
+        - attachmentType
+        - documentId
+        - content
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - BASE64
+        documentId:
+          type: string
+        content:
+          type: string
+          format: byte
+
     BlindReviewInfo:
       type: object
       required:
@@ -280,7 +297,14 @@ components:
         redactedDocuments:
           type: array
           items:
-            $ref: "#/components/schemas/DocumentLink"
+            oneOf:
+              - $ref: "#/components/schemas/DocumentLink"
+              - $ref: "#/components/schemas/DocumentContent"
+          discriminator:
+            propertyName: attachmentType
+            mapping:
+              LINK: "#/components/schemas/DocumentLink"
+              BASE64: "#/components/schemas/DocumentContent"
 
     RedactionResultSuccess:
       type: object
@@ -300,10 +324,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MaskedAccused"
-        inputDocument:
-          $ref: "#/components/schemas/DocumentLink"
         redactedDocument:
-          $ref: "#/components/schemas/DocumentLink"
+          oneOf:
+            - $ref: "#/components/schemas/DocumentLink"
+            - $ref: "#/components/schemas/DocumentContent"
+          discriminator:
+            propertyName: attachmentType
+            mapping:
+              LINK: "#/components/schemas/DocumentLink"
+              BASE64: "#/components/schemas/DocumentContent"
         status:
           type: string
           enum:
@@ -327,8 +356,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MaskedAccused"
-        inputDocument:
-          $ref: "#/components/schemas/DocumentLink"
         error:
           type: string
         status:
@@ -353,8 +380,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MaskedAccused"
-        inputDocument:
-          $ref: "#/components/schemas/DocumentLink"
         status:
           type: string
           enum:
@@ -479,11 +504,13 @@ components:
             oneOf:
               - $ref: "#/components/schemas/DocumentLink"
               - $ref: "#/components/schemas/DocumentText"
+              - $ref: "#/components/schemas/DocumentContent"
             discriminator:
               propertyName: attachmentType
               mapping:
                 LINK: "#/components/schemas/DocumentLink"
                 TEXT: "#/components/schemas/DocumentText"
+                BASE64: "#/components/schemas/DocumentContent"
         callbackUrl:
           type: string
           format: uri
