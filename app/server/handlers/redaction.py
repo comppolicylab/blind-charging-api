@@ -1,22 +1,31 @@
-from fastapi import Request
+import base64
+
+import aiohttp
+from fastapi import HTTPException, Request
 
 from ..db import File
 from ..generated.models import RedactionRequest, RedactionStatus
 
 
 async def redact_document(*, request: Request, body: RedactionRequest) -> None:
-    if body.document.attachmentType != "LINK":
-        raise NotImplementedError("Only document links are supported at this time")
+    content = b""
+    if body.document.attachmentType == "LINK":
+        async with aiohttp.ClientSession() as session:
+            async with session.get(body.document.link) as response:
+                content = await response.read()
+    elif body.document.attachmentType == "TEXT":
+        content = body.document.content.encode("utf-8")
+    elif body.document.attachmentType == "BASE64":
+        content = base64.b64decode(body.document.content)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported attachment type")
 
     # Insert document into database
     file = File(
         external_id=body.document.documentId,
         jurisdiction_id=body.jurisdictionId,
         case_id=body.caseId,
-        name="test",
-        file_type="test",
-        file_size=1,
-        storage_path=str(body.document.url),
+        content=content,
     )
     await file.save(request.state.db)
 

@@ -4,7 +4,7 @@ from typing import List
 from sqlalchemy import ForeignKey
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import BINARY, DateTime, String
+from sqlalchemy.types import BINARY, DateTime, LargeBinary, String
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
 
@@ -26,11 +26,13 @@ class Base(AsyncAttrs, DeclarativeBase):
         UUID: BINARY(16),
         datetime: DateTime(timezone=True),
         str_256: String(256),
+        bytes: LargeBinary,
     }
 
-    async def save(self, session: AsyncSession) -> None:
+    async def save(self, session: AsyncSession, commit: bool = False) -> None:
         session.add(self)
-        await session.commit()
+        if commit:
+            await session.commit()
 
 
 class File(Base):
@@ -42,10 +44,7 @@ class File(Base):
     case_id: Mapped[str_256]
     defendants: Mapped[List["DefendantFile"]] = relationship()
     redactions: Mapped[List["Redaction"]] = relationship(back_populates="file")
-    name: Mapped[str]
-    file_type: Mapped[str_256]
-    file_size: Mapped[int]
-    storage_path: Mapped[str]
+    content: Mapped[bytes]
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
@@ -56,7 +55,7 @@ class Redaction(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"))
     file: Mapped["File"] = relationship(back_populates="redactions")
-    storage_path: Mapped[str]
+    content: Mapped[bytes]
     status: Mapped[str_256]
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)

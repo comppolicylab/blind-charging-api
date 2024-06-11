@@ -273,7 +273,6 @@ components:
           type: string
         content:
           type: string
-          format: byte
 
     BlindReviewInfo:
       type: object
