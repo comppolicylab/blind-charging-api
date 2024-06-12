@@ -4,10 +4,21 @@ from typing import List
 
 import aiohttp
 from fastapi import HTTPException, Request
+from sqlalchemy import select
 
 from ..config import config
-from ..db import File, Task
-from ..generated.models import Document, RedactionRequest, RedactionStatus
+from ..db import File, JobStatus, Redaction, Task
+from ..generated.models import (
+    Document,
+    DocumentContent,
+    DocumentLink,
+    RedactionRequest,
+    RedactionResult,
+    RedactionResultError,
+    RedactionResultPending,
+    RedactionResultSuccess,
+    RedactionStatus,
+)
 from ..time import expire_h
 
 
@@ -59,16 +70,19 @@ async def create_document_redaction_task(
 
     # Insert document into database
     file = File(
-        external_id=doc.documentId,
+        external_id=doc.root.documentId,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
         content=content,
     )
 
+    # Create a placeholder redaction
+    redaction = Redaction(file=file)
+
     # Create a task to process this document
     task = Task(
-        file=file,
-        callback_url=callback_url,
+        redaction=redaction,
+        callback_url=str(callback_url),
         expires_at=expire_h(hours=config.retention.hours),
     )
 
@@ -85,25 +99,145 @@ async def fetch_document_content(doc: Document) -> bytes:
         bytes: The content of the document.
     """
     content = b""
-    match doc.attachmentType:
+    match doc.root.attachmentType:
         case "LINK":
             async with aiohttp.ClientSession() as session:
-                async with session.get(doc.link) as response:
+                async with session.get(str(doc.root.url)) as response:
                     content = await response.read()
         case "TEXT":
-            content = doc.content.encode("utf-8")
+            content = doc.root.content.encode("utf-8")
         case "BASE64":
-            content = base64.b64decode(doc.content)
+            content = base64.b64decode(doc.root.content)
         case _:
-            raise ValueError(f"Unsupported attachment type: {doc.attachmentType}")
+            raise ValueError(f"Unsupported attachment type: {doc.root.attachmentType}")
     return content
 
 
 async def get_redaction_status(
-    *, request: Request, jurisdiction_id: str, case_id: str
+    *,
+    request: Request,
+    jurisdiction_id: str,
+    case_id: str,
+    accused_id: str | None = None,
 ) -> RedactionStatus:
+    """Get the redaction status for a case.
+
+    Args:
+        request (Request): The incoming request.
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+        accused_id (str, optional): The accused ID.
+
+    Returns:
+        RedactionStatus: The redaction status summary.
+    """
+    redaction_results = list[RedactionResult]()
+
+    # Get the redaction status from the database
+    files_q = select(File).filter(
+        File.jurisdiction_id == jurisdiction_id, File.case_id == case_id
+    )
+    result = await request.state.db.execute(files_q)
+    for file in result.scalars().all():
+        latest_redaction = await file.latest_redaction(request.state.db)
+        if not latest_redaction:
+            raise ValueError(f"No redaction found for file {file.external_id}")
+        latest_job = await latest_redaction.task.latest_job(request.state.db)
+
+        # The job should exist, but if it doesn't, we'll just assume it's queued.
+        if not latest_job:
+            redaction_results.append(
+                RedactionResult(
+                    RedactionResultPending(
+                        jurisdictionId=jurisdiction_id,
+                        caseId=case_id,
+                        maskedAccuseds=[],  # TODO
+                        status="QUEUED",
+                    )
+                )
+            )
+            continue
+
+        match latest_job.status:
+            case JobStatus.queued:
+                redaction_results.append(
+                    RedactionResult(
+                        RedactionResultPending(
+                            jurisdictionId=jurisdiction_id,
+                            caseId=case_id,
+                            maskedAccuseds=[],  # TODO
+                            status="QUEUED",
+                        )
+                    )
+                )
+            case JobStatus.processing:
+                redaction_results.append(
+                    RedactionResult(
+                        RedactionResultPending(
+                            jurisdictionId=jurisdiction_id,
+                            caseId=case_id,
+                            maskedAccuseds=[],  # TODO
+                            status="PROCESSING",
+                        )
+                    )
+                )
+            case JobStatus.success:
+                redaction_results.append(
+                    RedactionResult(
+                        RedactionResultSuccess(
+                            jurisdictionId=jurisdiction_id,
+                            caseId=case_id,
+                            maskedAccuseds=[],  # TODO
+                            status="SUCCESS",
+                            redactedDocument=format_document(latest_redaction),
+                        )
+                    )
+                )
+            case JobStatus.error:
+                redaction_results.append(
+                    RedactionResult(
+                        RedactionResultError(
+                            jurisdictionId=jurisdiction_id,
+                            caseId=case_id,
+                            maskedAccuseds=[],  # TODO
+                            status="ERROR",
+                            error=latest_job.error,
+                        )
+                    )
+                )
+            case _:
+                raise ValueError(f"Unknown job status: {latest_job.status}")
+
     return RedactionStatus(
         jurisdictionId=jurisdiction_id,
         caseId=case_id,
-        requests=[],
+        requests=redaction_results,
     )
+
+
+def format_document(redaction: Redaction) -> Document:
+    """Format a redacted document for the API response.
+
+    Args:
+        redaction (Redaction): The redaction object.
+
+    Returns:
+        Document: The formatted document.
+    """
+    document_id = redaction.file.external_id
+    if redaction.external_link:
+        return Document(
+            root=DocumentLink(
+                documentId=document_id,
+                attachmentType="LINK",
+                url=redaction.external_link,
+            )
+        )
+    else:
+        return Document(
+            root=DocumentContent(
+                documentId=document_id,
+                attachmentType="BASE64",
+                content=base64.b64encode(redaction.content).decode("utf-8"),
+            )
+        )

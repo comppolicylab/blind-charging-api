@@ -38,4 +38,10 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
 config = _load_config()
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG if config.debug else logging.INFO)
+_log_level = logging.DEBUG if config.debug else logging.INFO
+logging.basicConfig(level=_log_level)
+# Set log level for any loggers that have been instantiated before this point
+_logger_names = ["root"] + list(logging.root.manager.loggerDict.keys())
+_loggers = [logging.getLogger(name) for name in _logger_names]
+for logger in _loggers:
+    logger.setLevel(_log_level)

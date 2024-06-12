@@ -1,19 +1,21 @@
-import enum
 from datetime import datetime, timezone
-from typing import List
+from enum import Enum
+from typing import List, Optional
 
 from sqlalchemy import ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import BINARY, DateTime, Enum, LargeBinary, String
+from sqlalchemy.types import BINARY, DateTime, LargeBinary, String
+from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
 
 str_256 = Annotated[str, 256]
+str_4096 = Annotated[str, 4096]
 
-JobStatus = enum.Enum("JobStatus", "queued processing finished error")
+JobStatus = Enum("JobStatus", "queued processing success error")
 
-CallbackStatus = enum.Enum("CallbackStatus", "waiting success failure")
+CallbackStatus = Enum("CallbackStatus", "pending success error")
 
 
 def nowts() -> datetime:
@@ -31,8 +33,10 @@ class Base(AsyncAttrs, DeclarativeBase):
         UUID: BINARY(16),
         datetime: DateTime(timezone=True),
         str_256: String(256),
+        str_4096: String(4096),
         bytes: LargeBinary,
-        JobStatus: Enum(JobStatus),
+        JobStatus: SQLEnum(JobStatus),
+        CallbackStatus: SQLEnum(CallbackStatus),
     }
 
 
@@ -50,9 +54,19 @@ class File(Base):
         back_populates="file", cascade="all, delete-orphan"
     )
     content: Mapped[bytes]
-    task: Mapped["Task"] = relationship(back_populates="file")
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+    async def latest_redaction(self, session: AsyncSession) -> Optional["Redaction"]:
+        """Return the latest redaction for this file."""
+        q = (
+            select(Redaction)
+            .filter(Redaction.file_id == self.id)
+            .order_by(Redaction.created_at.desc())
+            .limit(1)
+        )
+        result = await session.execute(q)
+        return result.scalar_one_or_none()
 
 
 class Redaction(Base):
@@ -60,9 +74,10 @@ class Redaction(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"))
-    file: Mapped["File"] = relationship(back_populates="redactions")
-    content: Mapped[bytes]
-    status: Mapped[str_256]
+    file: Mapped["File"] = relationship(back_populates="redactions", lazy="subquery")
+    task: Mapped["Task"] = relationship(back_populates="redaction", lazy="subquery")
+    external_link: Mapped[str_4096] = mapped_column(nullable=True)
+    content: Mapped[bytes] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
@@ -85,6 +100,7 @@ class Job(Base):
     task_id: Mapped[UUID] = mapped_column(ForeignKey("task.id"))
     task: Mapped["Task"] = relationship(back_populates="jobs")
     status: Mapped[JobStatus] = mapped_column(default=JobStatus.queued)
+    error: Mapped[str_256] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
@@ -95,8 +111,8 @@ class Callback(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     task_id: Mapped[UUID] = mapped_column(ForeignKey("task.id"))
     task: Mapped["Task"] = relationship(back_populates="callbacks")
-    status: Mapped[CallbackStatus] = mapped_column(default=CallbackStatus.waiting)
-    response: Mapped[str_256] = mapped_column(nullable=True)
+    status: Mapped[CallbackStatus] = mapped_column(default=CallbackStatus.pending)
+    response: Mapped[str_4096] = mapped_column(nullable=True)
     response_code: Mapped[int] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
@@ -106,14 +122,14 @@ class Task(Base):
     __tablename__ = "task"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
-    file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"))
-    file: Mapped["File"] = relationship(
+    redaction_id: Mapped[UUID] = mapped_column(ForeignKey("redaction.id"))
+    redaction: Mapped["Redaction"] = relationship(
         back_populates="task", cascade="all, delete-orphan", single_parent=True
     )
     jobs: Mapped[List["Job"]] = relationship(
-        back_populates="task", cascade="all, delete-orphan"
+        back_populates="task", cascade="all, delete-orphan", lazy="subquery"
     )
-    callback_url: Mapped[str] = mapped_column(nullable=True)
+    callback_url: Mapped[str_4096] = mapped_column(nullable=True)
     callbacks: Mapped[List["Callback"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"
     )
@@ -129,4 +145,5 @@ class Task(Base):
             .order_by(Job.created_at.desc())
             .limit(1)
         )
-        return await session.execute(q).scalar_one()
+        result = await session.execute(q)
+        return result.scalar_one_or_none()
