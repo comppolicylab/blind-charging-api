@@ -124,6 +124,24 @@ files = [
 frozenlist = ">=1.1.0"
 
 [[package]]
+name = "aiosqlite"
+version = "0.20.0"
+description = "asyncio bridge to the standard sqlite3 module"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "aiosqlite-0.20.0-py3-none-any.whl", hash = "sha256:36a1deaca0cac40ebe32aac9977a6e2bbc7f5189f23f4a54d5908986729e5bd6"},
+    {file = "aiosqlite-0.20.0.tar.gz", hash = "sha256:6d35c8c256637f4672f843c31021464090805bf925385ac39473fb16eaaca3d7"},
+]
+
+[package.dependencies]
+typing_extensions = ">=4.0"
+
+[package.extras]
+dev = ["attribution (==1.7.0)", "black (==24.2.0)", "coverage[toml] (==7.4.1)", "flake8 (==7.0.0)", "flake8-bugbear (==24.2.6)", "flit (==3.9.0)", "mypy (==1.8.0)", "ufmt (==2.3.0)", "usort (==1.0.8.post1)"]
+docs = ["sphinx (==7.2.6)", "sphinx-mdinclude (==0.5.3)"]
+
+[[package]]
 name = "alembic"
 version = "1.13.1"
 description = "A database migration tool for SQLAlchemy."
@@ -1335,13 +1353,13 @@ cli = ["click (>=5.0)"]
 
 [[package]]
 name = "python-glowplug"
-version = "0.3.2"
-description = ""
+version = "0.3.3"
+description = "A collection of utilities for common DB maintenance operations in SQLAlchemy"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "python_glowplug-0.3.2-py3-none-any.whl", hash = "sha256:b1ca8c2faab22d07e06d8da4710d8cdc1c0c5d8152042ff6acc2dc84599df5c0"},
-    {file = "python_glowplug-0.3.2.tar.gz", hash = "sha256:308d13e5c946866a9a7d8de449e5de2c093c9387ab2a0b1550739697aa6a5680"},
+    {file = "python_glowplug-0.3.3-py3-none-any.whl", hash = "sha256:c09551a9a43af9f997415d39c015a63e2bb471950cd7f0dd5ace65af2b6033df"},
+    {file = "python_glowplug-0.3.3.tar.gz", hash = "sha256:c14b113591bf3eb772a12e8db48fe3b2d52f982477fa8321da0f3b41e97fdc46"},
 ]
 
 [package.dependencies]
@@ -2173,4 +2191,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b6bd3341c4e6dc4eeb780d1b4860993d41d96da9d5faf4e88ac4855f2a142d8f"
+content-hash = "172d93f22abae5958e8bfce7d5356de956d6c2cd338399845b057b7923606895"
