@@ -1,11 +1,13 @@
 import asyncio
 import base64
+import io
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Type
+from typing import Type, cast
 
 import aiohttp
+from blind_charging_core import Pipeline, PipelineConfig
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid_utils import UUID
 
@@ -327,7 +329,30 @@ class RedactionProcessor(Processor):
 
     async def redact_document(self, file_bytes: bytes) -> bytes:
         """Redact a document."""
-        # This is a placeholder for the actual redaction process.
-        # In a real application, this function would redact the content
-        # of the document and return the redacted content.
-        return b"placeholder redaction from input ... " + file_bytes[:256]
+        # NOTE(jnu): for now this is just a playground implementation.
+        pipeline_cfg = PipelineConfig.model_validate(
+            {
+                "pipe": [
+                    {
+                        "engine": "in:memory",
+                    },
+                    {
+                        "engine": "extract:tesseract",
+                    },
+                    {
+                        "engine": "redact:noop",
+                        "delimiters": ["[", "]"],
+                    },
+                    {
+                        "engine": "render:pdf",
+                    },
+                    {
+                        "engine": "out:memory",
+                    },
+                ]
+            }
+        )
+        pipeline = Pipeline(pipeline_cfg)
+        input_buffer = io.BytesIO(file_bytes)
+        output_buffer, _ = pipeline.run({"input_buffer": input_buffer})
+        return cast(io.BytesIO, output_buffer).getvalue()
