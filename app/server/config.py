@@ -5,6 +5,7 @@ from typing import Union
 
 import tomllib
 from glowplug import MsSqlSettings, SqliteSettings
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
@@ -12,9 +13,17 @@ logger = logging.getLogger(__name__)
 DbConfig = Union[MsSqlSettings, SqliteSettings]
 
 
+class TaskConfig(BaseModel):
+    retention_hours: float = 72.0
+    max_retries: int = 3
+    retry_interval: float = 60.0
+
+
 class Config(BaseSettings):
     debug: bool = False
     db: DbConfig = SqliteSettings(engine="sqlite")
+    task: TaskConfig = TaskConfig()
+    automigrate: bool = False
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
@@ -31,4 +40,16 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
 config = _load_config()
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG if config.debug else logging.INFO)
+_log_level = logging.DEBUG if config.debug else logging.INFO
+logging.basicConfig(level=logging.WARNING)
+# Set log level for any loggers that have been instantiated before this point.
+# Most loggers should be set to WARNING, but some should be set to INFO or DEBUG.
+_logger_names = ["root"] + list(logging.root.manager.loggerDict.keys())
+_loud_logger_names = ["uvicorn", "fastapi", "app."]
+for name in _logger_names:
+    for loud_name in _loud_logger_names:
+        if name.startswith(loud_name):
+            logging.getLogger(name).setLevel(_log_level)
+            break
+    else:
+        logging.getLogger(name).setLevel(logging.WARNING)

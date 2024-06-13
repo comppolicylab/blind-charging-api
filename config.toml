@@ -7,13 +7,21 @@
 # Toggle debugging information and tools in the app.
 debug = true
 
+# Toggle whether the app should create and migrate database tables automatically
+# when starting up.
+#
+# This is off by default, since it can be dangerous.
+#
+# In production, it's better to migrate databases manually. However, when using
+# SQLite with a memory DB, this has to be on, since database migrations cannot
+# be applied by an independent process in that case.
+automigrate = true
+
 [db]
 # Specify the database backend. We primarily target MS SQL support, however
 # SQLite may also be used for development. In theory, we can support any
 # backend that's configured in Glowplug: https://github.com/jnu/python-glowplug
-# However, this is not guaranteed to work out of the box.
-engine = "mssql"
-# Development password. Must match that used in the MS SQL server used for dev.
-password = "bc2Password"
-# Development database.
-database = "blindcharging"
+engine = "sqlite"
+# When using SQLite with a memory DB, make sure `automigrate` is on, otherwise
+# the database will not be created when starting the server.
+path = "test.db"
