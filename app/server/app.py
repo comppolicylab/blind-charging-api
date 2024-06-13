@@ -8,11 +8,12 @@ from sqlalchemy.exc import IntegrityError
 from .config import config
 from .db_ops import init_db
 from .generated import app as generated_app
+from .tasks import CallbackProcessor, RedactionProcessor
 
 logger = logging.getLogger(__name__)
 
 
-async def lifespan(_: FastAPI):
+async def lifespan(api: FastAPI):
     """Setup and teardown logic for the server."""
     if await config.db.driver.is_blank_slate():
         if not config.automigrate:
@@ -29,7 +30,10 @@ async def lifespan(_: FastAPI):
         logger.info("Applying any pending database migrations ...")
         config.db.driver.alembic.upgrade("head")
 
-    yield
+    async with RedactionProcessor() as redaction_p, CallbackProcessor() as callback_p:
+        api.state.redaction_processor = redaction_p
+        api.state.callback_processor = callback_p
+        yield
 
 
 app = FastAPI(lifespan=lifespan)
@@ -53,6 +57,14 @@ async def handle_exception(request: Request, exc: Exception):
             status_code=500,
             content={"detail": "Internal server error."},
         )
+
+
+@app.middleware("http")
+async def add_background_tasks(request: Request, call_next):
+    """Add a background task to the request state."""
+    request.state.redaction_processor = request.app.state.redaction_processor
+    request.state.callback_processor = request.app.state.callback_processor
+    return await call_next(request)
 
 
 @generated_app.middleware("http")
@@ -87,6 +99,14 @@ async def log_request(request: Request, call_next):
                 f"{request.method} {request.url.path} "
                 f"{request.client.host} {elapsed:.2f}s"
             )
+
+
+@app.post("/echo")
+async def echo(request: Request):
+    """Echo the request."""
+    logger.debug(f"Received request: {request.method} {request.url.path}")
+    print("\n\n\n", await request.json(), "\n\n\n")
+    return "ok"
 
 
 app.mount("/api/v1", generated_app)

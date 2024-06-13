@@ -1,10 +1,12 @@
 import asyncio
 import base64
+import logging
 from typing import List
 
 import aiohttp
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Response
 from sqlalchemy import select
+from starlette.background import BackgroundTask
 
 from ..config import config
 from ..db import File, JobStatus, Redaction, Task
@@ -20,6 +22,8 @@ from ..generated.models import (
     RedactionStatus,
 )
 from ..time import expire_h
+
+logger = logging.getLogger(__name__)
 
 
 async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
@@ -44,9 +48,22 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     )
 
     # Save the tasks to the database
+    new_tasks = 0
     for new_objects in results:
         for object in new_objects:
+            if isinstance(object, Task):
+                new_tasks += 1
             request.state.db.add(object)
+
+    logger.debug(f"Created {new_tasks} redaction task(s).")
+    response = Response(status_code=202)
+    if new_tasks:
+        logger.debug("Scheduling a background task to check for work.")
+        # Schedule this in the background because we need to commit the session
+        # before the work will be available in the queue. The background task
+        # will execute after the request is complete / the response is sent.
+        response.background = BackgroundTask(request.state.redaction_processor.check)
+    return response
 
 
 async def create_document_redaction_task(
@@ -83,7 +100,7 @@ async def create_document_redaction_task(
     task = Task(
         redaction=redaction,
         callback_url=str(callback_url),
-        expires_at=expire_h(hours=config.retention.hours),
+        expires_at=expire_h(hours=config.task.retention_hours),
     )
 
     return [file, task]
