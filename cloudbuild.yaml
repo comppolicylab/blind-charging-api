@@ -24,6 +24,8 @@ steps:
       - '-f'
       - Dockerfile
     id: Build
+    env:
+    - "DOCKER_BUILDKIT=1"
     volumes:
     - name: 'ssh'
       path: /root/.ssh
