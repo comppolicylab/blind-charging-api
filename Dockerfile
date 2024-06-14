@@ -2,6 +2,11 @@
 
 FROM python:3.11.6-bookworm
 
+# Set up SSH
+RUN apt-get update && apt-get install -y openssh-client
+RUN mkdir -p ~/.ssh
+RUN ssh-keyscan github.com >> ~/.ssh/known_hosts
+
 ENV PYTHONFAULTHANDLER=1 \
       PYTHONUNBUFFERED=1 \
       PYTHONHASHSEED=random \
@@ -19,7 +24,7 @@ WORKDIR /code
 COPY poetry.lock pyproject.toml README.md /code/
 
 # Install dependencies
-RUN poetry install --without dev --no-interaction --no-ansi
+RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
 
 # Copy app code
 COPY app/ /code/app
