@@ -2,13 +2,11 @@ import os
 
 import aiohttp
 import jwt
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi_sso.sso.github import GithubSSO, OpenID
 
-from ..server.generated import app as generated_app
-
-app = FastAPI()
+from ..server.app import app
 
 DEFAULT_SECRET = "not a real secret!"
 app_secret: str = os.getenv("GITHUB_CLIENT_SECRET", DEFAULT_SECRET)
@@ -16,7 +14,7 @@ app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/blind-charging-api"
 secure: bool = os.getenv("VALIDATE_TOKEN", "true").lower() in {"true", "1", "on"}
 
 
-@generated_app.middleware("http")
+@app.middleware("http")
 async def validate_token(request: Request, call_next):
     """Validate that the requester has a valid auth cookie."""
     if not secure:
@@ -47,9 +45,6 @@ async def validate_token(request: Request, call_next):
     request.state.user = payload["user"]
     request.state.perms = payload["perms"]
     return await call_next(request)
-
-
-app.mount("/api/v1", generated_app)
 
 
 def get_github_sso() -> GithubSSO:
