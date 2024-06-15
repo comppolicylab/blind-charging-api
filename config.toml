@@ -24,4 +24,4 @@ automigrate = true
 engine = "sqlite"
 # When using SQLite with a memory DB, make sure `automigrate` is on, otherwise
 # the database will not be created when starting the server.
-path = ":memory:"
+path = "test.db"

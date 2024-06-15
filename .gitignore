@@ -12,3 +12,4 @@ badge.svg
 !config.toml
 config.*.toml
 .cache/
+test.db

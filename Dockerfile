@@ -27,8 +27,11 @@ COPY poetry.lock pyproject.toml README.md /code/
 RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
 
 # Copy app code
+COPY config.toml /config/
+COPY alembic.ini /code/
+COPY alembic/ /code/alembic
 COPY app/ /code/app
 
-COPY config.toml /config/config.toml
+#COPY config.toml /config/config.toml
 
 CMD CONFIG_PATH=/config/config.toml gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 4
