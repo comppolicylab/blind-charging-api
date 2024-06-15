@@ -49,7 +49,7 @@ steps:
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
       - >-
-        --update-secrets=/code/config.toml=bc2-docs-config-toml:latest
+        --update-secrets=/config/config.toml=bc2-docs-config-toml:latest
     id: Deploy
     entrypoint: gcloud
 images:

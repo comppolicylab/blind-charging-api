@@ -29,4 +29,6 @@ RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
 # Copy app code
 COPY app/ /code/app
 
-CMD gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 4
+COPY config.toml /config/config.toml
+
+CMD CONFIG_PATH=/config/config.toml gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 4
