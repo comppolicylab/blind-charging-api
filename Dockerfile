@@ -18,6 +18,8 @@ ENV PYTHONFAULTHANDLER=1 \
 # Set up poetry
 RUN pip install poetry==1.5.1
 
+WORKDIR /code
+
 # Copy dependency manifests
 COPY poetry.lock pyproject.toml README.md /code/
 
