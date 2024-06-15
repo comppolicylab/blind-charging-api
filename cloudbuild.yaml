@@ -48,6 +48,8 @@ steps:
         --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
       - '--region=$_DEPLOY_REGION'
       - '--quiet'
+      - >-
+        --update-secrets=/code/config.toml=bc2-docs-config-toml:latest
     id: Deploy
     entrypoint: gcloud
 images:
@@ -70,3 +72,5 @@ availableSecrets:
   secretManager:
   - versionName: projects/$PROJECT_ID/secrets/bc2-deploy-ssh-key/versions/latest
     env: 'SSH_KEY'
+  - versionName: projects/$PROJECT_ID/secrets/bc2-docs-config-toml/versions/latest
+    env: 'APP_CONFIG'
