@@ -34,6 +34,4 @@ COPY app/ /code/app
 
 ENV CONFIG_PATH=/config/config.toml
 
-WORKDIR /code
-
-CMD uvicorn app:docs --host 0.0.0.0 --port $PORT
+CMD uvicorn app:docs --host 0.0.0.0 --port $PORT --workers 1 --app-dir /code/
