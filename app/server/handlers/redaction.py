@@ -205,7 +205,7 @@ async def get_redaction_status(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
                             maskedAccuseds=[],  # TODO
-                            status="SUCCESS",
+                            status="COMPLETE",
                             redactedDocument=format_document(latest_redaction),
                         )
                     )
