@@ -36,4 +36,4 @@ ENV CONFIG_PATH=/config/config.toml
 
 WORKDIR /code
 
-CMD poetry run gunicorn app:docs -k uvicorn.workers.UvicornWorker -b 0.0.0.0:$PORT --workers 1
+CMD uvicorn app:docs --host 0.0.0.0 --port $PORT
