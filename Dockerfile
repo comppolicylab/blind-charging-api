@@ -31,7 +31,9 @@ COPY config.toml /config/
 COPY alembic.ini /code/
 COPY alembic/ /code/alembic
 COPY app/ /code/app
+COPY run.sh /code/
 
 ENV CONFIG_PATH=/config/config.toml
 
-CMD uvicorn app:docs --host 0.0.0.0 --port $PORT --workers 1 --app-dir /code/
+#CMD uvicorn app:docs --host 0.0.0.0 --port $PORT --workers 1 --app-dir /code/
+CMD /code/run.sh
