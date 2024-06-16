@@ -3,7 +3,9 @@
 FROM python:3.11.6-bookworm
 
 # Set up SSH
-RUN apt-get update && apt-get install -y openssh-client
+RUN apt-get update \
+    && apt-get install -y openssh-client \
+    && apt-get install -y tesseract-ocr
 RUN mkdir -p ~/.ssh
 RUN ssh-keyscan github.com >> ~/.ssh/known_hosts
 
