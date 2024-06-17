@@ -221,7 +221,10 @@ class CallbackProcessor(Processor):
                         # POST the redacted document to the callback URL and record
                         # the result. Any 2xx status is a success, otherwise it's
                         # an error (including 3xx).
-                        async with aiohttp.ClientSession() as client:
+                        timeout = aiohttp.ClientTimeout(
+                            total=config.task.callback_timeout_seconds
+                        )
+                        async with aiohttp.ClientSession(timeout=timeout) as client:
                             try:
                                 async with client.post(
                                     cb.task.callback_url, json=doc.model_dump()

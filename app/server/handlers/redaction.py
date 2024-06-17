@@ -2,6 +2,7 @@ import asyncio
 import base64
 import logging
 from typing import List
+from urllib.parse import urlparse
 
 import aiohttp
 from fastapi import HTTPException, Request, Response
@@ -26,6 +27,35 @@ from ..time import expire_h
 logger = logging.getLogger(__name__)
 
 
+# Only allow HTTP callbacks in debug mode
+_callback_schemes = {"http", "https"} if config.debug else {"https"}
+_disallowed_callback_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
+
+
+def validate_callback_url(url: str | None) -> None:
+    """Validate a callback URL.
+
+    Args:
+        url (str): The URL to validate.
+
+    Raises:
+        HTTPException: If the URL is invalid.
+    """
+    if not url:
+        return
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        raise HTTPException(status_code=400, detail="Invalid callback URL")
+    if parsed.scheme not in _callback_schemes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid callback URL scheme (must use {_callback_schemes})",
+        )
+    # Prevent use of localhost (etc) in production
+    if parsed.hostname in _disallowed_callback_hosts:
+        raise HTTPException(status_code=400, detail="Invalid callback URL host")
+
+
 async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     """Handle requests to redact a document.
 
@@ -36,6 +66,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
+    validate_callback_url(body.callbackUrl)
     # Create a task for each document. Do this concurrently since the files will
     # often be on remote servers that we can fetch simultaneously.
     results = await asyncio.gather(
@@ -99,7 +130,7 @@ async def create_document_redaction_task(
     # Create a task to process this document
     task = Task(
         redaction=redaction,
-        callback_url=str(callback_url),
+        callback_url=str(callback_url) if callback_url else None,
         expires_at=expire_h(hours=config.task.retention_hours),
     )
 
@@ -118,7 +149,10 @@ async def fetch_document_content(doc: Document) -> bytes:
     content = b""
     match doc.root.attachmentType:
         case "LINK":
-            async with aiohttp.ClientSession() as session:
+            timeout = aiohttp.ClientTimeout(
+                total=config.task.link_download_timeout_seconds
+            )
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(str(doc.root.url)) as response:
                     content = await response.read()
         case "TEXT":
