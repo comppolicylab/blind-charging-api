@@ -23,7 +23,8 @@ async def validate_token(request: Request, call_next):
 
     redirect_response = RedirectResponse(url="/sso/github/login")
     token = request.cookies.get("token")
-    if not token:
+    # If the token is not present and the endpoint is not /sso/*, redirect
+    if not token and not request.url.path.startswith("/sso/"):
         return redirect_response
 
     try:
