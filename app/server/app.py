@@ -101,12 +101,15 @@ async def log_request(request: Request, call_next):
             )
 
 
-@app.post("/echo")
-async def echo(request: Request):
-    """Echo the request."""
-    logger.debug(f"Received request: {request.method} {request.url.path}")
-    print("\n\n\n", await request.json(), "\n\n\n")
-    return "ok"
+if config.debug:
+    # For testing local callbacks during development we can specify our own
+    # echo endpoint. This will be removed in production.
+    @app.post("/echo")
+    async def echo(request: Request):
+        """Echo the request."""
+        logger.debug(f"Received request: {request.method} {request.url.path}")
+        print("\n\n\n", await request.json(), "\n\n\n")
+        return "ok"
 
 
 app.mount("/api/v1", generated_app)

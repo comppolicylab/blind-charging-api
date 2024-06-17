@@ -17,6 +17,8 @@ class TaskConfig(BaseModel):
     retention_hours: float = 72.0
     max_retries: int = 3
     retry_interval: float = 60.0
+    callback_timeout_seconds: float = 30.0
+    link_download_timeout_seconds: float = 30.0
 
 
 class Config(BaseSettings):
