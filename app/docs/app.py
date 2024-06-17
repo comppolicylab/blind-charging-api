@@ -1,3 +1,4 @@
+import logging
 import os
 
 import aiohttp
@@ -8,6 +9,8 @@ from fastapi_sso.sso.github import GithubSSO, OpenID
 
 from ..server.app import app
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_SECRET = "not a real secret!"
 app_secret: str = os.getenv("GITHUB_CLIENT_SECRET", DEFAULT_SECRET)
 app_repo: str = os.getenv("GITHUB_REPO", "stanford-policylab/blind-charging-api")
@@ -17,14 +20,16 @@ secure: bool = os.getenv("VALIDATE_TOKEN", "true").lower() in {"true", "1", "on"
 @app.middleware("http")
 async def validate_token(request: Request, call_next):
     """Validate that the requester has a valid auth cookie."""
-    if not secure:
-        # Skip validation if the environment variable is not set (e.g. in local dev)
+    if not secure or request.url.path.startswith("/sso/"):
+        # Skip validation if the environment variable is not set (e.g. in local dev),
+        # or if the path is /sso/*.
         return await call_next(request)
 
     redirect_response = RedirectResponse(url="/sso/github/login")
     token = request.cookies.get("token")
-    # If the token is not present and the endpoint is not /sso/*, redirect
-    if not token and not request.url.path.startswith("/sso/"):
+    # If the token is not present, redirect to the login page
+    if not token:
+        logger.debug("No token found, redirecting to login")
         return redirect_response
 
     try:
