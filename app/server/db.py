@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional, Type, TypeVar
 
-from sqlalchemy import ForeignKey, select, update
+from sqlalchemy import Column, ForeignKey, Table, select, update
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import count
@@ -57,6 +57,17 @@ class Base(AsyncAttrs, DeclarativeBase):
         return result.scalar_one_or_none()
 
 
+PersonFile = Table(
+    "person_file",
+    Base.metadata,
+    Column("person_id", ForeignKey("person.id")),
+    Column("file_id", ForeignKey("file.id")),
+    Column("role", str_256),
+    Column("created_at", DateTime(timezone=True), default=nowts),
+    Column("updated_at", DateTime(timezone=True), default=nowts, onupdate=nowts),
+)
+
+
 class File(Base):
     __tablename__ = "file"
 
@@ -64,8 +75,8 @@ class File(Base):
     external_id: Mapped[str_256] = mapped_column(unique=True)
     jurisdiction_id: Mapped[str_256]
     case_id: Mapped[str_256]
-    defendants: Mapped[List["DefendantFile"]] = relationship(
-        cascade="all, delete-orphan"
+    persons: Mapped[List["Person"]] = relationship(
+        cascade="all, delete-orphan", secondary=PersonFile
     )
     redactions: Mapped[List["Redaction"]] = relationship(
         back_populates="file", cascade="all, delete-orphan"
@@ -99,13 +110,33 @@ class Redaction(Base):
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
-class DefendantFile(Base):
-    __tablename__ = "defendant_file"
+class Person(Base):
+    __tablename__ = "person"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    external_id: Mapped[str_256] = mapped_column(unique=True)
+    files: Mapped[List[File]] = relationship(
+        back_populates="person", cascade="all, delete-orphan", secondary=PersonFile
+    )
+    aliases: Mapped[List["Alias"]] = relationship(
+        back_populates="person", cascade="all, delete-orphan"
+    )
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+
+class Alias(Base):
+    __tablename__ = "alias"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
-    file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"))
-    file: Mapped["File"] = relationship(back_populates="defendants")
-    defendant_id: Mapped[str_256]
+    primary: Mapped[bool] = mapped_column(default=False)
+    person_id: Mapped[str_256] = mapped_column(ForeignKey("person.id"))
+    person: Mapped["Person"] = relationship(back_populates="aliases")
+    title: Mapped[str_256] = mapped_column(nullable=True)
+    first_name: Mapped[str_256] = mapped_column(nullable=True)
+    middle_name: Mapped[str_256] = mapped_column(nullable=True)
+    last_name: Mapped[str_256] = mapped_column(nullable=True)
+    suffix: Mapped[str_256] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
