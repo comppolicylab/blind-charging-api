@@ -445,6 +445,8 @@ components:
           type: string
         suffix:
           type: string
+        nickname:
+          type: string
 
     MaskedPerson:
       description: Mapping between a person's ID to their alias.

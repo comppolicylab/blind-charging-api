@@ -137,6 +137,7 @@ class Alias(Base):
     middle_name: Mapped[str_256] = mapped_column(nullable=True)
     last_name: Mapped[str_256] = mapped_column(nullable=True)
     suffix: Mapped[str_256] = mapped_column(nullable=True)
+    nickname: Mapped[str_256] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
