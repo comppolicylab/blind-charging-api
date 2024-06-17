@@ -124,6 +124,8 @@ async def create_document_redaction_task(
         content=content,
     )
 
+    # TODO - add and update people attached to this case
+
     # Create a placeholder redaction
     redaction = Redaction(file=file)
 
