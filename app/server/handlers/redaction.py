@@ -66,7 +66,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
-    validate_callback_url(body.callbackUrl)
+    validate_callback_url(str(body.callbackUrl))
     # Create a task for each document. Do this concurrently since the files will
     # often be on remote servers that we can fetch simultaneously.
     results = await asyncio.gather(
