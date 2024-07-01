@@ -113,7 +113,7 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: personId
+        - name: subjectId
           in: query
           required: false
           description: Optionally, filter status by a specific person.
@@ -292,7 +292,7 @@ components:
         - jurisdictionId
         - caseId
         - blindReviewRequired
-        - maskedPersons
+        - maskedSubjects
         - redactedDocuments
       properties:
         jurisdictionId:
@@ -301,10 +301,10 @@ components:
           type: string
         blindReviewRequired:
           type: boolean
-        maskedPersons:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedPerson"
+            $ref: "#/components/schemas/MaskedSubject"
         redactedDocuments:
           type: array
           items:
@@ -315,7 +315,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedPersons
+        - maskedSubjects
         - inputDocument
         - redactedDocument
         - status
@@ -324,10 +324,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedPersons:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedPerson"
+            $ref: "#/components/schemas/MaskedSubject"
         redactedDocument:
           $ref: "#/components/schemas/Document"
         status:
@@ -340,7 +340,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedPersons
+        - maskedSubjects
         - inputDocument
         - error
         - status
@@ -349,10 +349,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedPersons:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedPerson"
+            $ref: "#/components/schemas/MaskedSubject"
         error:
           type: string
         status:
@@ -365,7 +365,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedPersons
+        - maskedSubjects
         - inputDocument
         - status
       properties:
@@ -373,10 +373,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedPersons:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedPerson"
+            $ref: "#/components/schemas/MaskedSubject"
         status:
           type: string
           enum:
@@ -448,7 +448,7 @@ components:
         nickname:
           type: string
 
-    MaskedPerson:
+    MaskedSubject:
       description: Mapping between a person's ID to their alias.
       type: object
       required:
@@ -485,7 +485,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - persons
+        - subjects
         - documents
         - callbackUrl
       properties:
@@ -493,7 +493,7 @@ components:
           type: string
         caseId:
           type: string
-        individuals:
+        subjects:
           type: array
           minItems: 1
           items:
