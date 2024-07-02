@@ -152,7 +152,7 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: personId
+        - name: subjectId
           in: query
           required: false
           description: Optionally, the ID of a specific person
@@ -452,10 +452,10 @@ components:
       description: Mapping between a person's ID to their alias.
       type: object
       required:
-        - personId
+        - subjectId
         - alias
       properties:
-        personId:
+        subjectId:
           type: string
         alias:
           type: string
@@ -464,10 +464,10 @@ components:
       description: Mapping between a person's ID to their name(s).
       type: object
       required:
-        - personId
+        - subjectId
         - name
       properties:
-        personId:
+        subjectId:
           type: string
         name:
           oneOf:
@@ -500,11 +500,11 @@ components:
             type: object
             required:
               - role
-              - person
+              - subject
             properties:
               role:
                 type: string
-              person:
+              subject:
                 $ref: "#/components/schemas/Person"
         documents:
           type: array
@@ -648,7 +648,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - personId
+        - subjectId
         - reviewingAttorneyMaskedId
         - documentIds
         - protocol
@@ -657,7 +657,7 @@ components:
           type: string
         caseId:
           type: string
-        personId:
+        subjectId:
           type: string
         reviewingAttorneyMaskedId:
           type: string
@@ -674,7 +674,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - personId
+        - subjectId
         - reviewingAttorneyMaskedId
         - documentIds
         - protocol
@@ -685,7 +685,7 @@ components:
           type: string
         caseId:
           type: string
-        personId:
+        subjectId:
           type: string
         reviewingAttorneyMaskedId:
           type: string
