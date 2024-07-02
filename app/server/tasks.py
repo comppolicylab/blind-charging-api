@@ -17,6 +17,7 @@ from .generated.models import (
     Document,
     DocumentContent,
     DocumentLink,
+    MaskedSubject,
     RedactionResult,
     RedactionResultSuccess,
 )
@@ -256,10 +257,14 @@ class CallbackProcessor(Processor):
     async def format_redaction(self, redaction: Redaction) -> RedactionResult:
         """Format a redaction for the callback."""
         doc_root = await self.format_doc_root(redaction)
+        masked_subjects = [
+            MaskedSubject(subjectId=fs.subject.external_id, alias=fs.mask or "")
+            for fs in redaction.file.masked_subjects
+        ]
         root = RedactionResultSuccess(
             jurisdictionId=redaction.file.jurisdiction_id,
             caseId=redaction.file.case_id,
-            maskedAccuseds=[],  # TODO
+            maskedSubjects=masked_subjects,
             redactedDocument=Document(root=doc_root),
             status="COMPLETE",
         )

@@ -11,11 +11,12 @@ from sqlalchemy import select
 from starlette.background import BackgroundTask
 
 from ..config import config
-from ..db import Alias, File, JobStatus, Redaction, Subject, SubjectFile, Task
+from ..db import Alias, File, JobStatus, Redaction, Subject, SubjectFile, Task, nowts
 from ..generated.models import (
     Document,
     DocumentContent,
     DocumentLink,
+    MaskedSubject,
     RedactionRequest,
     RedactionResult,
     RedactionResultError,
@@ -121,13 +122,13 @@ async def process_subjects(
     relations: list[SubjectFile] = []
     for subject in subjects:
         aliases: list[Alias] = []
-        all_aliases = [subject.name] + subject.aliases
+        all_aliases = [subject.subject.name] + (subject.subject.aliases or [])
         for i, alias in enumerate(all_aliases):
             if isinstance(alias, str):
                 parsed_name = HumanName(alias)
                 aliases.append(
                     Alias(
-                        primary=i == 0,
+                        primary=nowts() if i == 0 else None,
                         first_name=parsed_name.first,
                         middle_name=parsed_name.middle,
                         last_name=parsed_name.last,
@@ -139,7 +140,7 @@ async def process_subjects(
             else:
                 aliases.append(
                     Alias(
-                        primary=i == 0,
+                        primary=nowts() if i == 0 else None,
                         first_name=alias.firstName,
                         middle_name=alias.middleName,
                         last_name=alias.lastName,
@@ -150,15 +151,16 @@ async def process_subjects(
                 )
 
         subj = Subject(
-            external_id=subject.subjectId,
+            external_id=subject.subject.subjectId,
             aliases=aliases,
         )
-        subj_file = SubjectFile(
-            subject=subj,
-            files=files,
-            role=subject.role,
-        )
-        relations.append(subj_file)
+        for file in files:
+            subj_file = SubjectFile(
+                subject=subj,
+                file=file,
+                role=subject.role,
+            )
+            relations.append(subj_file)
 
     return relations
 
@@ -254,12 +256,17 @@ async def get_redaction_status(
     files_q = select(File).filter(
         File.jurisdiction_id == jurisdiction_id, File.case_id == case_id
     )
-    result = await request.state.db.execute(files_q)
-    for file in result.scalars().all():
+    files_result = await request.state.db.execute(files_q)
+    for file in files_result.scalars().all():
         latest_redaction = await file.latest_redaction(request.state.db)
         if not latest_redaction:
             raise ValueError(f"No redaction found for file {file.external_id}")
         latest_job = await latest_redaction.task.latest_job(request.state.db)
+
+        masked_subjects = [
+            MaskedSubject(subjectId=fs.subject.external_id, alias=fs.mask or "")
+            for fs in file.masked_subjects
+        ]
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
         if not latest_job:
@@ -268,7 +275,7 @@ async def get_redaction_status(
                     RedactionResultPending(
                         jurisdictionId=jurisdiction_id,
                         caseId=case_id,
-                        maskedSubjects=[],  # TODO
+                        maskedSubjects=masked_subjects,
                         status="QUEUED",
                     )
                 )
@@ -282,7 +289,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedSubjects=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="QUEUED",
                         )
                     )
@@ -293,7 +300,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedSubjects=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="PROCESSING",
                         )
                     )
@@ -304,7 +311,7 @@ async def get_redaction_status(
                         RedactionResultSuccess(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedSubjects=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="COMPLETE",
                             redactedDocument=format_document(latest_redaction),
                         )
@@ -316,7 +323,7 @@ async def get_redaction_status(
                         RedactionResultError(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedSubjects=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="ERROR",
                             error=latest_job.error,
                         )
