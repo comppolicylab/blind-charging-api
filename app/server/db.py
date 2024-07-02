@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional, Type, TypeVar
 
-from sqlalchemy import Column, ForeignKey, Table, select, update
+from sqlalchemy import ForeignKey, select, update
+from sqlalchemy.ext.associationproxy import AssociationProxy, association_proxy
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql.functions import count
@@ -57,15 +58,16 @@ class Base(AsyncAttrs, DeclarativeBase):
         return result.scalar_one_or_none()
 
 
-SubjectFile = Table(
-    "subject_file",
-    Base.metadata,
-    Column("subject_id", ForeignKey("subject.id")),
-    Column("file_id", ForeignKey("file.id")),
-    Column("role", str_256),
-    Column("created_at", DateTime(timezone=True), default=nowts),
-    Column("updated_at", DateTime(timezone=True), default=nowts, onupdate=nowts),
-)
+class SubjectFile(Base):
+    __tablename__ = "subject_file"
+
+    subject_id: Mapped[UUID] = mapped_column(ForeignKey("subject.id"), primary_key=True)
+    subject: Mapped["Subject"] = relationship()
+    file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"), primary_key=True)
+    file: Mapped["File"] = relationship()
+    role: Mapped[str_256]
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
 class File(Base):
@@ -75,8 +77,8 @@ class File(Base):
     external_id: Mapped[str_256] = mapped_column(unique=True)
     jurisdiction_id: Mapped[str_256]
     case_id: Mapped[str_256]
-    subjects: Mapped[List["Subject"]] = relationship(
-        cascade="all, delete-orphan", secondary=SubjectFile
+    subjects: AssociationProxy[List["Subject"]] = association_proxy(
+        "subject_files", "subject"
     )
     redactions: Mapped[List["Redaction"]] = relationship(
         back_populates="file", cascade="all, delete-orphan"
@@ -115,9 +117,7 @@ class Subject(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     external_id: Mapped[str_256] = mapped_column(unique=True)
-    files: Mapped[List[File]] = relationship(
-        back_populates="subject", cascade="all, delete-orphan", secondary=SubjectFile
-    )
+    files: AssociationProxy[List[File]] = association_proxy("subject_files", "file")
     aliases: Mapped[List["Alias"]] = relationship(
         back_populates="subject", cascade="all, delete-orphan"
     )
