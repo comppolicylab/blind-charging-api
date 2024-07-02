@@ -171,7 +171,7 @@ async def get_redaction_status(
     request: Request,
     jurisdiction_id: str,
     case_id: str,
-    accused_id: str | None = None,
+    subject_id: str | None = None,
 ) -> RedactionStatus:
     """Get the redaction status for a case.
 
@@ -179,7 +179,7 @@ async def get_redaction_status(
         request (Request): The incoming request.
         jurisdiction_id (str): The jurisdiction ID.
         case_id (str): The case ID.
-        accused_id (str, optional): The accused ID.
+        subject_id (str, optional): The ID of a person to get redaction status for.
 
     Returns:
         RedactionStatus: The redaction status summary.
@@ -204,7 +204,7 @@ async def get_redaction_status(
                     RedactionResultPending(
                         jurisdictionId=jurisdiction_id,
                         caseId=case_id,
-                        maskedAccuseds=[],  # TODO
+                        maskedSubjects=[],  # TODO
                         status="QUEUED",
                     )
                 )
@@ -218,7 +218,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=[],  # TODO
                             status="QUEUED",
                         )
                     )
@@ -229,7 +229,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=[],  # TODO
                             status="PROCESSING",
                         )
                     )
@@ -240,7 +240,7 @@ async def get_redaction_status(
                         RedactionResultSuccess(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=[],  # TODO
                             status="COMPLETE",
                             redactedDocument=format_document(latest_redaction),
                         )
@@ -252,7 +252,7 @@ async def get_redaction_status(
                         RedactionResultError(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=[],  # TODO
                             status="ERROR",
                             error=latest_job.error,
                         )

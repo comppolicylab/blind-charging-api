@@ -57,10 +57,10 @@ class Base(AsyncAttrs, DeclarativeBase):
         return result.scalar_one_or_none()
 
 
-PersonFile = Table(
-    "person_file",
+SubjectFile = Table(
+    "subject_file",
     Base.metadata,
-    Column("person_id", ForeignKey("person.id")),
+    Column("subject_id", ForeignKey("subject.id")),
     Column("file_id", ForeignKey("file.id")),
     Column("role", str_256),
     Column("created_at", DateTime(timezone=True), default=nowts),
@@ -75,8 +75,8 @@ class File(Base):
     external_id: Mapped[str_256] = mapped_column(unique=True)
     jurisdiction_id: Mapped[str_256]
     case_id: Mapped[str_256]
-    persons: Mapped[List["Person"]] = relationship(
-        cascade="all, delete-orphan", secondary=PersonFile
+    subjects: Mapped[List["Subject"]] = relationship(
+        cascade="all, delete-orphan", secondary=SubjectFile
     )
     redactions: Mapped[List["Redaction"]] = relationship(
         back_populates="file", cascade="all, delete-orphan"
@@ -110,16 +110,16 @@ class Redaction(Base):
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
-class Person(Base):
-    __tablename__ = "person"
+class Subject(Base):
+    __tablename__ = "subject"
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     external_id: Mapped[str_256] = mapped_column(unique=True)
     files: Mapped[List[File]] = relationship(
-        back_populates="person", cascade="all, delete-orphan", secondary=PersonFile
+        back_populates="subject", cascade="all, delete-orphan", secondary=SubjectFile
     )
     aliases: Mapped[List["Alias"]] = relationship(
-        back_populates="person", cascade="all, delete-orphan"
+        back_populates="subject", cascade="all, delete-orphan"
     )
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
@@ -130,8 +130,8 @@ class Alias(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
     primary: Mapped[bool] = mapped_column(default=False)
-    person_id: Mapped[str_256] = mapped_column(ForeignKey("person.id"))
-    person: Mapped["Person"] = relationship(back_populates="aliases")
+    subject_id: Mapped[str_256] = mapped_column(ForeignKey("subject.id"))
+    subject: Mapped["Subject"] = relationship(back_populates="aliases")
     title: Mapped[str_256] = mapped_column(nullable=True)
     first_name: Mapped[str_256] = mapped_column(nullable=True)
     middle_name: Mapped[str_256] = mapped_column(nullable=True)
