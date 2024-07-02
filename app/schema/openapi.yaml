@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.1.3
+  version: 0.2.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -113,10 +113,10 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: accusedId
+        - name: subjectId
           in: query
           required: false
-          description: Optionally, filter status by a specific accused.
+          description: Optionally, filter status by a specific person.
           schema:
             type: string
       responses:
@@ -152,10 +152,10 @@ paths:
           description: The case ID
           schema:
             type: string
-        - name: accusedId
+        - name: subjectId
           in: query
           required: false
-          description: Optionally, a specific accused ID to filter by
+          description: Optionally, the ID of a specific person
           schema:
             type: string
       responses:
@@ -292,7 +292,7 @@ components:
         - jurisdictionId
         - caseId
         - blindReviewRequired
-        - maskedAccuseds
+        - maskedSubjects
         - redactedDocuments
       properties:
         jurisdictionId:
@@ -301,10 +301,10 @@ components:
           type: string
         blindReviewRequired:
           type: boolean
-        maskedAccuseds:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedAccused"
+            $ref: "#/components/schemas/MaskedSubject"
         redactedDocuments:
           type: array
           items:
@@ -315,7 +315,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedAccuseds
+        - maskedSubjects
         - inputDocument
         - redactedDocument
         - status
@@ -324,10 +324,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedAccuseds:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedAccused"
+            $ref: "#/components/schemas/MaskedSubject"
         redactedDocument:
           $ref: "#/components/schemas/Document"
         status:
@@ -340,7 +340,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedAccuseds
+        - maskedSubjects
         - inputDocument
         - error
         - status
@@ -349,10 +349,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedAccuseds:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedAccused"
+            $ref: "#/components/schemas/MaskedSubject"
         error:
           type: string
         status:
@@ -365,7 +365,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - maskedAccuseds
+        - maskedSubjects
         - inputDocument
         - status
       properties:
@@ -373,10 +373,10 @@ components:
           type: string
         caseId:
           type: string
-        maskedAccuseds:
+        maskedSubjects:
           type: array
           items:
-            $ref: "#/components/schemas/MaskedAccused"
+            $ref: "#/components/schemas/MaskedSubject"
         status:
           type: string
           enum:
@@ -435,6 +435,8 @@ components:
       required:
         - firstName
       properties:
+        title:
+          type: string
         firstName:
           type: string
         lastName:
@@ -443,27 +445,29 @@ components:
           type: string
         suffix:
           type: string
+        nickname:
+          type: string
 
-    MaskedAccused:
-      description: Mapping between a accused's ID to their alias.
+    MaskedSubject:
+      description: Mapping between a person's ID to their alias.
       type: object
       required:
-        - accusedId
+        - subjectId
         - alias
       properties:
-        accusedId:
+        subjectId:
           type: string
         alias:
           type: string
 
-    Accused:
-      description: Mapping between a accused's ID to their name(s).
+    Person:
+      description: Mapping between a person's ID to their name(s).
       type: object
       required:
-        - accusedId
+        - subjectId
         - name
       properties:
-        accusedId:
+        subjectId:
           type: string
         name:
           oneOf:
@@ -481,7 +485,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - accuseds
+        - subjects
         - documents
         - callbackUrl
       properties:
@@ -489,11 +493,19 @@ components:
           type: string
         caseId:
           type: string
-        accuseds:
+        subjects:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/Accused"
+            type: object
+            required:
+              - role
+              - subject
+            properties:
+              role:
+                type: string
+              subject:
+                $ref: "#/components/schemas/Person"
         documents:
           type: array
           minItems: 1
@@ -636,7 +648,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - accusedId
+        - subjectId
         - reviewingAttorneyMaskedId
         - documentIds
         - protocol
@@ -645,7 +657,7 @@ components:
           type: string
         caseId:
           type: string
-        accusedId:
+        subjectId:
           type: string
         reviewingAttorneyMaskedId:
           type: string
@@ -662,7 +674,7 @@ components:
       required:
         - jurisdictionId
         - caseId
-        - accusedId
+        - subjectId
         - reviewingAttorneyMaskedId
         - documentIds
         - protocol
@@ -673,7 +685,7 @@ components:
           type: string
         caseId:
           type: string
-        accusedId:
+        subjectId:
           type: string
         reviewingAttorneyMaskedId:
           type: string

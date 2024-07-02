@@ -1366,6 +1366,17 @@ files = [
 ]
 
 [[package]]
+name = "nameparser"
+version = "1.1.3"
+description = "A simple Python module for parsing human names into their individual components."
+optional = false
+python-versions = "*"
+files = [
+    {file = "nameparser-1.1.3-py2.py3-none-any.whl", hash = "sha256:08ccda98681d59751c82052d52f185bc52f99d43e87d46b85c015a9096ecfa66"},
+    {file = "nameparser-1.1.3.tar.gz", hash = "sha256:aa2400ad71ccf8070675b40311a257c934659f91854b154e1ba6c264761c049d"},
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.8.0"
 description = "Node.js virtual environment builder"
@@ -2961,4 +2972,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "e0931ca66fde8b3a20280e5f1853998abbbb297330d954c051ea018fc412a581"
+content-hash = "337e76b02f53c099e7bcdeaff7f52fd9194ed75d19d8528ae115fd2e98ce3dbb"

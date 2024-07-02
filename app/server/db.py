@@ -3,8 +3,10 @@ from enum import Enum
 from typing import List, Optional, Type, TypeVar
 
 from sqlalchemy import ForeignKey, select, update
+from sqlalchemy.ext.associationproxy import AssociationProxy, association_proxy
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.sql.functions import count
 from sqlalchemy.types import BINARY, DateTime, LargeBinary, String
 from sqlalchemy.types import Enum as SQLEnum
@@ -57,6 +59,19 @@ class Base(AsyncAttrs, DeclarativeBase):
         return result.scalar_one_or_none()
 
 
+class SubjectFile(Base):
+    __tablename__ = "subject_file"
+
+    subject_id: Mapped[UUID] = mapped_column(ForeignKey("subject.id"), primary_key=True)
+    subject: Mapped["Subject"] = relationship(lazy="joined")
+    file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"), primary_key=True)
+    file: Mapped["File"] = relationship(back_populates="masked_subjects")
+    role: Mapped[str_256]
+    mask: Mapped[str_256] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+
 class File(Base):
     __tablename__ = "file"
 
@@ -64,8 +79,11 @@ class File(Base):
     external_id: Mapped[str_256] = mapped_column(unique=True)
     jurisdiction_id: Mapped[str_256]
     case_id: Mapped[str_256]
-    defendants: Mapped[List["DefendantFile"]] = relationship(
-        cascade="all, delete-orphan"
+    subjects: AssociationProxy[List["Subject"]] = association_proxy(
+        "subject_files", "subject"
+    )
+    masked_subjects: Mapped[List[SubjectFile]] = relationship(
+        back_populates="file", cascade="all, delete-orphan", lazy="subquery"
     )
     redactions: Mapped[List["Redaction"]] = relationship(
         back_populates="file", cascade="all, delete-orphan"
@@ -99,13 +117,43 @@ class Redaction(Base):
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
-class DefendantFile(Base):
-    __tablename__ = "defendant_file"
+class Subject(Base):
+    __tablename__ = "subject"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
-    file_id: Mapped[UUID] = mapped_column(ForeignKey("file.id"))
-    file: Mapped["File"] = relationship(back_populates="defendants")
-    defendant_id: Mapped[str_256]
+    external_id: Mapped[str_256] = mapped_column(unique=True)
+    files: AssociationProxy[List[File]] = association_proxy("subject_files", "file")
+    aliases: Mapped[List["Alias"]] = relationship(
+        back_populates="subject", cascade="all, delete-orphan"
+    )
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+
+class Alias(Base):
+    __tablename__ = "alias"
+    __table_args__ = (
+        UniqueConstraint(
+            "subject_id",
+            "title",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "suffix",
+            "nickname",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    primary: Mapped[datetime] = mapped_column(nullable=True)
+    subject_id: Mapped[str_256] = mapped_column(ForeignKey("subject.id"))
+    subject: Mapped["Subject"] = relationship(back_populates="aliases")
+    title: Mapped[str_256] = mapped_column(nullable=True)
+    first_name: Mapped[str_256] = mapped_column(nullable=True)
+    middle_name: Mapped[str_256] = mapped_column(nullable=True)
+    last_name: Mapped[str_256] = mapped_column(nullable=True)
+    suffix: Mapped[str_256] = mapped_column(nullable=True)
+    nickname: Mapped[str_256] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 

@@ -1,26 +1,31 @@
 import asyncio
 import base64
 import logging
-from typing import List
+from typing import Tuple
 from urllib.parse import urlparse
 
 import aiohttp
 from fastapi import HTTPException, Request, Response
+from nameparser import HumanName
 from sqlalchemy import select
 from starlette.background import BackgroundTask
 
 from ..config import config
-from ..db import File, JobStatus, Redaction, Task
+from ..db import Alias, File, JobStatus, Redaction, Subject, SubjectFile, Task, nowts
 from ..generated.models import (
     Document,
     DocumentContent,
     DocumentLink,
+    MaskedSubject,
     RedactionRequest,
     RedactionResult,
     RedactionResultError,
     RedactionResultPending,
     RedactionResultSuccess,
     RedactionStatus,
+)
+from ..generated.models import (
+    Subject as SubjectModel,
 )
 from ..time import expire_h
 
@@ -66,7 +71,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
-    validate_callback_url(str(body.callbackUrl))
+    validate_callback_url(str(body.callbackUrl) if body.callbackUrl else None)
     # Create a task for each document. Do this concurrently since the files will
     # often be on remote servers that we can fetch simultaneously.
     results = await asyncio.gather(
@@ -77,6 +82,11 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
             for doc in body.documents
         ]
     )
+
+    # Save sujects / files to the database
+    files = [obj for obj, _ in results if isinstance(obj, File)]
+    for relation in await process_subjects(body.subjects, files):
+        request.state.db.add(relation)
 
     # Save the tasks to the database
     new_tasks = 0
@@ -97,9 +107,67 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     return response
 
 
+async def process_subjects(
+    subjects: list[SubjectModel], files: list[File]
+) -> list[SubjectFile]:
+    """Process a list of subjects and files into database objects.
+
+    Args:
+        subjects (list[SubjectModel]): The subjects to process.
+        files (list[File]): The files to attach to the subjects.
+
+    Returns:
+        list[SubjectFile]: The relations between subjects and files.
+    """
+    relations: list[SubjectFile] = []
+    for subject in subjects:
+        aliases: list[Alias] = []
+        all_aliases = [subject.subject.name] + (subject.subject.aliases or [])
+        for i, alias in enumerate(all_aliases):
+            if isinstance(alias, str):
+                parsed_name = HumanName(alias)
+                aliases.append(
+                    Alias(
+                        primary=nowts() if i == 0 else None,
+                        first_name=parsed_name.first,
+                        middle_name=parsed_name.middle,
+                        last_name=parsed_name.last,
+                        suffix=parsed_name.suffix,
+                        title=parsed_name.title,
+                        nickname=parsed_name.nickname,
+                    )
+                )
+            else:
+                aliases.append(
+                    Alias(
+                        primary=nowts() if i == 0 else None,
+                        first_name=alias.firstName,
+                        middle_name=alias.middleName,
+                        last_name=alias.lastName,
+                        suffix=alias.suffix,
+                        title=alias.title,
+                        nickname=alias.nickname,
+                    )
+                )
+
+        subj = Subject(
+            external_id=subject.subject.subjectId,
+            aliases=aliases,
+        )
+        for file in files:
+            subj_file = SubjectFile(
+                subject=subj,
+                file=file,
+                role=subject.role,
+            )
+            relations.append(subj_file)
+
+    return relations
+
+
 async def create_document_redaction_task(
     jurisdiction_id: str, case_id: str, doc: Document, callback_url: str | None = None
-) -> List[File | Task]:
+) -> Tuple[File, Task]:
     """Create database objects representing a document redaction task.
 
     Args:
@@ -109,7 +177,7 @@ async def create_document_redaction_task(
         callback_url (str, optional): The URL to call when the task is complete.
 
     Returns:
-        list[File, Task]: The file and task objects.
+        Tuple[File, Task]: The file and task objects.
     """
     try:
         content = await fetch_document_content(doc)
@@ -134,7 +202,7 @@ async def create_document_redaction_task(
         expires_at=expire_h(hours=config.task.retention_hours),
     )
 
-    return [file, task]
+    return (file, task)
 
 
 async def fetch_document_content(doc: Document) -> bytes:
@@ -169,7 +237,7 @@ async def get_redaction_status(
     request: Request,
     jurisdiction_id: str,
     case_id: str,
-    accused_id: str | None = None,
+    subject_id: str | None = None,
 ) -> RedactionStatus:
     """Get the redaction status for a case.
 
@@ -177,7 +245,7 @@ async def get_redaction_status(
         request (Request): The incoming request.
         jurisdiction_id (str): The jurisdiction ID.
         case_id (str): The case ID.
-        accused_id (str, optional): The accused ID.
+        subject_id (str, optional): The ID of a person to get redaction status for.
 
     Returns:
         RedactionStatus: The redaction status summary.
@@ -188,12 +256,17 @@ async def get_redaction_status(
     files_q = select(File).filter(
         File.jurisdiction_id == jurisdiction_id, File.case_id == case_id
     )
-    result = await request.state.db.execute(files_q)
-    for file in result.scalars().all():
+    files_result = await request.state.db.execute(files_q)
+    for file in files_result.scalars().all():
         latest_redaction = await file.latest_redaction(request.state.db)
         if not latest_redaction:
             raise ValueError(f"No redaction found for file {file.external_id}")
         latest_job = await latest_redaction.task.latest_job(request.state.db)
+
+        masked_subjects = [
+            MaskedSubject(subjectId=fs.subject.external_id, alias=fs.mask or "")
+            for fs in file.masked_subjects
+        ]
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
         if not latest_job:
@@ -202,7 +275,7 @@ async def get_redaction_status(
                     RedactionResultPending(
                         jurisdictionId=jurisdiction_id,
                         caseId=case_id,
-                        maskedAccuseds=[],  # TODO
+                        maskedSubjects=masked_subjects,
                         status="QUEUED",
                     )
                 )
@@ -216,7 +289,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="QUEUED",
                         )
                     )
@@ -227,7 +300,7 @@ async def get_redaction_status(
                         RedactionResultPending(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="PROCESSING",
                         )
                     )
@@ -238,7 +311,7 @@ async def get_redaction_status(
                         RedactionResultSuccess(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="COMPLETE",
                             redactedDocument=format_document(latest_redaction),
                         )
@@ -250,7 +323,7 @@ async def get_redaction_status(
                         RedactionResultError(
                             jurisdictionId=jurisdiction_id,
                             caseId=case_id,
-                            maskedAccuseds=[],  # TODO
+                            maskedSubjects=masked_subjects,
                             status="ERROR",
                             error=latest_job.error,
                         )
