@@ -4,7 +4,7 @@ import io
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Type, cast
+from typing import Type
 
 import aiohttp
 from blind_charging_core import Pipeline, PipelineConfig
@@ -362,5 +362,11 @@ class RedactionProcessor(Processor):
         )
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(file_bytes)
-        output_buffer, _ = pipeline.run({"input_buffer": input_buffer})
-        return cast(io.BytesIO, output_buffer).getvalue()
+        output_buffer = io.BytesIO()
+        pipeline.run(
+            {
+                "in": {"buffer": input_buffer},
+                "out": {"buffer": output_buffer},
+            }
+        )
+        return output_buffer.getvalue()
