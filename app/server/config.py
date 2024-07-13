@@ -4,13 +4,12 @@ from pathlib import Path
 from typing import Union
 
 import tomllib
-from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
-logger = logging.getLogger(__name__)
+from .store import RedisConfig
 
-DbConfig = Union[MsSqlSettings, SqliteSettings]
+logger = logging.getLogger(__name__)
 
 
 class TaskConfig(BaseModel):
@@ -21,11 +20,16 @@ class TaskConfig(BaseModel):
     link_download_timeout_seconds: float = 30.0
 
 
+StoreConfig = Union[RedisConfig]
+
+BrokerConfig = Union[RedisConfig]
+
+
 class Config(BaseSettings):
     debug: bool = False
-    db: DbConfig = SqliteSettings(engine="sqlite")
     task: TaskConfig = TaskConfig()
-    automigrate: bool = False
+    store: StoreConfig = RedisConfig()
+    broker: BrokerConfig = RedisConfig()
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
@@ -47,7 +51,7 @@ logging.basicConfig(level=logging.WARNING)
 # Set log level for any loggers that have been instantiated before this point.
 # Most loggers should be set to WARNING, but some should be set to INFO or DEBUG.
 _logger_names = ["root"] + list(logging.root.manager.loggerDict.keys())
-_loud_logger_names = ["uvicorn", "fastapi", "app."]
+_loud_logger_names = ["uvicorn", "fastapi", "app.", "pydantic", "celery"]
 for name in _logger_names:
     for loud_name in _loud_logger_names:
         if name.startswith(loud_name):

@@ -7,21 +7,20 @@
 # Toggle debugging information and tools in the app.
 debug = true
 
-# Toggle whether the app should create and migrate database tables automatically
-# when starting up.
-#
-# This is off by default, since it can be dangerous.
-#
-# In production, it's better to migrate databases manually. However, when using
-# SQLite with a memory DB, this has to be on, since database migrations cannot
-# be applied by an independent process in that case.
-automigrate = true
+[store]
+# Specify the database backend. Since there is a strong limitation about what
+# can be persisted, and since we also need a message queue broker, we target
+# redis for storing application state.
+engine = "redis"
+host = "localhost"
+port = 6379
+database = 0
 
-[db]
-# Specify the database backend. We primarily target MS SQL support, however
-# SQLite may also be used for development. In theory, we can support any
-# backend that's configured in Glowplug: https://github.com/jnu/python-glowplug
-engine = "sqlite"
-# When using SQLite with a memory DB, make sure `automigrate` is on, otherwise
-# the database will not be created when starting the server.
-path = "test.db"
+[broker]
+# Configure the message queue broker. The Celery framework supports multiple
+# brokers. We primarily target Redis because it has the simplest operational
+# overhead, but see the Celery documentation for more options.
+engine = "redis"
+host = "localhost"
+port = 6379
+database = 1

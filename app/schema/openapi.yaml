@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.2.1
+  version: 0.3.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -316,13 +316,15 @@ components:
         - jurisdictionId
         - caseId
         - maskedSubjects
-        - inputDocument
+        - inputDocumentId
         - redactedDocument
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        inputDocumentId:
           type: string
         maskedSubjects:
           type: array
@@ -341,13 +343,15 @@ components:
         - jurisdictionId
         - caseId
         - maskedSubjects
-        - inputDocument
+        - inputDocumentId
         - error
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        inputDocumentId:
           type: string
         maskedSubjects:
           type: array
@@ -366,12 +370,14 @@ components:
         - jurisdictionId
         - caseId
         - maskedSubjects
-        - inputDocument
+        - inputDocumentId
         - status
       properties:
         jurisdictionId:
           type: string
         caseId:
+          type: string
+        inputDocumentId:
           type: string
         maskedSubjects:
           type: array
@@ -486,6 +492,7 @@ components:
         - jurisdictionId
         - caseId
         - subjects
+        - objects
         - documents
         - callbackUrl
       properties:
@@ -506,11 +513,20 @@ components:
                 type: string
               subject:
                 $ref: "#/components/schemas/Person"
-        documents:
+        objects:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/Document"
+            $ref: "#/components/schemas/RedactionTarget"
+
+    RedactionTarget:
+      type: object
+      required:
+        - document
+        - callbackUrl
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
         callbackUrl:
           type: string
           format: uri

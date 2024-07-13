@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+
+  db:
+    platform: linux/amd64
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: bc-db
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: bc2Password
+    expose: [1433]
+    ports: ["1433:1433"]
+    volumes:
+      - dbdata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-U", "sa", "-P", "bc2Password", "-Q", "SELECT 1", "-b", "-o", "/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    platform: linux/amd64
+    image: redis:7.2.5
+    container_name: bc-redis
+    expose: [6379]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 3
+
+  api:
+    platform: linux/amd64
+    image: bc-api:latest
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: always
+    expose: [8000]
+    ports: ["8000:8000"]
+    secrets:
+      - source: app_config
+        target: /code/config.toml
+        mode: 0400
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+
+# Use ephemeral volume in dev
+volumes:
+  dbdata:
+    driver_opts: {}
+
+
+# Use local config in dev
+secrets:
+  app_config:
+    file: ./config.dev.toml
