@@ -22,6 +22,9 @@ class StoreSession(ABC):
     @abstractmethod
     async def close(self): ...
 
+    @abstractmethod
+    async def ping(self): ...
+
     async def __aenter__(self):
         await self.open()
         return self

@@ -38,6 +38,9 @@ class RedisStoreSession(StoreSession):
     async def close(self):
         await self.client.aclose(close_connection_pool=False)
 
+    async def ping(self):
+        return await self.client.ping()
+
     async def set(self, key: str, value: str):
         await self.pipe.set(key, value)
 
