@@ -4,6 +4,7 @@ import requests
 from pydantic import BaseModel
 
 from ..generated.models import Document, DocumentContent, DocumentLink
+from .config import config
 from .queue import queue
 from .redact import RedactionTaskResult
 from .serializer import register_type
@@ -26,7 +27,14 @@ register_type(CallbackTask)
 register_type(CallbackTaskResult)
 
 
-@queue.task(task_track_started=True, task_time_limit=300, task_soft_time_limit=240)
+_callback_timeout = config.queue.task.callback_timeout_seconds
+
+
+@queue.task(
+    task_track_started=True,
+    task_time_limit=_callback_timeout + 10,
+    task_soft_time_limit=_callback_timeout,
+)
 def callback(
     redact_result: RedactionTaskResult, params: CallbackTask
 ) -> CallbackTaskResult:

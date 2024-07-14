@@ -24,8 +24,8 @@ register_type(FetchTaskResult)
 
 @queue.task(
     task_track_started=True,
-    task_time_limit=config.task.link_download_timeout_seconds + 30,
-    task_soft_time_limit=config.task.link_download_timeout_seconds,
+    task_time_limit=config.queue.task.link_download_timeout_seconds + 30,
+    task_soft_time_limit=config.queue.task.link_download_timeout_seconds,
 )
 def fetch(params: FetchTask) -> FetchTaskResult:
     """Fetch the content of a document.
@@ -41,7 +41,7 @@ def fetch(params: FetchTask) -> FetchTaskResult:
         case "LINK":
             response = requests.get(
                 params.document.root.url,
-                timeout=config.task.link_download_timeout_seconds,
+                timeout=config.queue.task.link_download_timeout_seconds,
             )
             response.raise_for_status()
             content = response.content

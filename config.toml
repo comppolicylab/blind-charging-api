@@ -7,7 +7,10 @@
 # Toggle debugging information and tools in the app.
 debug = true
 
-[store]
+[queue]
+# Settings for the task queue.
+
+[queue.store]
 # Specify the database backend. Since there is a strong limitation about what
 # can be persisted, and since we also need a message queue broker, we target
 # redis for storing application state.
@@ -16,7 +19,7 @@ host = "localhost"
 port = 6379
 database = 0
 
-[broker]
+[queue.broker]
 # Configure the message queue broker. The Celery framework supports multiple
 # brokers. We primarily target Redis because it has the simplest operational
 # overhead, but see the Celery documentation for more options.
@@ -24,3 +27,15 @@ engine = "redis"
 host = "localhost"
 port = 6379
 database = 1
+
+[experiments]
+# Configure the research components of the application.
+# By default, the research endpoints are disabled.
+enabled = true
+automigrate = true
+
+[experiments.store]
+# Where to store research data. By default, for development and testing,
+# results will just be stored in an in-memory SQLite database.
+engine = "sqlite"
+path = "test.db"

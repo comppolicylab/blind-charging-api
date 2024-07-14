@@ -100,12 +100,14 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         for i, alias in enumerate(process_subject(subj)):
             if i == 0:
                 # TODO - I doln't think the keying of the aliases is quite right
-                await request.state.tx.setmodel(
+                await request.state.store.setmodel(
                     f"aliases:{subj.subject.subjectId}:primary", alias
                 )
-            await request.state.tx.saddmodel(f"aliases:{subj.subject.subjectId}", alias)
+            await request.state.store.saddmodel(
+                f"aliases:{subj.subject.subjectId}", alias
+            )
         subject_ids.add(subj.subject.subjectId)
-    await request.state.tx.hsetmapping(
+    await request.state.store.hsetmapping(
         key(body.jurisdictionId, body.caseId, "role"), subject_role_mapping
     )
 
@@ -121,7 +123,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         doc_id = obj.document.root.documentId
         logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
         # Save the task to the database
-        await request.state.tx.hsetmapping(
+        await request.state.store.hsetmapping(
             key(body.jurisdictionId, body.caseId, "task"),
             {doc_id: str(task_id)},
         )
@@ -227,8 +229,8 @@ async def get_redaction_status(
 
     # Get the redaction status from the database
     tasks, masks = await asyncio.gather(
-        request.state.tx.hgetall(key(jurisdiction_id, case_id, "task")),
-        request.state.tx.hgetall(key(jurisdiction_id, case_id, "mask")),
+        request.state.store.hgetall(key(jurisdiction_id, case_id, "task")),
+        request.state.store.hgetall(key(jurisdiction_id, case_id, "mask")),
     )
     masked_subjects = [
         MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()

@@ -4,12 +4,16 @@ from pathlib import Path
 from typing import Union
 
 import tomllib
+from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from .store import RedisConfig
 
 logger = logging.getLogger(__name__)
+
+
+RdbmsConfig = Union[MsSqlSettings, SqliteSettings]
 
 
 class TaskConfig(BaseModel):
@@ -25,11 +29,22 @@ StoreConfig = Union[RedisConfig]
 BrokerConfig = Union[RedisConfig]
 
 
-class Config(BaseSettings):
-    debug: bool = False
+class QueueConfig(BaseModel):
     task: TaskConfig = TaskConfig()
     store: StoreConfig = RedisConfig()
     broker: BrokerConfig = RedisConfig()
+
+
+class ExperimentsConfig(BaseModel):
+    enabled: bool = False
+    automigrate: bool = False
+    store: RdbmsConfig = SqliteSettings(engine="sqlite")
+
+
+class Config(BaseSettings):
+    debug: bool = False
+    queue: QueueConfig = QueueConfig()
+    experiments: ExperimentsConfig = ExperimentsConfig()
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:

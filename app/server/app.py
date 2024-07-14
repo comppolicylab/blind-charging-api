@@ -3,17 +3,50 @@ import time
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from glowplug import DbDriver
 
-from .config import config
+from .config import RdbmsConfig, config
+from .db import init_db
 from .generated import app as generated_app
 
 logger = logging.getLogger(__name__)
 
 
+async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
+    """Check the database and apply migrations if possible.
+
+    Args:
+        store (RdbmsConfig): The database configuration.
+        automigrate (bool): Whether to automatically apply migrations.
+
+    Returns:
+        DbDriver: The database driver.
+    """
+    if await store.driver.is_blank_slate():
+        if not automigrate:
+            logger.error(
+                "Database is not initialized. "
+                "Please set up the database before running the app."
+            )
+            raise SystemExit(1)
+        logger.info("Initializing database ...")
+        await init_db(store.driver, drop_first=False)
+        logger.info("Stamping database revision as current")
+        store.driver.alembic.stamp("head")
+    else:
+        logger.info("Applying any pending database migrations ...")
+        store.driver.alembic.upgrade("head")
+    return store.driver
+
+
 async def lifespan(api: FastAPI):
     """Setup and teardown logic for the server."""
-    async with config.store.driver() as store:
-        api.state.store = store
+    db = await ensure_db(
+        config.experiments.store, automigrate=config.experiments.automigrate
+    )
+    async with config.queue.store.driver() as store:
+        api.state.queue_store = store
+        api.state.db = db
         yield
 
 
@@ -45,9 +78,22 @@ async def begin_store_session(request: Request, call_next):
     The session is committed if the request is successful, and rolled back if
     an exception is raised.
     """
-    async with request.app.state.store.tx() as tx:
-        request.state.tx = tx
+    async with request.app.state.queue_store.tx() as store:
+        request.state.store = store
         return await call_next(request)
+
+
+@generated_app.middleware("http")
+async def begin_db_session(request: Request, call_next):
+    async with request.app.state.db.async_session() as session:
+        request.state.db = session
+        try:
+            response = await call_next(request)
+            await session.commit()
+            return response
+        except Exception as e:
+            await session.rollback()
+            raise e
 
 
 @generated_app.middleware("http")
