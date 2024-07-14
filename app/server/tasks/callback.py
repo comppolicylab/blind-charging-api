@@ -1,10 +1,11 @@
 import base64
 
 import requests
+from azure.storage.blob import BlobClient
 from pydantic import BaseModel
 
+from ..config import config
 from ..generated.models import Document, DocumentContent, DocumentLink
-from .config import config
 from .queue import queue
 from .redact import RedactionTaskResult
 from .serializer import register_type
@@ -39,15 +40,28 @@ def callback(
     redact_result: RedactionTaskResult, params: CallbackTask
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
+    document: Document | None = None
+
     if params.target_blob_url:
-        raise NotImplementedError("Blob storage not implemented")
+        document = Document(
+            root=DocumentLink(
+                documentId=redact_result.document_id,
+                attachmentType="LINK",
+                url=params.target_blob_url,
+            )
+        )
+        if not redact_result.content:
+            raise ValueError("Missing redacted content")
+        write_to_azure_blob_url(params.target_blob_url, redact_result.content)
+    else:
+        document = format_document(redact_result)
 
     if params.callback_url:
         response = requests.post(
             params.callback_url,
-            # TODO redact_result might could be formatted into the link
-            json=format_document(redact_result).model_dump(),
+            json=document.model_dump(),
         )
+
         # TODO: figure out retries
         return CallbackTaskResult(
             status_code=response.status_code,
@@ -90,3 +104,14 @@ def format_document(redaction: RedactionTaskResult | CallbackTaskResult) -> Docu
                 content=base64.b64encode(redaction.content).decode("utf-8"),
             )
         )
+
+
+def write_to_azure_blob_url(sas_url: str, content: bytes):
+    """Write content to an Azure blob URL.
+
+    Args:
+        sas_url (str): The Azure blob SAS URL.
+        content (bytes): The content to write.
+    """
+    client = BlobClient.from_blob_url(blob_url=sas_url)
+    client.upload_blob(content)
