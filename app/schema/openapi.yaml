@@ -493,7 +493,6 @@ components:
         - caseId
         - subjects
         - objects
-        - callbackUrl
       properties:
         jurisdictionId:
           type: string
