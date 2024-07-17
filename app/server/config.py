@@ -8,7 +8,7 @@ from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
-from .store import RedisConfig
+from .store import RedisConfig, RedisTestConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,9 @@ class TaskConfig(BaseModel):
     link_download_timeout_seconds: float = 30.0
 
 
-StoreConfig = Union[RedisConfig]
+StoreConfig = Union[RedisConfig, RedisTestConfig]
 
-BrokerConfig = Union[RedisConfig]
+BrokerConfig = Union[RedisConfig, RedisTestConfig]
 
 
 class QueueConfig(BaseModel):

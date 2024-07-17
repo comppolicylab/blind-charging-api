@@ -23,6 +23,7 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
+from ..store import key
 from ..tasks import (
     CallbackTask,
     FetchTask,
@@ -40,20 +41,6 @@ logger = logging.getLogger(__name__)
 # Only allow HTTP callbacks in debug mode
 _callback_schemes = {"http", "https"} if config.debug else {"https"}
 _disallowed_callback_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
-
-
-def key(jurisdiction_id: str, case_id: str, category: str) -> str:
-    """Generate a key for a redis value.
-
-    Args:
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        category (str): The category of the task.
-
-    Returns:
-        str: The key.
-    """
-    return f"{jurisdiction_id}:{case_id}:{category}"
 
 
 def validate_callback_url(url: str | None) -> None:

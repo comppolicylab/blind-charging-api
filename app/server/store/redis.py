@@ -20,11 +20,17 @@ class RedisConfig(BaseModel):
         return RedisStore(self)
 
 
-class RedisStoreSession(StoreSession):
-    def __init__(self, pool: aioredis.ConnectionPool):
-        self.pool = pool
-        self.client = aioredis.Redis(connection_pool=self.pool)
-        self.pipe = self.client.pipeline(transaction=True)
+class RedisTestConfig(BaseModel):
+    engine: Literal["test-redis"] = "test-redis"
+    url: str = "redis://localhost:6379/0"
+
+    def driver(self) -> "TestRedisStore":
+        return TestRedisStore(self)
+
+
+class BaseRedisStoreSession(StoreSession):
+    pipe: aioredis.client.Pipeline
+    client: aioredis.Redis
 
     async def open(self):
         pass
@@ -58,6 +64,19 @@ class RedisStoreSession(StoreSession):
         return await self.client.hgetall(key)
 
 
+class RedisStoreSession(BaseRedisStoreSession):
+    def __init__(self, pool: aioredis.ConnectionPool):
+        self.pool = pool
+        self.client = aioredis.Redis(connection_pool=self.pool)
+        self.pipe = self.client.pipeline(transaction=True)
+
+
+class TestRedisStoreSession(BaseRedisStoreSession):
+    def __init__(self, client):
+        self.client = client
+        self.pipe = self.client.pipeline(transaction=True)
+
+
 class RedisStore(Store):
     def __init__(self, config: RedisConfig):
         self.config = config
@@ -73,3 +92,19 @@ class RedisStore(Store):
         if self.pool is None:
             raise ValueError("Store is not initialized")
         return RedisStoreSession(self.pool)
+
+
+class TestRedisStore(Store):
+    def __init__(self, config: RedisTestConfig):
+        self.config = config
+
+    async def init(self):
+        from fakeredis import FakeAsyncRedis
+
+        self.client = FakeAsyncRedis()
+
+    async def close(self):
+        await self.client.aclose()
+
+    def tx(self) -> TestRedisStoreSession:
+        return TestRedisStoreSession(self.client)
