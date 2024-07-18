@@ -1,13 +1,18 @@
 # Set up image based on Poetry / Python3.11
 
+
 FROM python:3.11.6-bookworm
+
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
+RUN curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 
 RUN apt-get update \
     && apt-get install -y openssh-client \
     && apt-get install -y tesseract-ocr \
-    && apt-get install -y unixodbc-dev
-RUN mkdir -p ~/.ssh
+    && apt-get install -y unixodbc-dev \
+    && ACCEPT_EULA=Y apt-get install -y msodbcsql17
 # Set up SSH
+RUN mkdir -p ~/.ssh
 RUN ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 ENV PYTHONFAULTHANDLER=1 \
@@ -27,7 +32,9 @@ WORKDIR /code
 COPY poetry.lock pyproject.toml README.md /code/
 
 # Install dependencies
-RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
+ARG GH_PAT=
+RUN git config --global url."https://x-token-auth:${GH_PAT}@github.com/".insteadOf "git@github.com:"
+RUN poetry install --without dev --no-interaction --no-ansi
 
 # Copy app code
 COPY config.toml /config/
