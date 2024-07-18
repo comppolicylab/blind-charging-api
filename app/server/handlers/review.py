@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from fastapi import Request
 
-from ..features import gater
 from ..generated.models import BlindReviewInfo, MaskedSubject
 from ..store import key
 
@@ -26,7 +25,7 @@ async def get_blind_review_info(
 ) -> BlindReviewInfo:
     """Get the blind review info for a case."""
     case_entity = CaseEntity(jurisdiction_id, case_id, subject_id)
-    blinded = await gater.ft_blind_review(case_entity)
+    blinded = await request.app.state.gater.ft_blind_review(case_entity, deferred=True)
 
     masks = {}
     if blinded:

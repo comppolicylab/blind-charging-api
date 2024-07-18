@@ -162,25 +162,25 @@ tz = ["backports.zoneinfo"]
 
 [[package]]
 name = "alligater"
-version = "0.1.1"
-description = ""
+version = "0.1.3"
+description = "Randomization and gating library for Python."
 optional = false
-python-versions = "^3.11"
+python-versions = "^3.10"
 files = []
 develop = false
 
 [package.dependencies]
-antlr4-python3-runtime = "^4.13.1"
-mmh3 = "^4.1.0"
-pyyaml = "^6.0.1"
-requests = "^2.32.3"
-urllib3 = "^2.2.2"
+antlr4-python3-runtime = "4.10"
+mmh3 = "^4.1"
+pyyaml = "^6.0"
+requests = "^2.32"
+urllib3 = "^2.2"
 
 [package.source]
 type = "git"
 url = "git@github.com:stanford-policylab/alligater.git"
 reference = "HEAD"
-resolved_reference = "26f4eaf742811eea0d66b15141d85f8017620d00"
+resolved_reference = "50cfae47e3cfd2601b92ed0b86c385dabaecc0a7"
 
 [[package]]
 name = "amqp"
@@ -209,13 +209,12 @@ files = [
 
 [[package]]
 name = "antlr4-python3-runtime"
-version = "4.13.1"
-description = "ANTLR 4.13.1 runtime for Python 3"
+version = "4.10"
+description = "ANTLR 4.10 runtime for Python 2.7.12"
 optional = false
 python-versions = "*"
 files = [
-    {file = "antlr4-python3-runtime-4.13.1.tar.gz", hash = "sha256:3cd282f5ea7cfb841537fe01f143350fdb1c0b1ce7981443a2fa8513fddb6d1a"},
-    {file = "antlr4_python3_runtime-4.13.1-py3-none-any.whl", hash = "sha256:78ec57aad12c97ac039ca27403ad61cb98aaec8a3f9bb8144f889aa0fa28b943"},
+    {file = "antlr4-python3-runtime-4.10.tar.gz", hash = "sha256:061a49bc72ae05a35d9b61c0ba0ac36c0397708819f02fbfb20a80e47d287a1b"},
 ]
 
 [[package]]

@@ -7,6 +7,7 @@ from glowplug import DbDriver
 
 from .config import RdbmsConfig, config
 from .db import init_db
+from .features import init_gater
 from .generated import app as generated_app
 
 logger = logging.getLogger(__name__)
@@ -41,13 +42,22 @@ async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
 
 async def lifespan(api: FastAPI):
     """Setup and teardown logic for the server."""
+    logger.warning("Starting up ...")
+    gater = init_gater()
+    api.state.gater = gater
+
     db = await ensure_db(
         config.experiments.store, automigrate=config.experiments.automigrate
     )
+
     async with config.queue.store.driver() as store:
         api.state.queue_store = store
         api.state.db = db
         yield
+
+    logger.warning("Shutting down ...")
+    gater.stop()
+    logger.info("Bye!")
 
 
 app = FastAPI(lifespan=lifespan)

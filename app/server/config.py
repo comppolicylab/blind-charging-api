@@ -66,7 +66,7 @@ logging.basicConfig(level=logging.WARNING)
 # Set log level for any loggers that have been instantiated before this point.
 # Most loggers should be set to WARNING, but some should be set to INFO or DEBUG.
 _logger_names = ["root"] + list(logging.root.manager.loggerDict.keys())
-_loud_logger_names = ["uvicorn", "fastapi", "app.", "pydantic", "celery"]
+_loud_logger_names = ["uvicorn", "fastapi", "app.", "pydantic", "celery", "alligater"]
 for name in _logger_names:
     for loud_name in _loud_logger_names:
         if name.startswith(loud_name):

@@ -7,6 +7,7 @@ from glowplug import DbDriver
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import BINARY, DateTime, String
 from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
@@ -50,12 +51,12 @@ class Base(AsyncAttrs, DeclarativeBase):
     type_annotation_map = {
         UUID: BINARY(16),
         datetime: DateTime(timezone=True),
-        str_256: String(256),
-        str_4096: String(4096),
+        str_256: String(255),
+        str_4096: String(4095),
         ReviewType: SQLEnum(ReviewType),
         Decision: SQLEnum(Decision),
         Disqualifier: SQLEnum(Disqualifier),
-        text: String(4_194_304),
+        text: String(4_194_303),
     }
 
     @classmethod
@@ -66,6 +67,22 @@ class Base(AsyncAttrs, DeclarativeBase):
         q = select(cls).filter(cls.id == id)
         result = await session.execute(q)
         return result.scalar_one_or_none()
+
+
+class Assignment(Base):
+    __tablename__ = "assignment"
+    __table_args__ = (UniqueConstraint("entity_type", "entity_id", "feature"),)
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    entity_type: Mapped[str_256] = mapped_column(index=True)
+    entity_id: Mapped[str_4096] = mapped_column(index=True)
+    feature: Mapped[str_256] = mapped_column(index=True)
+    variant: Mapped[str_256] = mapped_column(index=True)
+    value: Mapped[text] = mapped_column()
+    ts: Mapped[datetime] = mapped_column()
+    event_id: Mapped[str_256] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
 class Exposure(Base):
