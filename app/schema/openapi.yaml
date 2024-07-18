@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.3.0
+  version: 0.3.1
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -293,7 +293,6 @@ components:
         - caseId
         - blindReviewRequired
         - maskedSubjects
-        - redactedDocuments
       properties:
         jurisdictionId:
           type: string
@@ -305,10 +304,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MaskedSubject"
-        redactedDocuments:
-          type: array
-          items:
-            $ref: "#/components/schemas/Document"
 
     RedactionResultSuccess:
       type: object

@@ -40,5 +40,4 @@ async def get_blind_review_info(
         caseId=case_id,
         blindReviewRequired=blinded,
         maskedSubjects=masked_subjects,
-        redactedDocuments=[],  # TODO - deleted?
     )
