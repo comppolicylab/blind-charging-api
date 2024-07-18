@@ -5,7 +5,7 @@ FROM python:3.11.6-bookworm
 RUN apt-get update \
     && apt-get install -y openssh-client \
     && apt-get install -y tesseract-ocr \
-    && apt-get install unixodbc-dev
+    && apt-get install -y unixodbc-dev
 RUN mkdir -p ~/.ssh
 # Set up SSH
 RUN ssh-keyscan github.com >> ~/.ssh/known_hosts
