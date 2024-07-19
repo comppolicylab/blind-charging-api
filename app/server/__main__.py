@@ -5,6 +5,7 @@ import typer
 
 from .config import config
 from .db import init_db
+from .tasks import get_liveness_app, queue
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,16 @@ def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
         logger.info("Upgrading database to revision %s", revision)
         driver.alembic.upgrade(revision)
     logger.info("Database migrations complete")
+
+
+@cli.command()
+def worker() -> None:
+    """Run the Celery worker.
+
+    This command also starts an HTTP liveness probe on port 8001.
+    """
+    with get_liveness_app(host="0.0.0.0", port=8001).run_in_thread():
+        queue.Worker().start()
 
 
 if __name__ == "__main__":
