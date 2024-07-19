@@ -17,11 +17,16 @@ class RedisConfig(BaseModel):
 
     @property
     def url(self) -> str:
-        tls = "s" if self.ssl else ""
+        tls = ""
+        q = ""
+        if self.ssl:
+            tls = "s"
+            q = "?ssl_cert_reqs=none"
         auth = ""
         if self.user or self.password:
             auth = f"{self.user}:{self.password}@"
-        return f"redis{tls}://{auth}{self.host}:{self.port}/{self.db}"
+
+        return f"redis{tls}://{auth}{self.host}:{self.port}/{self.db}{q}"
 
     def driver(self) -> "RedisStore":
         return RedisStore(self)
