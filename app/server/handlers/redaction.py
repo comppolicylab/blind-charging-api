@@ -6,12 +6,12 @@ from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
 
+from ..case import get_aliases, get_doc_tasks, save_doc_task, save_roles
 from ..config import config
 from ..generated.models import (
     HumanName as HumanNameModel,
 )
 from ..generated.models import (
-    MaskedSubject,
     RedactionRequest,
     RedactionResult,
     RedactionResultError,
@@ -23,7 +23,6 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..store import key
 from ..tasks import (
     CallbackTask,
     FetchTask,
@@ -94,8 +93,8 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
                 f"aliases:{subj.subject.subjectId}", alias
             )
         subject_ids.add(subj.subject.subjectId)
-    await request.state.store.hsetmapping(
-        key(body.jurisdictionId, body.caseId, "role"), subject_role_mapping
+    await save_roles(
+        request.state.store, body.jurisdictionId, body.caseId, subject_role_mapping
     )
 
     subj_ids_list = list(subject_ids)
@@ -110,9 +109,8 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         doc_id = obj.document.root.documentId
         logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
         # Save the task to the database
-        await request.state.store.hsetmapping(
-            key(body.jurisdictionId, body.caseId, "task"),
-            {doc_id: str(task_id)},
+        await save_doc_task(
+            request.state.store, body.jurisdictionId, body.caseId, doc_id, str(task_id)
         )
 
 
@@ -215,13 +213,10 @@ async def get_redaction_status(
         raise NotImplementedError("Filtering by subject ID is not yet implemented.")
 
     # Get the redaction status from the database
-    tasks, masks = await asyncio.gather(
-        request.state.store.hgetall(key(jurisdiction_id, case_id, "task")),
-        request.state.store.hgetall(key(jurisdiction_id, case_id, "mask")),
+    tasks, masked_subjects = await asyncio.gather(
+        get_doc_tasks(request.state.store, jurisdiction_id, case_id),
+        get_aliases(request.state.store, jurisdiction_id, case_id),
     )
-    masked_subjects = [
-        MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()
-    ]
 
     for doc_id, task_id in tasks.items():
         # Get the status of the task from celery

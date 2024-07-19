@@ -5,7 +5,7 @@ from .redis import (
     RedisTestConfig,
     TestRedisStoreSession,
 )
-from .store import Store, StoreSession, key
+from .store import SimpleMapping, Store, StoreSession
 
 __all__ = [
     "Store",
@@ -15,5 +15,5 @@ __all__ = [
     "RedisTestConfig",
     "RedisStoreSession",
     "TestRedisStoreSession",
-    "key",
+    "SimpleMapping",
 ]

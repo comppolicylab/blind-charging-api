@@ -17,6 +17,8 @@ class RedactionTask(BaseModel):
 
 
 class RedactionTaskResult(BaseModel):
+    jurisdiction_id: str
+    case_id: str
     document_id: str
     external_link: str | None = None
     content: bytes | None = None
@@ -64,7 +66,10 @@ def redact(fetch_result: FetchTaskResult, params: RedactionTask) -> RedactionTas
 
     content = output_buffer.getvalue()
 
+    # TODO - error handling
     return RedactionTaskResult(
+        jurisdiction_id=params.jurisdiction_id,
+        case_id=params.case_id,
         document_id=params.document_id,
         content=content,
     )

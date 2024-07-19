@@ -108,17 +108,3 @@ class Store(ABC):
 
     @abstractmethod
     def tx(self) -> StoreSession: ...
-
-
-def key(jurisdiction_id: str, case_id: str, category: str) -> str:
-    """Generate a key for a redis value.
-
-    Args:
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        category (str): The category of the task.
-
-    Returns:
-        str: The key.
-    """
-    return f"{jurisdiction_id}:{case_id}:{category}"
