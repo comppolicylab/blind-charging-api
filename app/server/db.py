@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.schema import UniqueConstraint
-from sqlalchemy.types import BINARY, DateTime, String
+from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String
 from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
@@ -56,7 +56,7 @@ class Base(AsyncAttrs, DeclarativeBase):
         ReviewType: SQLEnum(ReviewType),
         Decision: SQLEnum(Decision),
         Disqualifier: SQLEnum(Disqualifier),
-        text: String(4_194_303),
+        text: String(4_194_303).with_variant(NVARCHAR("max"), "mssql"),
     }
 
     @classmethod
