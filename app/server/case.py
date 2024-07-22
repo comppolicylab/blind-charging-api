@@ -1,97 +1,178 @@
 from typing import cast
 
-from .generated.models import MaskedSubject
+from .generated.models import HumanName, MaskedSubject
 from .store import SimpleMapping, StoreSession
 
-
-def key(jurisdiction_id: str, case_id: str, category: str) -> str:
-    """Generate a key for a redis value.
-
-    Args:
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        category (str): The category of the task.
-
-    Returns:
-        str: The key.
-    """
-    return f"{jurisdiction_id}:{case_id}:{category}"
+ONE_WEEK_S = 60 * 60 * 24 * 7
+"""One week in seconds."""
 
 
-async def save_doc_task(
-    store: StoreSession, jurisdiction_id: str, case_id: str, doc_id: str, task_id: str
-) -> None:
-    """Save a document task ID.
+def ensure_init(func):
+    """Decorator to ensure that the case store is initialized."""
 
-    Args:
-        store (Store): The store session to use.
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        doc_id (str): The document ID.
-        task_id (str): The task ID.
+    async def wrapper(self, *args, **kwargs):
+        if not self.inited:
+            raise ValueError("Case store not initialized")
+        return await func(self, *args, **kwargs)
 
-    Returns:
-        None
-    """
-    return await store.hsetmapping(
-        key(jurisdiction_id, case_id, "task"),
-        {doc_id: str(task_id)},
-    )
+    return wrapper
 
 
-async def get_doc_tasks(
-    store: StoreSession, jurisdiction_id: str, case_id: str
-) -> dict[str, str]:
-    """Get the document tasks for a case.
+class CaseStore:
+    def __init__(self, store: StoreSession):
+        self.store = store
+        self.jurisdiction_id = ""
+        self.case_id = ""
+        self.expires_at = 0
 
-    Args:
-        store (Store): The store session to use.
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
+    @property
+    def inited(self) -> bool:
+        return bool(self.jurisdiction_id and self.case_id)
 
-    Returns:
-        dict[str, str]: The document tasks.
-    """
-    result = await store.hgetall(key(jurisdiction_id, case_id, "task"))
-    return {k.decode(): v.decode() for k, v in result.items()}
+    async def init(self, jurisdiction_id: str, case_id: str, ttl: int = ONE_WEEK_S):
+        """Initialize the case store.
 
+        Args:
+            jurisdiction_id (str): The jurisdiction ID.
+            case_id (str): The case ID.
+            ttl (int, optional): The time-to-live in seconds. Defaults to ONE_WEEK_S.
 
-async def save_roles(
-    store: StoreSession,
-    jurisdiction_id: str,
-    case_id: str,
-    subject_role_mapping: dict[str, str],
-) -> None:
-    """Save the roles for a case.
+        Returns:
+            None
+        """
+        if self.inited:
+            return
+        self.jurisdiction_id = jurisdiction_id
+        self.case_id = case_id
+        await self.get_or_set_expiration(ttl)
 
-    Args:
-        store (Store): The store session to use.
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        subject_role_mapping (dict[str, str]): The subject role mapping
+    @ensure_init
+    async def get_or_set_expiration(self, ttl: int) -> int:
+        """Get the expiration time for the case.
 
-    Returns:
-        None
-    """
-    # dict[str, str] is not a strict subtype of Mapping[str | bytes, str | bytes],
-    # even though it is fully compatible.
-    # https://stackoverflow.com/a/72841649
-    srm = cast(SimpleMapping, subject_role_mapping)
-    return await store.hsetmapping(key(jurisdiction_id, case_id, "role"), srm)
+        Returns:
+            int: The expiration time, as a unix timestamp
+        """
+        expires_at = await self._get_expiration()
+        if expires_at:
+            return expires_at
+        return await self._set_expiration(ttl)
 
+    async def _get_expiration(
+        self,
+    ) -> int:
+        """Get the expiration time for a case.
 
-async def get_aliases(
-    store: StoreSession, jurisdiction_id: str, case_id: str
-) -> list[MaskedSubject]:
-    """Get the aliases for a case.
+        Returns:
+            int: The expiration time, as a unix timestamp
+        """
+        return await self.store.expire_time(self.key("expires"))
 
-    Args:
-        store (Store): The store session to use.
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
+    async def _set_expiration(self, ttl: int) -> int:
+        """Set the expiration time for a case.
 
-    Returns:
-        list[MaskedSubject]: The masked subjects.
-    """
-    masks = await store.hgetall(key(jurisdiction_id, case_id, "mask"))
-    return [MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()]
+        Args:
+            ttl (int): The time-to-live in seconds.
+
+        Returns:
+            int: The expiration time, as a unix timestamp
+        """
+        k = self.key("expires")
+        await self.store.set(k, "")
+        await self.store.ttl(k, ttl)
+        return await self.store.expire_time(k)
+
+    @ensure_init
+    async def get_aliases(self) -> list[MaskedSubject]:
+        """Get the aliases for a case.
+
+        Returns:
+            list[MaskedSubject]: The masked subjects.
+        """
+        masks = await self.store.hgetall(self.key("mask"))
+        return [MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()]
+
+    @ensure_init
+    async def save_roles(
+        self,
+        subject_role_mapping: dict[str, str],
+    ) -> None:
+        """Save the roles for a case.
+
+        Args:
+            subject_role_mapping (dict[str, str]): The subject role mapping
+
+        Returns:
+            None
+        """
+        # dict[str, str] is not a strict subtype of Mapping[str | bytes, str | bytes],
+        # even though it is fully compatible.
+        # https://stackoverflow.com/a/72841649
+        srm = cast(SimpleMapping, subject_role_mapping)
+        k = self.key("role")
+        await self.store.hsetmapping(k, srm)
+        await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def get_doc_tasks(self) -> dict[str, str]:
+        """Get the document tasks for a case.
+
+        Returns:
+            dict[str, str]: The document tasks.
+        """
+        result = await self.store.hgetall(self.key("task"))
+        return {k.decode(): v.decode() for k, v in result.items()}
+
+    @ensure_init
+    async def save_doc_task(self, doc_id: str, task_id: str) -> None:
+        """Save a document task ID.
+
+        Args:
+            doc_id (str): The document ID.
+            task_id (str): The task ID.
+
+        Returns:
+            None
+        """
+        k = self.key("task")
+        await self.store.hsetmapping(
+            k,
+            {doc_id: str(task_id)},
+        )
+        await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def save_alias(
+        self, subject_id: str, alias: HumanName, primary: bool = False
+    ) -> None:
+        """Save an alias for a subject.
+
+        Args:
+            subject_id (str): The subject ID.
+            alias (HumanName): The alias.
+            primary (bool, optional): Whether the alias is primary. Defaults to False.
+
+        Returns:
+            None
+        """
+        subject_key = f"aliases:{subject_id}"
+
+        if primary:
+            k = self.key(f"{subject_key}:primary")
+            await self.store.setmodel(k, alias)
+            await self.store.expire_at(k, self.expires_at)
+
+        await self.store.saddmodel(self.key(subject_key), alias)
+        await self.store.expire_at(self.key(subject_key), self.expires_at)
+
+    @ensure_init
+    def key(self, category: str) -> str:
+        """Generate a key for a redis value.
+
+        Args:
+            category (str): The category of the task.
+
+        Returns:
+            str: The key.
+        """
+        return f"{self.jurisdiction_id}:{self.case_id}:{category}"

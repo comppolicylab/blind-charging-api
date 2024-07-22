@@ -75,6 +75,15 @@ class BaseRedisStoreSession(StoreSession):
     async def hgetall(self, key: str) -> dict[bytes, bytes]:
         return await self.client.hgetall(key)
 
+    async def expire_at(self, key: str, expire_at: int):
+        await self.pipe.expireat(key, expire_at)
+
+    async def expire_time(self, key: str) -> int:
+        return await self.pipe.expiretime(key)  # type: ignore
+
+    async def ttl(self, key: str, ttl: int):
+        await self.pipe.expire(key, ttl)
+
 
 class RedisStoreSession(BaseRedisStoreSession):
     def __init__(self, pool: aioredis.ConnectionPool):

@@ -91,6 +91,15 @@ class StoreSession(ABC):
     @abstractmethod
     async def hgetall(self, key: str) -> dict[bytes, bytes]: ...
 
+    @abstractmethod
+    async def expire_at(self, key: str, expire_at: int): ...
+
+    @abstractmethod
+    async def expire_time(self, key: str) -> int: ...
+
+    @abstractmethod
+    async def ttl(self, key: str, ttl: int): ...
+
 
 class Store(ABC):
     async def __aenter__(self):

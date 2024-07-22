@@ -5,7 +5,7 @@ import requests
 from azure.storage.blob import BlobClient
 from pydantic import BaseModel
 
-from ..case import get_aliases
+from ..case import CaseStore
 from ..config import config
 from ..generated.models import (
     Document,
@@ -109,7 +109,9 @@ def get_aliases_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
     async def _get_aliases_with_store() -> list[MaskedSubject]:
         async with config.queue.store.driver() as store:
             async with store.tx() as tx:
-                return await get_aliases(tx, jurisdiction_id, case_id)
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
+                return await cs.get_aliases()
 
     return asyncio.run(_get_aliases_with_store())
 

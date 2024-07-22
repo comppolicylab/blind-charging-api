@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from fastapi import Request
 
-from ..case import get_aliases
+from ..case import CaseStore
 from ..generated.models import BlindReviewInfo, MaskedSubject
 
 
@@ -24,14 +24,15 @@ async def get_blind_review_info(
     subject_id: str | None,
 ) -> BlindReviewInfo:
     """Get the blind review info for a case."""
+    store = CaseStore(request.state.store)
+    await store.init(jurisdiction_id, case_id)
+
     case_entity = CaseEntity(jurisdiction_id, case_id, subject_id)
     blinded = await request.app.state.gater.ft_blind_review(case_entity, deferred=True)
 
     masked_subjects = list[MaskedSubject]()
     if blinded:
-        masked_subjects = await get_aliases(
-            request.state.store, jurisdiction_id, case_id
-        )
+        masked_subjects = await store.get_aliases()
 
     return BlindReviewInfo(
         jurisdictionId=jurisdiction_id,

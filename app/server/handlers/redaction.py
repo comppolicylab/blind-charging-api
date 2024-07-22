@@ -6,7 +6,7 @@ from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
 
-from ..case import get_aliases, get_doc_tasks, save_doc_task, save_roles
+from ..case import CaseStore
 from ..config import config
 from ..generated.models import (
     HumanName as HumanNameModel,
@@ -76,6 +76,9 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
+    store = CaseStore(request.state.store)
+    await store.init(body.jurisdictionId, body.caseId)
+
     logger.debug(f"Received redaction request for {body.jurisdictionId}-{body.caseId}")
 
     subject_ids = set[str]()
@@ -84,18 +87,10 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     for subj in body.subjects:
         subject_role_mapping[subj.subject.subjectId] = subj.role
         for i, alias in enumerate(process_subject(subj)):
-            if i == 0:
-                # TODO - I doln't think the keying of the aliases is quite right
-                await request.state.store.setmodel(
-                    f"aliases:{subj.subject.subjectId}:primary", alias
-                )
-            await request.state.store.saddmodel(
-                f"aliases:{subj.subject.subjectId}", alias
-            )
+            primary = i == 0
+            await store.save_alias(subj.subject.subjectId, alias, primary=primary)
         subject_ids.add(subj.subject.subjectId)
-    await save_roles(
-        request.state.store, body.jurisdictionId, body.caseId, subject_role_mapping
-    )
+    await store.save_roles(subject_role_mapping)
 
     subj_ids_list = list(subject_ids)
 
@@ -109,9 +104,7 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         doc_id = obj.document.root.documentId
         logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
         # Save the task to the database
-        await save_doc_task(
-            request.state.store, body.jurisdictionId, body.caseId, doc_id, str(task_id)
-        )
+        await store.save_doc_task(doc_id, str(task_id))
 
 
 def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
@@ -207,6 +200,9 @@ async def get_redaction_status(
     Returns:
         RedactionStatus: The redaction status summary.
     """
+    store = CaseStore(request.state.store)
+    await store.init(jurisdiction_id, case_id)
+
     redaction_results = list[RedactionResult]()
 
     if subject_id:
@@ -214,8 +210,8 @@ async def get_redaction_status(
 
     # Get the redaction status from the database
     tasks, masked_subjects = await asyncio.gather(
-        get_doc_tasks(request.state.store, jurisdiction_id, case_id),
-        get_aliases(request.state.store, jurisdiction_id, case_id),
+        store.get_doc_tasks(),
+        store.get_aliases(),
     )
 
     for doc_id, task_id in tasks.items():
