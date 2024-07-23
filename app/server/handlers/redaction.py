@@ -26,13 +26,15 @@ from ..generated.models import (
 from ..tasks import (
     CallbackTask,
     FetchTask,
+    FormatTask,
     RedactionTask,
     callback,
     fetch,
+    finalize,
+    format,
     get_result,
     redact,
 )
-from ..tasks.callback import format_document
 
 logger = logging.getLogger(__name__)
 
@@ -171,14 +173,19 @@ def create_document_redaction_task(
 
     cb_task_params = CallbackTask(
         callback_url=callback_url,
+    )
+
+    fmt_task_params = FormatTask(
         target_blob_url=target_blob_url,
     )
 
-    # TODO: error handling, iterative processing
+    # TODO: iterative processing.
     return chain(
         fetch.s(fd_task_params),
         redact.s(r_task_params),
+        format.s(fmt_task_params),
         callback.s(cb_task_params),
+        finalize.s(),
     )
 
 
@@ -267,7 +274,7 @@ async def get_redaction_status(
                             inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="COMPLETE",
-                            redactedDocument=format_document(task_result.result),
+                            redactedDocument=task_result.result.document,
                         )
                     )
                 )

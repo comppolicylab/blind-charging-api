@@ -26,6 +26,9 @@ register_type(FetchTaskResult)
     task_track_started=True,
     task_time_limit=config.queue.task.link_download_timeout_seconds + 30,
     task_soft_time_limit=config.queue.task.link_download_timeout_seconds,
+    max_retries=3,
+    retry_backoff=True,
+    autoretry_for=(Exception,),
 )
 def fetch(params: FetchTask) -> FetchTaskResult:
     """Fetch the content of a document.

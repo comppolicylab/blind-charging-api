@@ -63,7 +63,11 @@ class BaseRedisStoreSession(StoreSession):
         await self.pipe.set(key, value)
 
     async def get(self, key: str) -> bytes | None:
-        await self.pipe.watch(key)
+        # TODO(jnu): We can't watch a key in the middle of a pipeline.
+        # Will have to come up with a way to pre-register keys to watch.
+        # Can probably do this easily just by watching all the keys we
+        # ever use, even though in some cases we won't use all of them.
+        # await self.pipe.watch(key)
         return await self.client.get(key)
 
     async def sadd(self, key: str, *value):
@@ -78,11 +82,9 @@ class BaseRedisStoreSession(StoreSession):
     async def expire_at(self, key: str, expire_at: int):
         await self.pipe.expireat(key, expire_at)
 
-    async def expire_time(self, key: str) -> int:
-        return await self.pipe.expiretime(key)  # type: ignore
-
-    async def ttl(self, key: str, ttl: int):
-        await self.pipe.expire(key, ttl)
+    async def time(self) -> int:
+        t, _ = await self.client.time()
+        return t
 
 
 class RedisStoreSession(BaseRedisStoreSession):
@@ -90,6 +92,7 @@ class RedisStoreSession(BaseRedisStoreSession):
         self.pool = pool
         self.client = aioredis.Redis(connection_pool=self.pool)
         self.pipe = self.client.pipeline(transaction=True)
+        self.pipe.multi()
 
 
 class TestRedisStoreSession(BaseRedisStoreSession):

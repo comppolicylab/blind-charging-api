@@ -119,6 +119,19 @@ class Outcome(Base):
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
 
+class DocumentStatus(Base):
+    __tablename__ = "document_status"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    jurisdiction_id: Mapped[str_256] = mapped_column()
+    case_id: Mapped[str_256] = mapped_column()
+    document_id: Mapped[str_256] = mapped_column()
+    status: Mapped[str_256] = mapped_column()
+    error: Mapped[str_4096] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+
 async def init_db(driver: DbDriver, drop_first: bool = False) -> None:
     """Initialize the database and its tables.
 

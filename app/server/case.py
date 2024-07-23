@@ -1,21 +1,41 @@
+import logging
 from typing import cast
 
 from .generated.models import HumanName, MaskedSubject
 from .store import SimpleMapping, StoreSession
+
+logger = logging.getLogger(__name__)
 
 ONE_WEEK_S = 60 * 60 * 24 * 7
 """One week in seconds."""
 
 
 def ensure_init(func):
-    """Decorator to ensure that the case store is initialized."""
+    """Decorator to ensure that the case store is initialized.
 
-    async def wrapper(self, *args, **kwargs):
-        if not self.inited:
-            raise ValueError("Case store not initialized")
-        return await func(self, *args, **kwargs)
+    Args:
+        func: The function to wrap.
 
-    return wrapper
+    Returns:
+        The wrapped function.
+    """
+    # Check if the func is async
+    if hasattr(func, "__await__"):
+
+        async def async_wrapper(self, *args, **kwargs):
+            if not self.inited:
+                raise ValueError("Case store not initialized")
+            return await func(self, *args, **kwargs)
+
+        return async_wrapper
+    else:
+
+        def sync_wrapper(self, *args, **kwargs):
+            if not self.inited:
+                raise ValueError("Case store not initialized")
+            return func(self, *args, **kwargs)
+
+        return sync_wrapper
 
 
 class CaseStore:
@@ -44,43 +64,21 @@ class CaseStore:
             return
         self.jurisdiction_id = jurisdiction_id
         self.case_id = case_id
-        await self.get_or_set_expiration(ttl)
+        self.expires_at = await self.set_expiration(ttl)
+        logger.debug("CaseStore initialized, will expire at %d", self.expires_at)
 
     @ensure_init
-    async def get_or_set_expiration(self, ttl: int) -> int:
-        """Get the expiration time for the case.
+    async def set_expiration(self, ttl: int) -> int:
+        """Set the expiration time for the case.
 
         Returns:
             int: The expiration time, as a unix timestamp
         """
-        expires_at = await self._get_expiration()
-        if expires_at:
-            return expires_at
-        return await self._set_expiration(ttl)
-
-    async def _get_expiration(
-        self,
-    ) -> int:
-        """Get the expiration time for a case.
-
-        Returns:
-            int: The expiration time, as a unix timestamp
-        """
-        return await self.store.expire_time(self.key("expires"))
-
-    async def _set_expiration(self, ttl: int) -> int:
-        """Set the expiration time for a case.
-
-        Args:
-            ttl (int): The time-to-live in seconds.
-
-        Returns:
-            int: The expiration time, as a unix timestamp
-        """
+        expires_at = await self.store.time() + ttl
         k = self.key("expires")
         await self.store.set(k, "")
-        await self.store.ttl(k, ttl)
-        return await self.store.expire_time(k)
+        await self.store.expire_at(k, expires_at)
+        return expires_at
 
     @ensure_init
     async def get_aliases(self) -> list[MaskedSubject]:
