@@ -56,13 +56,15 @@ def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
 
 
 @cli.command()
-def worker() -> None:
+def worker(
+    liveness_host: str = "127.0.0.1", liveness_port: int = 8001, monitor: bool = True
+) -> None:
     """Run the Celery worker.
 
     This command also starts an HTTP liveness probe on port 8001.
     """
-    with get_liveness_app(host="0.0.0.0", port=8001).run_in_thread():
-        queue.Worker().start()
+    with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
+        queue.Worker(task_events=monitor).start()
 
 
 if __name__ == "__main__":

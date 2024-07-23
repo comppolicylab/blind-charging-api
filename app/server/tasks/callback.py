@@ -46,13 +46,14 @@ def callback(
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
     if params.callback_url:
-        if format_result.redact_error:
+        if format_result.redact_error or not format_result.document:
             body = RedactionResult(
                 RedactionResultError(
                     jurisdictionId=format_result.jurisdiction_id,
                     caseId=format_result.case_id,
-                    inputDocumentId=format_result.document.root.documentId,
-                    error=format_result.redact_error,
+                    inputDocumentId=format_result.document_id,
+                    error=format_result.redact_error
+                    or "Unknown error redacting document",
                     status="ERROR",
                 )
             )
@@ -61,7 +62,7 @@ def callback(
                 RedactionResultSuccess(
                     jurisdictionId=format_result.jurisdiction_id,
                     caseId=format_result.case_id,
-                    inputDocumentId=format_result.document.root.documentId,
+                    inputDocumentId=format_result.document_id,
                     maskedSubjects=get_aliases_sync(
                         format_result.jurisdiction_id, format_result.case_id
                     ),

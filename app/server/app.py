@@ -1,8 +1,10 @@
 import logging
+import os
 import time
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from glowplug import DbDriver
 
 from .config import RdbmsConfig, config
@@ -131,6 +133,13 @@ if config.debug:
         logger.debug(f"Received request: {request.method} {request.url.path}")
         print("\n\n\n", await request.json(), "\n\n\n")
         return "ok"
+
+    # For testing file redaction, mount some public document samples.
+    app.mount(
+        "/sample_data",
+        StaticFiles(directory=os.path.join("app", "server", "sample_data")),
+        name="sample_data",
+    )
 
 
 app.mount("/api/v1", generated_app)

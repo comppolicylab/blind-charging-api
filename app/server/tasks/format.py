@@ -14,9 +14,10 @@ class FormatTask(BaseModel):
 
 
 class FormatTaskResult(BaseModel):
-    document: Document
+    document: Document | None
     jurisdiction_id: str
     case_id: str
+    document_id: str
     redact_error: str | None = None
 
 
@@ -58,6 +59,7 @@ def format(
         document=document,
         jurisdiction_id=redact_result.jurisdiction_id,
         case_id=redact_result.case_id,
+        document_id=redact_result.document_id,
         redact_error=redact_result.error,
     )
 

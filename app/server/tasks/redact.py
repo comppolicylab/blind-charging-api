@@ -93,6 +93,8 @@ def redact(
             )
         else:
             logger.warning(
-                f"Redaction failed for {params.document_id}. Retrying. Error: {e}"
+                f"Redaction failed for {params.document_id}. This task will be retried."
             )
+            logger.error("The exception that caused the failure was:")
+            logger.exception(e)
             raise self.retry() from e

@@ -32,7 +32,7 @@ def finalize(callback_result: CallbackTaskResult) -> FinalizeTaskResult:
             status = DocumentStatus(
                 jurisdiction_id=format_result.jurisdiction_id,
                 case_id=format_result.case_id,
-                document_id=format_result.document.root.documentId,
+                document_id=format_result.document_id,
                 status="ERROR" if format_result.redact_error else "COMPLETE",
                 error=format_result.redact_error,
             )
