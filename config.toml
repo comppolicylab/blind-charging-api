@@ -39,3 +39,11 @@ automigrate = true
 # results will just be stored in an in-memory SQLite database.
 engine = "sqlite"
 path = "test.db"
+
+[processor]
+# Configure the processing pipeline.
+pipe = [
+    { engine = "extract:tesseract" },
+    { engine = "redact:noop", delimiters = ["[", "]"] },
+    { engine = "render:text" },
+]

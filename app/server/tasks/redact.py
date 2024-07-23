@@ -5,6 +5,7 @@ from celery import Task
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
+from ..config import config
 from .fetch import FetchTaskResult
 from .queue import queue
 from .serializer import register_type
@@ -51,24 +52,18 @@ def redact(
                         "engine": "in:memory",
                     },
                     {
-                        "engine": "extract:tesseract",
-                    },
-                    {
-                        "engine": "redact:noop",
-                        "delimiters": ["[", "]"],
-                    },
-                    {
-                        "engine": "render:pdf",
-                    },
-                    {
                         "engine": "out:memory",
                     },
                 ]
             }
         )
+        # Splice in the pipeline from the config. We only fix the I/O engines.
+        pipeline_cfg.pipe[1:1] = config.processor.pipe
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(fetch_result.file_bytes)
         output_buffer = io.BytesIO()
+
+        # Run the pipeline with memory I/O.
         pipeline.run(
             {
                 "in": {"buffer": input_buffer},

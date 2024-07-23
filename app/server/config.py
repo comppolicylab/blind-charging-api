@@ -4,6 +4,12 @@ from pathlib import Path
 from typing import Union
 
 import tomllib
+from blind_charging_core.pipeline import (
+    ExtractConfig,
+    ParseConfig,
+    RedactConfig,
+    RenderConfig,
+)
 from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -29,6 +35,15 @@ StoreConfig = Union[RedisConfig, RedisTestConfig]
 BrokerConfig = Union[RedisConfig, RedisTestConfig]
 
 
+AnyPipelineProcessingConfig = Union[
+    ExtractConfig, ParseConfig, RedactConfig, RenderConfig
+]
+
+
+class ProcessorConfig(BaseModel):
+    pipe: list[AnyPipelineProcessingConfig]
+
+
 class QueueConfig(BaseModel):
     task: TaskConfig = TaskConfig()
     store: StoreConfig = RedisConfig()
@@ -45,6 +60,7 @@ class Config(BaseSettings):
     debug: bool = False
     queue: QueueConfig = QueueConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
+    processor: ProcessorConfig
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:

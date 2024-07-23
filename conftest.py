@@ -25,6 +25,13 @@ automigrate = true
 [experiments.store]
 engine = "sqlite"
 path = ":memory:"
+
+[processor]
+pipe = [
+    { engine = "extract:tesseract" },
+    { engine = "redact:noop", delimiters = ["[", "]"] },
+    { engine = "render:text" },
+]
 """
 
 tmp_config = tempfile.NamedTemporaryFile()
