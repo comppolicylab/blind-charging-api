@@ -382,7 +382,7 @@ typer = "^0.12.3"
 type = "git"
 url = "git@github.com:stanford-policylab/bc2.git"
 reference = "HEAD"
-resolved_reference = "a31354556cdef5d9e32894dcbeb78afc98e0b95a"
+resolved_reference = "99f99e1c455d69e6144dac4b2a28eee238b7985f"
 
 [[package]]
 name = "billiard"
