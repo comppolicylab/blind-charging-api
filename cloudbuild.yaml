@@ -1,19 +1,10 @@
 steps:
   - name: gcr.io/cloud-builders/docker
     secretEnv: ['GH_PAT']
+    entrypoint: bash
     args:
-      - build
-      - '--no-cache'
-      - '-t'
-      - >-
-        $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-      - .
-      - '-f'
-      - Dockerfile
-      - '--build-arg'
-      - 'GH_PAT=$$GH_PAT'
-      - '--platform'
-      - 'linux/amd64'
+      - '-c'
+      - 'docker build --no-cache -t $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA . -f Dockerfile --build-arg GH_PAT=$$GH_PAT --platform linux/amd64'
     id: Build
     env:
     - "DOCKER_BUILDKIT=1"
