@@ -153,14 +153,16 @@ def format_blind_review_outcome(
             review_type=ReviewType.blind,
             decision=blind_decision_to_decision(outcome.blindChargingDecision),
             explanation=outcome.blindChargingDecisionExplanation,
+            additional_evidence=outcome.additionalEvidence,
         )
     elif isinstance(outcome, DisqualifyOutcome):
         return OutcomeDecision(
             review_type=ReviewType.blind,
             decision=Decision.disqualify,
             explanation=outcome.disqualifyingReasonExplanation,
-            disqualifier=outcome.disqualifyingReason,
-            additional_evidence=outcome.additionalEvidence,
+            disqualifier=disqualifying_reason_to_disqualifier(
+                outcome.disqualifyingReason
+            ),
         )
 
     raise ValueError(f"Unknown outcome type: {type(outcome)}")
