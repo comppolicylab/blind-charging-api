@@ -73,8 +73,53 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
     return Config.model_validate(cfg)
 
 
-# The global app configuration
-config = _load_config()
+class LazyObjectProxy:
+    """A proxy object that lazily loads an object when an attribute is accessed."""
+
+    def __init__(self, loader, *args, **kwargs):
+        """Create a new LazyObjectProxy.
+
+        Args:
+            loader (callable): A function that returns the object to be proxied.
+            *args: Positional arguments to pass to the loader.
+            **kwargs: Keyword arguments to pass to the loader.
+        """
+        self._loader = (loader, args, kwargs)
+        self._obj = None
+
+    def __getattr__(self, name):
+        if self._obj is None:
+            f, args, kwargs = self._loader
+            self._obj = f(*args, **kwargs)
+        return getattr(self._obj, name)
+
+    def _reset(self, *args, **kwargs):
+        """Delete the cached object and reset the loader.
+
+        The next time an attribute is accessed, the loader will be
+        called with the new arguments.
+
+        Args:
+            *args: Positional arguments to pass to the loader.
+            **kwargs: Keyword arguments to pass to the loader.
+        """
+        del self._obj
+        self._obj = None
+        self._loader = (self._loader[0], args, kwargs)
+
+
+config = LazyObjectProxy(_load_config)
+"""The application configuration.
+
+This is a shared global object. It's instantiated lazily,
+when the first attribute is accessed.
+
+The config can be reloaded by calling `config._reset()`.
+
+By default the configuration is loaded from the `CONFIG_PATH`
+environment variable, or from `config.toml` in the current directory.
+"""
+
 
 # Set up logging
 _log_level = logging.DEBUG if config.debug else logging.INFO
