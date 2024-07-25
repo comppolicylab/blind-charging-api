@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from ..config import config
 from ..db import Decision, Disqualifier, Exposure, Outcome, ReviewType
 from ..generated.models import (
-    BlindChargeOutcome,
     BlindChargingDecision,
+    BlindDecisionOutcome,
     BlindReviewDecision,
     DisqualifyingReason,
     DisqualifyOutcome,
@@ -145,10 +145,10 @@ def disqualifying_reason_to_disqualifier(reason: DisqualifyingReason) -> Disqual
 
 
 def format_blind_review_outcome(
-    outcome: BlindChargeOutcome | DisqualifyOutcome,
+    outcome: BlindDecisionOutcome | DisqualifyOutcome,
 ) -> OutcomeDecision:
     """Format a BlindReviewDecision outcome into an OutcomeDecision."""
-    if isinstance(outcome, BlindChargeOutcome):
+    if isinstance(outcome, BlindDecisionOutcome):
         return OutcomeDecision(
             review_type=ReviewType.blind,
             decision=blind_decision_to_decision(outcome.blindChargingDecision),
@@ -165,6 +165,7 @@ def format_blind_review_outcome(
             ),
         )
 
+    # This should never happen! throw an error just in case.
     raise ValueError(f"Unknown outcome type: {type(outcome)}")
 
 

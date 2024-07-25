@@ -103,7 +103,7 @@ async def test_outcome_blind_disqualify(api: TestClient, exp_db: DbDriver):
                 "disqualifyingReasonExplanation": (
                     "This case should not have been selected for blind review."
                 ),
-                "outcomeType": "DISQUALIFY",
+                "outcomeType": "DISQUALIFICATION",
             },
         },
         "timestamps": {
@@ -144,7 +144,7 @@ async def test_outcome_blind_decline(api: TestClient, exp_db: DbDriver):
         "decision": {
             "protocol": "BLIND_REVIEW",
             "outcome": {
-                "outcomeType": "CHARGE",
+                "outcomeType": "BLIND_DECISION",
                 "blindChargingDecision": "DECLINE_LIKELY",
                 "blindChargingDecisionExplanation": "This case should not be charged.",
                 "additionalEvidence": "Some additional evidence.",
