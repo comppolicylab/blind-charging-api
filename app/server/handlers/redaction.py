@@ -78,9 +78,11 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     # Process the individuals submitted with the request
     for subj in body.subjects:
         subject_role_mapping[subj.subject.subjectId] = subj.role
-        for i, alias in enumerate(process_subject(subj)):
+        for i, name_variant in enumerate(process_subject(subj)):
             primary = i == 0
-            await store.save_alias(subj.subject.subjectId, alias, primary=primary)
+            await store.save_real_name(
+                subj.subject.subjectId, name_variant, primary=primary
+            )
         subject_ids.add(subj.subject.subjectId)
     await store.save_roles(subject_role_mapping)
 
@@ -208,7 +210,7 @@ async def get_redaction_status(
     # Get the redaction status from the database
     tasks, masked_subjects = await asyncio.gather(
         store.get_doc_tasks(),
-        store.get_aliases(),
+        store.get_masked_names(),
     )
 
     for doc_id, task_id in tasks.items():

@@ -85,7 +85,7 @@ class ObservedRequest:
             f"ObservedRequest(path={self.path}, "
             f"method={self.method}, "
             f"headers={self.headers}, "
-            f"body={self.body.decode()[:64]})"
+            f"body={self.body.decode()})"
         )
 
     def __str__(self) -> str:
@@ -189,7 +189,8 @@ class TestCallbackServer(BackgroundServer):
             while expectation not in self._requests:
                 if (time.monotonic() - start) > timeout:
                     if self._logger:
-                        self._logger.error("Request not received")
+                        self._logger.error("Request not received:")
+                        self._logger.error(expectation)
                         if self._requests:
                             self._logger.error("Other requests were:")
                             for req in self._requests:

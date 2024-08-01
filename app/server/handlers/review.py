@@ -32,7 +32,7 @@ async def get_blind_review_info(
 
     masked_subjects = list[MaskedSubject]()
     if blinded:
-        masked_subjects = await store.get_aliases()
+        masked_subjects = await store.get_masked_names()
 
     return BlindReviewInfo(
         jurisdictionId=jurisdiction_id,

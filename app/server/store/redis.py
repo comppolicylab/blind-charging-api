@@ -1,9 +1,12 @@
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import redis.asyncio as aioredis
 from pydantic import BaseModel
 
 from .store import SimpleMapping, Store, StoreSession
+
+if TYPE_CHECKING:
+    from fakeredis import FakeServer
 
 
 class RedisConfig(BaseModel):
@@ -36,8 +39,22 @@ class RedisTestConfig(BaseModel):
     engine: Literal["test-redis"] = "test-redis"
     url: str = "redis://localhost:6379/0"
 
+    _server: "FakeServer | None" = None
+
     def driver(self) -> "TestRedisStore":
         return TestRedisStore(self)
+
+    @property
+    def server(self):
+        from fakeredis import FakeServer
+
+        if self._server is None:
+            self._server = FakeServer()
+        return self._server
+
+    def reset(self):
+        del self._server
+        self._server = None
 
 
 class BaseRedisStoreSession(StoreSession):
@@ -125,7 +142,7 @@ class TestRedisStore(Store):
     async def init(self):
         from fakeredis import FakeAsyncRedis
 
-        self.client = FakeAsyncRedis()
+        self.client = FakeAsyncRedis(server=self.config.server)
 
     async def close(self):
         await self.client.aclose()

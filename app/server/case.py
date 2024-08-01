@@ -81,7 +81,7 @@ class CaseStore:
         return expires_at
 
     @ensure_init
-    async def get_aliases(self) -> list[MaskedSubject]:
+    async def get_masked_names(self) -> list[MaskedSubject]:
         """Get the aliases for a case.
 
         Returns:
@@ -89,6 +89,16 @@ class CaseStore:
         """
         masks = await self.store.hgetall(self.key("mask"))
         return [MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()]
+
+    @ensure_init
+    async def save_masked_name(self, subject_id: str, mask: str) -> None:
+        """Save a masked name for a subject.
+
+        Returns:
+            None
+        """
+        mapping_key = self.key("mask")
+        await self.store.hsetmapping(mapping_key, {subject_id: mask})
 
     @ensure_init
     async def save_roles(
@@ -140,10 +150,10 @@ class CaseStore:
         await self.store.expire_at(k, self.expires_at)
 
     @ensure_init
-    async def save_alias(
+    async def save_real_name(
         self, subject_id: str, alias: HumanName, primary: bool = False
     ) -> None:
-        """Save an alias for a subject.
+        """Save a real name for a subject.
 
         Args:
             subject_id (str): The subject ID.

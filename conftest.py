@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import pytest
 import pytz
+from fakeredis import FakeRedis
 from fastapi.testclient import TestClient
 from glowplug import DbDriver
 from pytest_celery import (
@@ -357,6 +358,23 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
 def real_queue(celery_setup):
     """Fixture to provide a real Celery queue for testing."""
     return celery_setup
+
+
+@pytest.fixture(autouse=True)
+async def fake_queue_reset(config, request) -> None:
+    """Fixture to reset the fake redis server between tests."""
+    if "real_queue" in request.fixturenames:
+        return
+
+    config.queue.store.reset()
+    config.queue.broker.reset()
+
+
+@pytest.fixture
+async def fake_redis_store(config, fake_queue_reset) -> AsyncGenerator[FakeRedis, None]:
+    """Fixture to provide a fake Redis server for testing."""
+    with FakeRedis(server=config.queue.store.server) as redis:
+        yield redis
 
 
 @pytest.fixture

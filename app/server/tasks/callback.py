@@ -50,7 +50,7 @@ def callback(
     """Post callbacks to the client as requested."""
     if params.callback_url:
         try:
-            masked_subjects = get_aliases_sync(
+            masked_subjects = get_masks_sync(
                 format_result.jurisdiction_id, format_result.case_id
             )
         except Exception:
@@ -99,7 +99,7 @@ def callback(
     )
 
 
-def get_aliases_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
+def get_masks_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
     """Get the masked subjects for a case.
 
     Args:
@@ -110,11 +110,11 @@ def get_aliases_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
         list[MaskedSubject]: The masked subjects.
     """
 
-    async def _get_aliases_with_store() -> list[MaskedSubject]:
+    async def _get_masks_with_store() -> list[MaskedSubject]:
         async with config.queue.store.driver() as store:
             async with store.tx() as tx:
                 cs = CaseStore(tx)
                 await cs.init(jurisdiction_id, case_id)
-                return await cs.get_aliases()
+                return await cs.get_masked_names()
 
-    return asyncio.run(_get_aliases_with_store())
+    return asyncio.run(_get_masks_with_store())
