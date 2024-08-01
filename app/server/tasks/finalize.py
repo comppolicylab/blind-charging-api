@@ -9,7 +9,11 @@ from .serializer import register_type
 
 
 class FinalizeTaskResult(BaseModel):
-    document: Document
+    jurisdiction_id: str
+    case_id: str
+    document_id: str
+    document: Document | None
+    error: str | None = None
 
 
 register_type(FinalizeTaskResult)
@@ -25,9 +29,8 @@ register_type(FinalizeTaskResult)
 )
 def finalize(callback_result: CallbackTaskResult) -> FinalizeTaskResult:
     """Finalize the redaction process."""
+    format_result = callback_result.formatted
     if config.experiments.enabled:
-        format_result = callback_result.formatted
-
         with config.experiments.store.driver.sync_session() as session:
             status = DocumentStatus(
                 jurisdiction_id=format_result.jurisdiction_id,
@@ -39,4 +42,10 @@ def finalize(callback_result: CallbackTaskResult) -> FinalizeTaskResult:
             session.add(status)
             session.commit()
 
-    return FinalizeTaskResult(document=format_result.document)
+    return FinalizeTaskResult(
+        document=format_result.document,
+        jurisdiction_id=format_result.jurisdiction_id,
+        case_id=format_result.case_id,
+        document_id=format_result.document_id,
+        error=format_result.redact_error,
+    )
