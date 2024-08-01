@@ -10,7 +10,7 @@ from glowplug import DbDriver
 from .config import RdbmsConfig, config
 from .db import init_db
 from .features import init_gater
-from .generated import app as generated_app
+from .generated.main import app as generated_app
 
 logger = logging.getLogger(__name__)
 

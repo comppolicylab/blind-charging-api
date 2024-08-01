@@ -39,6 +39,12 @@ jobs:
         working-directory: ${{env.wd}}
         run: poetry run pre-commit run --show-diff-on-failure --all-files
 
-      - name: Test
+      - name: Unit tests
         working-directory: ${{env.wd}}
-        run: poetry run pytest -v
+        run: poetry run pytest ./tests/unit -v
+
+      - name: Integration tests
+        working-directory: ${{env.wd}}
+        env:
+          GH_PAT: ${{secrets.GH_PAT}}
+        run: poetry run pytest ./tests/integration -v

@@ -6,6 +6,8 @@ from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
 
+import app.server.tasks as tasks
+
 from ..case import CaseStore
 from ..config import config
 from ..generated.models import (
@@ -22,18 +24,6 @@ from ..generated.models import (
 )
 from ..generated.models import (
     Subject as SubjectModel,
-)
-from ..tasks import (
-    CallbackTask,
-    FetchTask,
-    FormatTask,
-    RedactionTask,
-    callback,
-    fetch,
-    finalize,
-    format,
-    get_result,
-    redact,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,32 +150,32 @@ def create_document_redaction_task(
     validate_callback_url(callback_url)
     validate_callback_url(target_blob_url)
 
-    fd_task_params = FetchTask(
+    fd_task_params = tasks.FetchTask(
         document=object.document,
     )
 
-    r_task_params = RedactionTask(
+    r_task_params = tasks.RedactionTask(
         document_id=object.document.root.documentId,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
         subject_ids=subject_ids,
     )
 
-    cb_task_params = CallbackTask(
+    cb_task_params = tasks.CallbackTask(
         callback_url=callback_url,
     )
 
-    fmt_task_params = FormatTask(
+    fmt_task_params = tasks.FormatTask(
         target_blob_url=target_blob_url,
     )
 
     # TODO: iterative processing.
     return chain(
-        fetch.s(fd_task_params),
-        redact.s(r_task_params),
-        format.s(fmt_task_params),
-        callback.s(cb_task_params),
-        finalize.s(),
+        tasks.fetch.s(fd_task_params),
+        tasks.redact.s(r_task_params),
+        tasks.format.s(fmt_task_params),
+        tasks.callback.s(cb_task_params),
+        tasks.finalize.s(),
     )
 
 
@@ -223,7 +213,7 @@ async def get_redaction_status(
 
     for doc_id, task_id in tasks.items():
         # Get the status of the task from celery
-        task_result = get_result(task_id)
+        task_result = tasks.get_result(task_id)
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
         if not task_result:

@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from datetime import datetime
-from typing import TYPE_CHECKING, AsyncGenerator, Callable, Generator
+from typing import IO, TYPE_CHECKING, AsyncGenerator, Callable, Generator
 from urllib.parse import urlparse
 
 import pytest
@@ -15,9 +15,13 @@ from pytest_celery import (
     CeleryTestSetup,
     RedisTestBackend,
 )
+from pytest_celery.vendors.worker.container import CeleryWorkerContainer
+from pytest_celery.vendors.worker.defaults import DEFAULT_WORKER_CONTAINER_TIMEOUT
+from pytest_docker_tools import build, container, fxtr
 
 if TYPE_CHECKING:
-    from app.server.config import LazyObjectProxy
+    from app.server.lazy import LazyObjectProxy
+    from tests.integration.testutil import TestCallbackServer
 
 
 DEFAULT_TEST_CONFIG_TPL = """\
@@ -46,8 +50,6 @@ pipe = [
 ]
 """
 
-os.environ["VALIDATE_TOKEN"] = "no"
-
 
 @pytest.fixture
 def logger() -> logging.Logger:
@@ -72,6 +74,11 @@ def sqlite_db_path(request, logger) -> Generator[str, None, None]:
         with tempfile.NamedTemporaryFile() as tmp_db:
             logger.debug("Using temporary SQLite database: %s", tmp_db.name)
             yield tmp_db.name
+
+
+@pytest.fixture
+def sqlite_db_dir(sqlite_db_path) -> str:
+    return os.path.dirname(sqlite_db_path)
 
 
 @pytest.fixture
@@ -103,7 +110,132 @@ def celery_broker_cluster(
 
 
 @pytest.fixture
-def config(sqlite_db_path, request, logger) -> Generator["LazyObjectProxy", None, None]:
+def default_worker_command() -> list[str]:
+    return [
+        "poetry",
+        "run",
+        "python",
+        "-m",
+        "app.server",
+        "worker",
+        "--liveness-port",
+        "10001",
+        "--liveness-host",
+        "0.0.0.0",
+    ]
+
+
+buildargs = CeleryWorkerContainer.buildargs()
+buildargs["GH_PAT"] = os.environ.get("GH_PAT", "")
+bc_celery_worker = build(
+    path=".",
+    dockerfile="Dockerfile",
+    tag="integration-test-celery-worker:latest",
+    buildargs=buildargs,
+    pull=True,
+    platform="linux/amd64",
+    container_limits={"memory": "1g"},
+    network_mode="host",
+)
+
+
+class BcWorkerContainer(CeleryWorkerContainer):
+    @property
+    def ready_prompt(self):
+        return None
+
+
+default_worker_container = container(
+    image="{bc_celery_worker.id}",
+    environment=fxtr("default_worker_env"),
+    network="{default_pytest_celery_network.name}",
+    working_dir="/code",
+    ports={
+        "10001/tcp": 10001,
+    },
+    healthcheck={
+        "test": ["CMD", "curl", "-f", "http://localhost:10001/health"],
+        "interval": 10 * 1_000_000_000,  # 10s, in nanoseconds
+        "timeout": 5 * 1_000_000_000,  # 5s, in nanoseconds
+        "retries": 3,
+        "start_period": 10 * 1_000_000_000,  # 10s, in nanoseconds
+    },
+    volumes={
+        "{celery_container_config_file.name}": {
+            "bind": "/config/config.toml",
+            "mode": "ro",
+        },
+        "{sqlite_db_dir}": {
+            "bind": "{sqlite_db_dir}",
+            "mode": "rw",
+        },
+    },
+    wrapper_class=BcWorkerContainer,
+    timeout=DEFAULT_WORKER_CONTAINER_TIMEOUT,
+    command=fxtr("default_worker_command"),
+)
+
+
+@pytest.fixture
+def config_file() -> Generator[IO, None, None]:
+    with tempfile.NamedTemporaryFile() as tmp_config:
+        yield tmp_config
+
+
+@pytest.fixture
+def celery_container_config_file() -> Generator[IO, None, None]:
+    with tempfile.NamedTemporaryFile() as config_file:
+        yield config_file
+
+
+@pytest.fixture
+def default_worker_env(
+    default_worker_env, celery_container_config_file, sqlite_db_path
+) -> dict:
+    # Format the config file with the environment variables
+    container_broker_url = urlparse(default_worker_env["CELERY_BROKER_URL"])
+    container_backend_url = urlparse(default_worker_env["CELERY_RESULT_BACKEND"])
+    broker_host = container_broker_url.hostname
+    broker_port = container_broker_url.port or 6379
+    broker_db = container_broker_url.path.lstrip("/") or 0
+    store_host = container_backend_url.hostname
+    store_port = container_backend_url.port or 6379
+    store_db = container_backend_url.path.lstrip("/") or 0
+
+    queue_broker_config = "\n".join(
+        [
+            'engine = "redis"',
+            f'host = "{broker_host}"',
+            f"port = {broker_port}",
+            f"database = {broker_db}",
+        ]
+    )
+    queue_store_config = "\n".join(
+        [
+            'engine = "redis"',
+            f'host = "{store_host}"',
+            f"port = {store_port}",
+            f"database = {store_db}",
+        ]
+    )
+
+    cfg = DEFAULT_TEST_CONFIG_TPL.format(
+        db_path=sqlite_db_path,
+        queue_store_config=queue_store_config,
+        queue_broker_config=queue_broker_config,
+    )
+
+    # Write changes to a temporary file
+    celery_container_config_file.write(cfg.encode("utf-8"))
+    celery_container_config_file.flush()
+
+    return default_worker_env
+
+
+@pytest.fixture
+def config(
+    config_file, sqlite_db_path, request, logger
+) -> Generator["LazyObjectProxy", None, None]:
     """Generate a configuration file for a single test.
 
     The config file is parameterized with the paths to the SQLite database
@@ -112,6 +244,7 @@ def config(sqlite_db_path, request, logger) -> Generator["LazyObjectProxy", None
     from app.server.config import config
 
     os.environ["VALIDATE_TOKEN"] = "no"
+    os.environ["CONFIG_PATH"] = config_file.name
 
     # Allow override of the config template with a parameter.
     cfg_tpl = getattr(request, "param", DEFAULT_TEST_CONFIG_TPL)
@@ -155,17 +288,18 @@ def config(sqlite_db_path, request, logger) -> Generator["LazyObjectProxy", None
         queue_broker_config=queue_broker_config,
     )
 
-    with tempfile.NamedTemporaryFile() as tmp_config:
-        # Write new config to a temporary file
-        tmp_config.write(cfg.encode("utf-8"))
-        tmp_config.flush()
+    # Write new config to a temporary file
+    config_file.write(cfg.encode("utf-8"))
+    config_file.flush()
 
-        # Reset the config in memory to point to new file.
-        config._reset(tmp_config.name)
-        logger.debug(f"Using config: {tmp_config.name}")
-        logger.debug(f"Full Config:\n===\n\n{cfg}\n\n===")
+    # Reset the config in memory to point to new file.
+    config._reset(config_file.name)
+    logger.debug(f"Using config: {config_file.name}")
+    logger.debug(f"Full Config:\n===\n\n{cfg}\n\n===")
+    with open("config.test.toml", "w") as f:
+        f.write(cfg)
 
-        yield config
+    yield config
 
 
 @pytest.fixture
@@ -200,7 +334,7 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
 
     The fixture will reference the database and message queue objects.
     """
-    from app import server
+    from app.server.app import app as server
 
     with TestClient(server) as api:
         # NOTE: need to make sure the queue store is initialized within
@@ -223,3 +357,15 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
 def real_queue(celery_setup):
     """Fixture to provide a real Celery queue for testing."""
     return celery_setup
+
+
+@pytest.fixture
+def callback_server(
+    logger: logging.Logger,
+) -> Generator["TestCallbackServer", None, None]:
+    """Fixture to provide another HTTP server for testing callbacks."""
+    from tests.integration.testutil import TestCallbackServer
+
+    cb = TestCallbackServer(logger)
+    with cb.run_in_thread():
+        yield cb

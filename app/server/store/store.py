@@ -65,7 +65,7 @@ class StoreSession(ABC):
             key (str): The key of the set.
             value (BaseModel): The value to add.
         """
-        await self.sadddict(key, value.model_dump())
+        await self.sadddict(key, value.model_dump(mode="json"))
 
     async def setdict(self, key: str, value: dict[str, SimpleType]):
         """Set a dictionary of values.
@@ -83,7 +83,7 @@ class StoreSession(ABC):
             key (str): The key of the set.
             value (BaseModel): The value to set.
         """
-        await self.setdict(key, value.model_dump())
+        await self.setdict(key, value.model_dump(mode="json"))
 
     @abstractmethod
     async def hsetmapping(self, key: str, mapping: SimpleMapping): ...

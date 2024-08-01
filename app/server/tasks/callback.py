@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import requests
 from pydantic import BaseModel
@@ -14,6 +15,8 @@ from ..generated.models import (
 from .format import FormatTaskResult
 from .queue import queue
 from .serializer import register_type
+
+logger = logging.getLogger(__name__)
 
 
 class CallbackTask(BaseModel):
@@ -46,12 +49,21 @@ def callback(
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
     if params.callback_url:
+        try:
+            masked_subjects = get_aliases_sync(
+                format_result.jurisdiction_id, format_result.case_id
+            )
+        except Exception:
+            logger.exception("Error getting masked subjects")
+            masked_subjects = []
+
         if format_result.redact_error or not format_result.document:
             body = RedactionResult(
                 RedactionResultError(
                     jurisdictionId=format_result.jurisdiction_id,
                     caseId=format_result.case_id,
                     inputDocumentId=format_result.document_id,
+                    maskedSubjects=masked_subjects,
                     error=format_result.redact_error
                     or "Unknown error redacting document",
                     status="ERROR",
@@ -63,16 +75,14 @@ def callback(
                     jurisdictionId=format_result.jurisdiction_id,
                     caseId=format_result.case_id,
                     inputDocumentId=format_result.document_id,
-                    maskedSubjects=get_aliases_sync(
-                        format_result.jurisdiction_id, format_result.case_id
-                    ),
+                    maskedSubjects=masked_subjects,
                     redactedDocument=format_result.document,
                     status="COMPLETE",
                 )
             )
         response = requests.post(
             params.callback_url,
-            json=body.model_dump(),
+            json=body.model_dump(mode="json"),
         )
         response.raise_for_status()
 
