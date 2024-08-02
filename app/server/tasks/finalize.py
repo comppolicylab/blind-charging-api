@@ -1,10 +1,12 @@
+import json
+
 from pydantic import BaseModel
 
 from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import Document
 from .callback import CallbackTaskResult
-from .queue import queue
+from .queue import ProcessingError, queue
 from .serializer import register_type
 
 
@@ -13,7 +15,7 @@ class FinalizeTaskResult(BaseModel):
     case_id: str
     document_id: str
     document: Document | None
-    error: str | None = None
+    errors: list[ProcessingError] = []
 
 
 register_type(FinalizeTaskResult)
@@ -36,8 +38,8 @@ def finalize(callback_result: CallbackTaskResult) -> FinalizeTaskResult:
                 jurisdiction_id=format_result.jurisdiction_id,
                 case_id=format_result.case_id,
                 document_id=format_result.document_id,
-                status="ERROR" if format_result.redact_error else "COMPLETE",
-                error=format_result.redact_error,
+                status="ERROR" if format_result.errors else "COMPLETE",
+                error=format_errors(format_result.errors),
             )
             session.add(status)
             session.commit()
@@ -47,5 +49,11 @@ def finalize(callback_result: CallbackTaskResult) -> FinalizeTaskResult:
         jurisdiction_id=format_result.jurisdiction_id,
         case_id=format_result.case_id,
         document_id=format_result.document_id,
-        error=format_result.redact_error,
+        errors=format_result.errors,
     )
+
+
+def format_errors(errors: list[ProcessingError]) -> str | None:
+    if not errors:
+        return None
+    return json.dumps([err.model_dump() for err in errors])

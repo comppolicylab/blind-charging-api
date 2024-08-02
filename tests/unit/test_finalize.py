@@ -4,6 +4,7 @@ from app.server.tasks import (
     CallbackTaskResult,
     FinalizeTaskResult,
     FormatTaskResult,
+    ProcessingError,
     finalize,
 )
 
@@ -25,7 +26,7 @@ def test_finalize_no_experiments_success(config):
             jurisdiction_id="jur1",
             case_id="case1",
             document_id="doc1",
-            redact_error=None,
+            errors=[],
         ),
     )
 
@@ -40,7 +41,7 @@ def test_finalize_no_experiments_success(config):
                 "attachmentType": "LINK",
                 "url": "http://blob.test.local/abc123",
             },
-            "error": None,
+            "errors": [],
         }
     )
 
@@ -56,7 +57,9 @@ def test_finalize_no_experiments_failed(config):
             jurisdiction_id="jur1",
             case_id="case1",
             document_id="doc1",
-            redact_error="error",
+            errors=[
+                ProcessingError(message="error", task="task", exception="Exception")
+            ],
         ),
     )
 
@@ -67,7 +70,7 @@ def test_finalize_no_experiments_failed(config):
             "case_id": "case1",
             "document_id": "doc1",
             "document": None,
-            "error": "error",
+            "errors": [{"message": "error", "task": "task", "exception": "Exception"}],
         }
     )
 
@@ -89,7 +92,7 @@ def test_finalize_experiments_success(config, exp_db):
             jurisdiction_id="jur1",
             case_id="case1",
             document_id="doc1",
-            redact_error=None,
+            errors=[],
         ),
     )
 
@@ -104,7 +107,7 @@ def test_finalize_experiments_success(config, exp_db):
                 "attachmentType": "LINK",
                 "url": "http://blob.test.local/abc123",
             },
-            "error": None,
+            "errors": [],
         }
     )
 
@@ -134,7 +137,9 @@ def test_finalize_experiments_failed(config, exp_db):
             jurisdiction_id="jur1",
             case_id="case1",
             document_id="doc1",
-            redact_error="error",
+            errors=[
+                ProcessingError(message="error", task="task", exception="Exception")
+            ],
         ),
     )
 
@@ -145,7 +150,7 @@ def test_finalize_experiments_failed(config, exp_db):
             "case_id": "case1",
             "document_id": "doc1",
             "document": None,
-            "error": "error",
+            "errors": [{"message": "error", "task": "task", "exception": "Exception"}],
         }
     )
 
@@ -161,4 +166,7 @@ def test_finalize_experiments_failed(config, exp_db):
         )
         assert len(ds) == 1
         assert ds[0].status == "ERROR"
-        assert ds[0].error == "error"
+        assert (
+            ds[0].error
+            == '[{"message": "error", "task": "task", "exception": "Exception"}]'
+        )

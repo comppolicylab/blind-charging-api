@@ -1,6 +1,7 @@
 import asyncio
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 from glowplug import DbDriver
 
@@ -9,6 +10,7 @@ from app.server.db import DocumentStatus
 from .testutil import SAMPLE_DATA_DIR
 
 
+@pytest.mark.skip(reason="Can't run integration tests on CI yet")
 async def test_redact(
     api: TestClient, exp_db: DbDriver, real_queue, callback_server, logger
 ):

@@ -3,7 +3,7 @@ from .fetch import FetchTask, FetchTaskResult, fetch
 from .finalize import FinalizeTaskResult, finalize
 from .format import FormatTask, FormatTaskResult, format
 from .http import get_liveness_app
-from .queue import get_result, queue
+from .queue import ProcessingError, get_result, queue
 from .redact import RedactionTask, RedactionTaskResult, redact
 
 __all__ = [
@@ -24,4 +24,5 @@ __all__ = [
     "FormatTask",
     "FormatTaskResult",
     "format",
+    "ProcessingError",
 ]

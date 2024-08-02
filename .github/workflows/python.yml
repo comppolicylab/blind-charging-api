@@ -19,6 +19,9 @@ jobs:
         with:
           ref: ${{github.head_ref}}
 
+      - name: Set up tesseract
+        run: sudo apt-get install -y tesseract-ocr
+
       - name: Set up poetry
         run: pipx install poetry
 

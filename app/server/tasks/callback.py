@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import requests
@@ -13,7 +14,7 @@ from ..generated.models import (
     RedactionResultSuccess,
 )
 from .format import FormatTaskResult
-from .queue import queue
+from .queue import ProcessingError, queue
 from .serializer import register_type
 
 logger = logging.getLogger(__name__)
@@ -57,15 +58,14 @@ def callback(
             logger.exception("Error getting masked subjects")
             masked_subjects = []
 
-        if format_result.redact_error or not format_result.document:
+        if format_result.errors or not format_result.document:
             body = RedactionResult(
                 RedactionResultError(
                     jurisdictionId=format_result.jurisdiction_id,
                     caseId=format_result.case_id,
                     inputDocumentId=format_result.document_id,
                     maskedSubjects=masked_subjects,
-                    error=format_result.redact_error
-                    or "Unknown error redacting document",
+                    error=format_errors(format_result.errors),
                     status="ERROR",
                 )
             )
@@ -97,6 +97,20 @@ def callback(
         response="[nothing to do]",
         formatted=format_result,
     )
+
+
+def format_errors(errors: list[ProcessingError]) -> str:
+    if not errors:
+        return json.dumps(
+            [
+                {
+                    "message": "Unknown error",
+                    "task": "unknown",
+                    "exception": "UnknownException",
+                }
+            ]
+        )
+    return json.dumps([err.model_dump() for err in errors])
 
 
 def get_masks_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:

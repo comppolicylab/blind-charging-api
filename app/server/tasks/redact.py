@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ..config import config
 from .fetch import FetchTaskResult
-from .queue import queue
+from .queue import ProcessingError, queue
 from .serializer import register_type
 
 logger = get_task_logger(__name__)
@@ -23,7 +23,7 @@ class RedactionTaskResult(BaseModel):
     jurisdiction_id: str
     case_id: str
     document_id: str
-    error: str | None = None
+    errors: list[ProcessingError] = []
     content: bytes | None = None
 
 
@@ -43,7 +43,17 @@ def redact(
     self: Task, fetch_result: FetchTaskResult, params: RedactionTask
 ) -> RedactionTaskResult:
     """Redact a document."""
-    # NOTE(jnu): for now this is just a playground implementation.
+    if fetch_result.errors:
+        # If there are errors from the fetch task, pass through.
+        # There's nothing to redact, but we still want to get through the
+        # chain to the error callback.
+        return RedactionTaskResult(
+            jurisdiction_id=params.jurisdiction_id,
+            case_id=params.case_id,
+            document_id=params.document_id,
+            errors=fetch_result.errors,
+        )
+
     try:
         pipeline_cfg = PipelineConfig.model_validate(
             {
@@ -85,11 +95,12 @@ def redact(
                 f"Redaction failed for {params.document_id} "
                 f"after {self.max_retries} retries. Error: {e}"
             )
+            new_error = ProcessingError.from_exception("redact", e)
             return RedactionTaskResult(
                 jurisdiction_id=params.jurisdiction_id,
                 case_id=params.case_id,
                 document_id=params.document_id,
-                error=str(e),
+                errors=[*fetch_result.errors, new_error],
             )
         else:
             logger.warning(
