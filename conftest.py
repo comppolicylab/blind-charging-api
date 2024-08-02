@@ -47,7 +47,6 @@ path = "{db_path}"
 pipe = [
     {{ engine = "extract:tesseract" }},
     {{ engine = "redact:noop", delimiters = ["[", "]"] }},
-    {{ engine = "render:text" }},
 ]
 """
 

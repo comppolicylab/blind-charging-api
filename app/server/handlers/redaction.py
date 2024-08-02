@@ -14,6 +14,7 @@ from ..generated.models import (
     HumanName as HumanNameModel,
 )
 from ..generated.models import (
+    OutputFormat,
     RedactionRequest,
     RedactionResult,
     RedactionResultError,
@@ -91,7 +92,11 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     # Create a task for each document
     for obj in body.objects:
         task_chain = create_document_redaction_task(
-            body.jurisdictionId, body.caseId, subj_ids_list, obj
+            body.jurisdictionId,
+            body.caseId,
+            subj_ids_list,
+            obj,
+            renderer=body.outputFormat or OutputFormat.PDF,
         )
         # Start the task chain
         task_id = task_chain.apply_async()
@@ -134,7 +139,11 @@ def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
 
 
 def create_document_redaction_task(
-    jurisdiction_id: str, case_id: str, subject_ids: list[str], object: RedactionTarget
+    jurisdiction_id: str,
+    case_id: str,
+    subject_ids: list[str],
+    object: RedactionTarget,
+    renderer: OutputFormat = OutputFormat.PDF,
 ) -> chain:
     """Create database objects representing a document redaction task.
 
@@ -143,6 +152,7 @@ def create_document_redaction_task(
         case_id (str): The case ID.
         subject_ids (list[str]): The IDs of the subjects to redact.
         object (RedactionTarget): The document to redact.
+        renderer (OutputFormat, optional): The output format for the redacted document.
 
     Returns:
         chain: The Celery chain representing the redaction pipeline.
@@ -160,7 +170,7 @@ def create_document_redaction_task(
         document_id=object.document.root.documentId,
         jurisdiction_id=jurisdiction_id,
         case_id=case_id,
-        subject_ids=subject_ids,
+        renderer=renderer,
     )
 
     cb_task_params = tasks.CallbackTask(

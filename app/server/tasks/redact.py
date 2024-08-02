@@ -1,11 +1,18 @@
 import io
 
 from blind_charging_core import Pipeline, PipelineConfig
+from blind_charging_core.pipeline import (
+    HtmlRenderConfig,
+    PdfRenderConfig,
+    RenderConfig,
+    TextRenderConfig,
+)
 from celery import Task
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
 from ..config import config
+from ..generated.models import OutputFormat
 from .fetch import FetchTaskResult
 from .queue import ProcessingError, queue
 from .serializer import register_type
@@ -17,6 +24,7 @@ class RedactionTask(BaseModel):
     document_id: str
     jurisdiction_id: str
     case_id: str
+    renderer: OutputFormat = OutputFormat.PDF
 
 
 class RedactionTaskResult(BaseModel):
@@ -67,8 +75,11 @@ def redact(
                 ]
             }
         )
-        # Splice in the pipeline from the config. We only fix the I/O engines.
-        pipeline_cfg.pipe[1:1] = config.processor.pipe
+        # Splice in the pipeline from the config, and the rendered from the request.
+        # We only fix the I/O engines.
+        pipeline_cfg.pipe[1:1] = config.processor.pipe + [
+            output_format_to_renderer(params.renderer)
+        ]
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(fetch_result.file_bytes)
         output_buffer = io.BytesIO()
@@ -109,3 +120,23 @@ def redact(
             logger.error("The exception that caused the failure was:")
             logger.exception(e)
             raise self.retry() from e
+
+
+def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
+    """Convert OutputFormat enum to renderer pipeline directive.
+
+    Args:
+        output_format (OutputFormat): The output format.
+
+    Returns:
+        RenderConfig: The renderer pipeline directive.
+    """
+    match output_format:
+        case OutputFormat.PDF:
+            return PdfRenderConfig(engine="render:pdf")
+        case OutputFormat.TEXT:
+            return TextRenderConfig(engine="render:text")
+        case OutputFormat.HTML:
+            return HtmlRenderConfig(engine="render:html")
+        case _:
+            raise ValueError(f"Unsupported output format: {output_format}")
