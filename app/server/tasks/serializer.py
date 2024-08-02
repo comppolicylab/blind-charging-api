@@ -3,12 +3,16 @@ import base64
 from kombu.utils.json import register_type as _register_json_type
 from pydantic import AnyUrl, BaseModel
 
+from ..generated.models import OutputFormat
+
 
 def register_type(t: BaseModel):
     _register_json_type(t, t.__name__, t.model_dump, t.model_validate)
 
 
 _register_json_type(AnyUrl, "AnyUrl", str, AnyUrl)
+
+_register_json_type(OutputFormat, "OutputFormat", lambda x: x.value, OutputFormat)
 
 
 def _bytes2json(b: bytes) -> str:
