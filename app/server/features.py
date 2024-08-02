@@ -121,6 +121,7 @@ def init_gater(trace: bool = False) -> Alligater:
                     Variant("blind", True),
                     Variant("control", False),
                     Variant("off", False),
+                    Variant("on", True),
                 ],
                 rollouts=[
                     Rollout(
@@ -137,7 +138,7 @@ def init_gater(trace: bool = False) -> Alligater:
                     Rollout(
                         name=Rollout.DEFAULT,
                         population=Population.DEFAULT,
-                        arms=["off"],
+                        arms=["on"],
                         sticky=False,
                     ),
                 ],
