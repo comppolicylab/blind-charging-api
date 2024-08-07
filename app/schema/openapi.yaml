@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.4.1
+  version: 0.4.2
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -589,6 +589,17 @@ components:
           type: string
           example: "The accused has a history of theft."
 
+    DisqualifyingReason:
+      type: string
+      enum:
+        - ASSIGNED_TO_UNBLIND
+        - CASE_TYPE_INELIGIBLE
+        - PRIOR_KNOWLEDGE_BIAS
+        - NARRATIVE_INCOMPLETE
+        - REDACTION_MISSING
+        - REDACTION_ILLEGIBLE
+        - OTHER
+
     DisqualifyOutcome:
       type: object
       required:
@@ -601,16 +612,14 @@ components:
             - DISQUALIFICATION
           example: DISQUALIFICATION
         disqualifyingReason:
-          type: string
-          enum:
-            - ASSIGNED_TO_UNBLIND
-            - CASE_TYPE_INELIGIBLE
-            - PRIOR_KNOWLEDGE_BIAS
-            - NARRATIVE_INCOMPLETE
-            - REDACTION_MISSING
-            - REDACTION_ILLEGIBLE
-            - OTHER
-          example: CASE_TYPE_INELIGIBLE
+          oneOf:
+            - $ref: "#/components/schemas/DisqualifyingReason"
+              example: PRIOR_KNOWLEDGE_BIAS
+            - type: array
+              minItems: 1
+              items:
+                $ref: "#/components/schemas/DisqualifyingReason"
+              example: [PRIOR_KNOWLEDGE_BIAS, OTHER]
         disqualifyingReasonExplanation:
           type: string
           example: "I have prior knowledge of the individuals involved in this case."

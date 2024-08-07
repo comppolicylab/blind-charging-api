@@ -1,10 +1,17 @@
 import json
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 from ..config import config
-from ..db import Decision, Disqualifier, Exposure, Outcome, ReviewType
+from ..db import (
+    Decision,
+    Disqualifier,
+    Exposure,
+    Outcome,
+    OutcomeDisqualifiers,
+    ReviewType,
+)
 from ..generated.models import (
     BlindChargingDecision,
     BlindDecisionOutcome,
@@ -53,7 +60,14 @@ async def log_outcome(request: Request, body: Review) -> None:
     if not config.experiments.enabled:
         return
 
-    decision_params = format_review_decision(body.decision)
+    try:
+        decision_params = format_review_decision(body.decision)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    decision_params_dict = decision_params.model_dump()
+
+    disqualifiers = decision_params_dict.pop("disqualifiers", [])
 
     outcome = Outcome(
         jurisdiction_id=body.jurisdictionId,
@@ -63,7 +77,8 @@ async def log_outcome(request: Request, body: Review) -> None:
         document_ids=json.dumps(body.documentIds),
         page_open_ts=body.timestamps.pageOpen,
         decision_ts=body.timestamps.decision,
-        **decision_params.model_dump(),
+        disqualifiers=[OutcomeDisqualifiers(disqualifier=d) for d in disqualifiers],
+        **decision_params_dict,
     )
 
     request.state.db.add(outcome)
@@ -76,7 +91,7 @@ class OutcomeDecision(BaseModel):
     review_type: ReviewType
     decision: Decision
     explanation: str
-    disqualifier: Disqualifier | None = None
+    disqualifiers: list[Disqualifier] = []
     additional_evidence: str | None = None
 
 
@@ -124,7 +139,6 @@ def blind_decision_to_decision(blind_decision: BlindChargingDecision) -> Decisio
 
 
 def disqualifying_reason_to_disqualifier(reason: DisqualifyingReason) -> Disqualifier:
-    """Convert a DisqualifyingReason to a Disqualifier."""
     match reason:
         case DisqualifyingReason.ASSIGNED_TO_UNBLIND:
             return Disqualifier.assigned_to_unblind
@@ -144,6 +158,14 @@ def disqualifying_reason_to_disqualifier(reason: DisqualifyingReason) -> Disqual
             raise ValueError(f"Unknown disqualifying reason: {reason}")
 
 
+def disqualifying_reason_to_disqualifiers(
+    reason: DisqualifyingReason | list[DisqualifyingReason],
+) -> list[Disqualifier]:
+    """Convert a DisqualifyingReason to a Disqualifier."""
+    reasons = [reason] if isinstance(reason, DisqualifyingReason) else reason
+    return [disqualifying_reason_to_disqualifier(r) for r in reasons]
+
+
 def format_blind_review_outcome(
     outcome: BlindDecisionOutcome | DisqualifyOutcome,
 ) -> OutcomeDecision:
@@ -156,14 +178,21 @@ def format_blind_review_outcome(
             additional_evidence=outcome.additionalEvidence,
         )
     elif isinstance(outcome, DisqualifyOutcome):
-        return OutcomeDecision(
+        decision = OutcomeDecision(
             review_type=ReviewType.blind,
             decision=Decision.disqualify,
             explanation=outcome.disqualifyingReasonExplanation,
-            disqualifier=disqualifying_reason_to_disqualifier(
+            disqualifiers=disqualifying_reason_to_disqualifiers(
                 outcome.disqualifyingReason
             ),
         )
+
+        # The auto-generated Pydantic model doesn't currently respect the minItems
+        # constraint from the schema, so we need to enforce it manually.
+        if not decision.disqualifiers:
+            raise ValueError("DisqualifyOutcome must have at least one disqualifier")
+
+        return decision
 
     # This should never happen! throw an error just in case.
     raise ValueError(f"Unknown outcome type: {type(outcome)}")

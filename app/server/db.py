@@ -4,9 +4,9 @@ from enum import Enum
 from typing import Optional, Type, TypeVar
 
 from glowplug import DbDriver
-from sqlalchemy import select
+from sqlalchemy import ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String
 from sqlalchemy.types import Enum as SQLEnum
@@ -111,10 +111,27 @@ class Outcome(Base):
     review_type: Mapped[ReviewType] = mapped_column()
     decision: Mapped[Decision] = mapped_column()
     explanation: Mapped[text] = mapped_column(nullable=True)
-    disqualifier: Mapped[Disqualifier] = mapped_column(nullable=True)
+    disqualifiers: Mapped[list["OutcomeDisqualifiers"]] = relationship(
+        "OutcomeDisqualifiers",
+        back_populates="outcome",
+        cascade="all, delete-orphan",
+        uselist=True,
+        lazy="joined",
+    )
     additional_evidence: Mapped[text] = mapped_column(nullable=True)
     page_open_ts: Mapped[datetime] = mapped_column()
     decision_ts: Mapped[datetime] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=nowts)
+    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+
+
+class OutcomeDisqualifiers(Base):
+    __tablename__ = "outcome_disqualifiers"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    outcome_id: Mapped[UUID] = mapped_column(ForeignKey("outcome.id"))
+    outcome: Mapped[Outcome] = relationship("Outcome", back_populates="disqualifiers")
+    disqualifier: Mapped[Disqualifier] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=nowts)
     updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
 
