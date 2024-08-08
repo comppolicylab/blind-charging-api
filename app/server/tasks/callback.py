@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 class CallbackTask(BaseModel):
     callback_url: str | None = None
 
+    def s(self):
+        return callback.s(self)
+
 
 class CallbackTaskResult(BaseModel):
     status_code: int

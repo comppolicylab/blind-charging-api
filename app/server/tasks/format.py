@@ -15,6 +15,9 @@ logger = get_task_logger(__name__)
 class FormatTask(BaseModel):
     target_blob_url: str | None = None
 
+    def s(self):
+        return format.s(self)
+
 
 class FormatTaskResult(BaseModel):
     document: Document | None

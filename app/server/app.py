@@ -97,7 +97,9 @@ async def begin_store_session(request: Request, call_next):
 
 @generated_app.middleware("http")
 async def begin_db_session(request: Request, call_next):
-    async with request.app.state.db.async_session() as session:
+    async with request.app.state.db.async_session_with_args(
+        pool_pre_ping=True
+    )() as session:
         request.state.db = session
         try:
             response = await call_next(request)

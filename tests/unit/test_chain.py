@@ -10,6 +10,7 @@ from app.server.generated.models import Document, DocumentLink, OutputFormat
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
+    FinalizeTask,
     FormatTask,
     RedactionTask,
     callback,
@@ -52,6 +53,13 @@ def test_chain(fake_redis_store: FakeRedis, exp_db):
 
     fmt_task_params = FormatTask()
 
+    ft_task_params = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer=OutputFormat.TEXT,
+    )
+
     responses.add(
         responses.GET,
         "http://test.local/doc1",
@@ -88,7 +96,7 @@ def test_chain(fake_redis_store: FakeRedis, exp_db):
         redact.s(r_task_params),
         format.s(fmt_task_params),
         callback.s(cb_task_params),
-        finalize.s(),
+        finalize.s(ft_task_params),
     ).apply()
 
     with exp_db.sync_session() as session:

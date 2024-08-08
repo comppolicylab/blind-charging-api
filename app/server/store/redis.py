@@ -99,6 +99,12 @@ class BaseRedisStoreSession(StoreSession):
     async def expire_at(self, key: str, expire_at: int):
         await self.pipe.expireat(key, expire_at)
 
+    async def enqueue(self, key: str, value: str):
+        await self.pipe.lpush(key, value)
+
+    async def dequeue(self, key: str) -> bytes | None:
+        return await self.client.rpop(key)
+
     async def time(self) -> int:
         t, _ = await self.client.time()
         return t

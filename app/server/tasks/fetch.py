@@ -15,6 +15,9 @@ logger = get_task_logger(__name__)
 class FetchTask(BaseModel):
     document: Document
 
+    def s(self):
+        return fetch.s(self)
+
 
 class FetchTaskResult(BaseModel):
     document_id: str

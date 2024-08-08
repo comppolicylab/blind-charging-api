@@ -26,6 +26,9 @@ class RedactionTask(BaseModel):
     case_id: str
     renderer: OutputFormat = OutputFormat.PDF
 
+    def s(self):
+        return redact.s(self)
+
 
 class RedactionTaskResult(BaseModel):
     jurisdiction_id: str

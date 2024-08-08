@@ -1,12 +1,14 @@
 import json
 from abc import ABC, abstractmethod
-from typing import Mapping, Union
+from typing import Mapping, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
 SimpleType = Union[bytes, memoryview, str, int, float]
 
 SimpleMapping = Mapping[str | bytes, bytes | float | int | str]
+
+SomeModel = TypeVar("SomeModel", bound=BaseModel)
 
 
 class StoreSession(ABC):
@@ -93,6 +95,59 @@ class StoreSession(ABC):
 
     @abstractmethod
     async def expire_at(self, key: str, expire_at: int): ...
+
+    @abstractmethod
+    async def enqueue(self, key: str, value: str): ...
+
+    @abstractmethod
+    async def dequeue(self, key: str) -> bytes | None: ...
+
+    async def enqueue_model(self, key: str, value: BaseModel):
+        """Enqueue a Pydantic model.
+
+        Args:
+            key (str): The key of the queue.
+            value (BaseModel): The value to enqueue.
+        """
+        await self.enqueue_dict(key, value.model_dump(mode="json"))
+
+    async def enqueue_dict(self, key: str, value: dict[str, SimpleType]):
+        """Enqueue a dictionary.
+
+        Args:
+            key (str): The key of the queue.
+            value (dict[str, SimpleType]): The value to enqueue.
+        """
+        await self.enqueue(key, json.dumps(value, sort_keys=True))
+
+    async def dequeue_dict(self, key: str) -> dict[str, SimpleType] | None:
+        """Dequeue a dictionary.
+
+        Args:
+            key (str): The key of the queue.
+
+        Returns:
+            dict[str, SimpleType] | None: The dequeued value.
+        """
+        value = await self.dequeue(key)
+        if value is None:
+            return None
+        return json.loads(value)
+
+    async def dequeue_model(self, cls: Type[SomeModel], key: str) -> SomeModel | None:
+        """Dequeue a Pydantic model.
+
+        Args:
+            cls (Type[T]): The Pydantic model class.
+            key (str): The key of the queue.
+
+        Returns:
+            T | None: The dequeued value.
+        """
+        value = await self.dequeue_dict(key)
+        if value is None:
+            return None
+        return cls.model_validate(value)
 
     @abstractmethod
     async def time(self) -> int: ...

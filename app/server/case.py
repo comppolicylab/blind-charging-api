@@ -1,13 +1,13 @@
 import logging
 from typing import cast
 
-from .generated.models import HumanName, MaskedSubject
+from .generated.models import HumanName, MaskedSubject, RedactionTarget
 from .store import SimpleMapping, StoreSession
 
 logger = logging.getLogger(__name__)
 
-ONE_WEEK_S = 60 * 60 * 24 * 7
-"""One week in seconds."""
+FOUR_HOURS_S = 4 * 60 * 60
+"""Four hours in seconds."""
 
 
 def ensure_init(func):
@@ -49,13 +49,13 @@ class CaseStore:
     def inited(self) -> bool:
         return bool(self.jurisdiction_id and self.case_id)
 
-    async def init(self, jurisdiction_id: str, case_id: str, ttl: int = ONE_WEEK_S):
+    async def init(self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S):
         """Initialize the case store.
 
         Args:
             jurisdiction_id (str): The jurisdiction ID.
             case_id (str): The case ID.
-            ttl (int, optional): The time-to-live in seconds. Defaults to ONE_WEEK_S.
+            ttl (int, optional): The time-to-live in seconds. Defaults to 4 hours.
 
         Returns:
             None
@@ -148,6 +148,32 @@ class CaseStore:
             {doc_id: str(task_id)},
         )
         await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def save_objects_list(self, objects: list[RedactionTarget]):
+        """Save the objects list for a case.
+
+        Args:
+            objects (list[RedactionTarget]): The objects.
+
+        Returns:
+            None
+        """
+        k = self.key("objects")
+        for obj in objects:
+            await self.store.enqueue_model(k, obj)
+        await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def pop_object(self) -> RedactionTarget | None:
+        """Pop an object from the objects list.
+
+        Returns:
+            RedactionTarget: The object.
+        """
+        k = self.key("objects")
+        obj = await self.store.dequeue_model(RedactionTarget, k)
+        return obj
 
     @ensure_init
     async def save_real_name(

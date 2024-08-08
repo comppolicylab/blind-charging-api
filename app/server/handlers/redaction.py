@@ -2,11 +2,8 @@ import asyncio
 import logging
 from urllib.parse import urlparse
 
-from celery import chain
 from fastapi import HTTPException, Request
 from nameparser import HumanName
-
-import app.server.tasks as tasks
 
 from ..case import CaseStore
 from ..config import config
@@ -21,11 +18,11 @@ from ..generated.models import (
     RedactionResultPending,
     RedactionResultSuccess,
     RedactionStatus,
-    RedactionTarget,
 )
 from ..generated.models import (
     Subject as SubjectModel,
 )
+from ..tasks import create_document_redaction_task
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +56,26 @@ def validate_callback_url(url: str | None) -> None:
         raise HTTPException(status_code=400, detail="Invalid callback URL host")
 
 
+def validate_redaction_request(body: RedactionRequest) -> None:
+    """Validate a redaction request.
+
+    Args:
+        body (RedactionRequest): The request body.
+
+    Raises:
+        HTTPException: If the request is invalid.
+    """
+    if not body.objects:
+        raise HTTPException(status_code=400, detail="No objects to redact")
+    for obj in body.objects:
+        callback_url = str(obj.callbackUrl) if obj.callbackUrl else None
+        target_blob_url = str(obj.targetBlobUrl) if obj.targetBlobUrl else None
+        validate_callback_url(callback_url)
+        # TODO - the SAS url validation should be more involved than just "valid URL."
+        # We can try to use the Azure SDK to validate the URL.
+        validate_callback_url(target_blob_url)
+
+
 async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     """Handle requests to redact a document.
 
@@ -69,6 +86,9 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     Raises:
         HTTPException: If the document content cannot be fetched.
     """
+    # Do some extra validation that Pydantic doesn't currently catch
+    validate_redaction_request(body)
+
     store = CaseStore(request.state.store)
     await store.init(body.jurisdictionId, body.caseId)
 
@@ -89,21 +109,37 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
 
     subj_ids_list = list(subject_ids)
 
-    # Create a task for each document
-    for obj in body.objects:
-        task_chain = create_document_redaction_task(
-            body.jurisdictionId,
-            body.caseId,
-            subj_ids_list,
-            obj,
-            renderer=body.outputFormat or OutputFormat.PDF,
-        )
-        # Start the task chain
-        task_id = task_chain.apply_async()
-        doc_id = obj.document.root.documentId
-        logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
-        # Save the task to the database
-        await store.save_doc_task(doc_id, str(task_id))
+    # TODO(jnu): make sure that document is not currently being redacted!
+    # Basically, it doesn't matter if the document is already redacted, but
+    # we should not start a new redaction task if the document is already being
+    # redacted. This is because we want to iteratively build information about
+    # the case from each document. If we start a new task while a chain is in
+    # progress, we can't use that context.
+    # TODO(jnu): decide if we should just reject the request, or enqueue it.
+
+    # Create a task chain to process the documents. The chain will
+    # iteratively create new chains for each document in the request.
+    task_chain = create_document_redaction_task(
+        body.jurisdictionId,
+        body.caseId,
+        subj_ids_list,
+        body.objects[0],
+        renderer=body.outputFormat or OutputFormat.PDF,
+    )
+
+    if not task_chain:
+        # Unclear why we would ever get here, but throw an error just in case.
+        raise HTTPException(status_code=500, detail="Failed to create redaction task")
+
+    # Save the list of objects that need to be redacted for future reference.
+    await store.save_objects_list(body.objects)
+
+    # Start the task chain
+    task_id = task_chain.apply_async()
+    doc_id = body.objects[0].document.root.documentId
+    logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
+    # Save the new task to the database
+    await store.save_doc_task(doc_id, str(task_id))
 
 
 def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
@@ -136,59 +172,6 @@ def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
     logger.debug(f"Processed {len(aliases)} aliases for {subject.subject.subjectId}.")
 
     return aliases
-
-
-def create_document_redaction_task(
-    jurisdiction_id: str,
-    case_id: str,
-    subject_ids: list[str],
-    object: RedactionTarget,
-    renderer: OutputFormat = OutputFormat.PDF,
-) -> chain:
-    """Create database objects representing a document redaction task.
-
-    Args:
-        jurisdiction_id (str): The jurisdiction ID.
-        case_id (str): The case ID.
-        subject_ids (list[str]): The IDs of the subjects to redact.
-        object (RedactionTarget): The document to redact.
-        renderer (OutputFormat, optional): The output format for the redacted document.
-
-    Returns:
-        chain: The Celery chain representing the redaction pipeline.
-    """
-    callback_url = str(object.callbackUrl) if object.callbackUrl else None
-    target_blob_url = str(object.targetBlobUrl) if object.targetBlobUrl else None
-    validate_callback_url(callback_url)
-    validate_callback_url(target_blob_url)
-
-    fd_task_params = tasks.FetchTask(
-        document=object.document,
-    )
-
-    r_task_params = tasks.RedactionTask(
-        document_id=object.document.root.documentId,
-        jurisdiction_id=jurisdiction_id,
-        case_id=case_id,
-        renderer=renderer,
-    )
-
-    cb_task_params = tasks.CallbackTask(
-        callback_url=callback_url,
-    )
-
-    fmt_task_params = tasks.FormatTask(
-        target_blob_url=target_blob_url,
-    )
-
-    # TODO: iterative processing.
-    return chain(
-        tasks.fetch.s(fd_task_params),
-        tasks.redact.s(r_task_params),
-        tasks.format.s(fmt_task_params),
-        tasks.callback.s(cb_task_params),
-        tasks.finalize.s(),
-    )
 
 
 async def get_redaction_status(
