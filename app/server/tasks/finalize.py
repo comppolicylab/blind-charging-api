@@ -141,7 +141,7 @@ def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget 
                         )
                         return next_object
                     task = get_result(existing_task)
-                    if task.state == "FAILURE":
+                    if task.state not in {"PENDING", "STARTED"}:
                         logging.debug(
                             f"Found failed task for {jurisdiction_id}:{case_id}: "
                             f"{next_object.document.root.documentId}. Retrying."
