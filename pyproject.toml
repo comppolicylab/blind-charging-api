@@ -33,6 +33,7 @@ redis = "^5.0.7"
 azure-storage-blob = "^12.20.0"
 urllib3 = "^2.2.2"
 pytz = "^2024.1"
+flower = "^2.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
