@@ -1,10 +1,92 @@
+import asyncio
 import logging
-from typing import cast
+from typing import NamedTuple, cast
 
+from .enumerator import RoleEnumerator
 from .generated.models import HumanName, MaskedSubject, RedactionTarget
+from .name import human_name_to_str
 from .store import SimpleMapping, StoreSession
 
 logger = logging.getLogger(__name__)
+
+
+SavedMask = NamedTuple("SavedMask", [("role", str), ("mask", str), ("name", str)])
+"""Information about a masked annotation saved in our DB."""
+
+
+class MaskInfo:
+    """A collection of masks for a case."""
+
+    def __init__(self, initial: dict[bytes, SavedMask] | None = None):
+        """Initialize the store optionally with a dictionary of masks.
+
+        Args:
+            initial (dict[bytes, SavedMask], optional): The initial masks.
+        """
+        self._masks = initial or {}
+
+    def get(self, subject_id: bytes) -> SavedMask:
+        """Get the mask info for a subject by ID.
+
+        Args:
+            subject_id (bytes): The subject ID.
+
+        Returns:
+            SavedMask: The mask info.
+        """
+        return self._masks[subject_id]
+
+    def set(self, subject_id: bytes, mask_info: SavedMask):
+        """Set the mask info for a subject by ID.
+
+        Args:
+            subject_id (bytes): The subject ID.
+            mask_info (SavedMask): The mask info.
+        """
+        self._masks[subject_id] = mask_info
+
+    def get_name_mask_map(self) -> dict[str, str]:
+        """Get the map from real names to masks.
+
+        Example:
+            {
+                "John Doe": "Victim 1",
+                "Jane Doe": "Witness 1",
+            }
+
+        Returns:
+            dict[str, str]: The map from real names to masks.
+        """
+        return {v.name: v.mask for v in self._masks.values()}
+
+    def get_mask_name_map(self) -> dict[str, str]:
+        """Get the map from masks to real names.
+
+        Example:
+            {
+                "Victim 1": "John Doe",
+                "Witness 1": "Jane Doe",
+            }
+
+        Returns:
+            dict[str, str]: The map from masks to real names.
+        """
+        return {v.mask: v.name for v in self._masks.values()}
+
+    def get_id_name_map(self) -> dict[str, str]:
+        """Get the map from subject IDs to real names.
+
+        Example:
+            {
+                "1": "John Doe",
+                "2": "Jane Doe",
+            }
+
+        Returns:
+            dict[str, str]: The map from subject IDs to real names.
+        """
+        return {k.decode(): v.name for k, v in self._masks.items()}
+
 
 FOUR_HOURS_S = 4 * 60 * 60
 """Four hours in seconds."""
@@ -120,6 +202,90 @@ class CaseStore:
         k = self.key("role")
         await self.store.hsetmapping(k, srm)
         await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def get_mask_info(self) -> MaskInfo:
+        """Get information about masks for a case.
+
+        Returns:
+            MaskInfo: Description of all masks for a case.
+        """
+        # id_to_role
+        # ---
+        # A map from subject ID to role, e.g.:
+        # {"1": "judge", "2": "attorney"}
+        #
+        # id_to_mask
+        # ---
+        # A map from subject ID to an enumerated role used in the redacted text, e.g.:
+        # {"1": "judge 1", "2": "attorney 1"}
+        id_to_role, id_to_mask = await asyncio.gather(
+            self.store.hgetall(self.key("role")),
+            self.store.hgetall(self.key("mask")),
+        )
+        # Every subject ID in the case that we are tracking, e.g.:
+        # ["1", "2"]
+        all_ids_list = list(id_to_role.keys() | id_to_mask.keys())
+        # The primary name for each subject ID, e.g.:
+        # ["John Doe", "Jane Doe"]
+        all_names_list = await asyncio.gather(
+            *[
+                self.store.getmodel(
+                    HumanName, self.key(f"aliases:{subject_id.decode()}:primary")
+                )
+                for subject_id in all_ids_list
+            ]
+        )
+        # Map from subject ID to real primary name, e.g.:
+        # {"1": "John Doe", "2": "Jane Doe"}
+        id_to_real_name = {
+            k: human_name_to_str(v)
+            for k, v in dict(zip(all_ids_list, all_names_list)).items()
+            if v
+        }
+        # The subject IDs that we know about roles but don't have masks for yet.
+        ids_missing_masks = id_to_role.keys() - id_to_mask.keys()
+
+        # Start generating final metadata, e.g.:
+        # MaskInfo({
+        #   "j1": SavedMask(role="judge", mask="Judge 1", name="John Doe"),
+        #   "a1": SavedMask(role="attorney", mask="Attorney 1", name="Jane Doe"),
+        # })
+        #
+        # First, add the names that we have explicit masks and names for.
+        metadata = MaskInfo(
+            {
+                k: SavedMask(
+                    name=id_to_real_name.get(k, ""),
+                    role=id_to_role.get(k, b"").decode(),
+                    mask=id_to_mask.get(k, b"").decode(),
+                )
+                for k in id_to_mask.keys()
+                if k in id_to_real_name
+            }
+        )
+
+        # Next, create a RoleEnumerator so that we can generate masks for everyone else.
+        try:
+            role_enumerator = RoleEnumerator(v.decode() for v in id_to_mask.values())
+        except ValueError as e:
+            logger.error("Error initializing RoleEnumerator: %s", e)
+            role_enumerator = RoleEnumerator()
+
+        # Generate masks for the remaining IDs.
+        for subject_id in ids_missing_masks:
+            real_name = id_to_real_name.get(subject_id, "")
+            mask = role_enumerator.next_mask(id_to_role[subject_id].decode())
+            metadata.set(
+                subject_id,
+                SavedMask(
+                    name=real_name,
+                    role=id_to_role[subject_id].decode(),
+                    mask=mask,
+                ),
+            )
+
+        return metadata
 
     @ensure_init
     async def get_doc_tasks(self) -> dict[str, str]:

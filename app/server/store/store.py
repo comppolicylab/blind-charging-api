@@ -45,6 +45,35 @@ class StoreSession(ABC):
     @abstractmethod
     async def get(self, key: str) -> bytes | None: ...
 
+    async def getdict(self, key: str) -> dict[str, SimpleType] | None:
+        """Get a dictionary of values.
+
+        Args:
+            key (str): The key of the set.
+
+        Returns:
+            dict[str, SimpleType] | None: The value.
+        """
+        value = await self.get(key)
+        if value is None:
+            return None
+        return json.loads(value)
+
+    async def getmodel(self, cls: Type[SomeModel], key: str) -> SomeModel | None:
+        """Dequeue a Pydantic model.
+
+        Args:
+            cls (Type[T]): The Pydantic model class.
+            key (str): The key of the queue.
+
+        Returns:
+            T | None: The dequeued value.
+        """
+        value = await self.getdict(key)
+        if value is None:
+            return None
+        return cls.model_validate(value)
+
     @abstractmethod
     async def sadd(self, key: str, *value: SimpleType): ...
 

@@ -1,3 +1,4 @@
+import asyncio
 import io
 
 from blind_charging_core import Pipeline, PipelineConfig
@@ -11,6 +12,7 @@ from celery import Task
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
+from ..case import CaseStore, MaskInfo
 from ..config import config
 from ..generated.models import OutputFormat
 from .fetch import FetchTaskResult
@@ -87,13 +89,27 @@ def redact(
         input_buffer = io.BytesIO(fetch_result.file_bytes)
         output_buffer = io.BytesIO()
 
+        # Fetch context about the case from the database.
+        mask_info = get_mask_info_sync(params.jurisdiction_id, params.case_id)
         # Run the pipeline with memory I/O.
-        pipeline.run(
+        ctx = pipeline.run(
             {
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
+                "redact": {"aliases": mask_info.get_mask_name_map()},
+                "inspect": {"subjects": mask_info.get_id_name_map()},
             }
         )
+
+        # Inspect every annotation and merge it into the shared store.
+        if ctx.annotations:
+            save_annotations_sync(ctx.annotations)
+
+        # Inspect result to get new masks
+        if ctx.aliases:
+            # This is a new map from subjectId -> mask.
+            # Join this with the existing data we have stored.
+            save_aliases_sync(ctx.annotations)
 
         content = output_buffer.getvalue()
 
@@ -143,3 +159,50 @@ def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
             return HtmlRenderConfig(engine="render:html")
         case _:
             raise ValueError(f"Unsupported output format: {output_format}")
+
+
+def get_mask_info_sync(jurisdiction_id: str, case_id: str) -> MaskInfo:
+    """Get the names to masks mapping from the database.
+
+    Args:
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+
+    Returns:
+        MaskInfo: Data about masks for the case.
+    """
+
+    async def _fetch():
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
+                return await cs.get_mask_info()
+
+    return asyncio.run(_fetch())
+
+
+def save_annotations_sync(annotations: list[dict]):
+    """Merge annotations into the other context we've saved for this case.
+
+    Args:
+        annotations (list[dict]): The annotations to save.
+    """
+    # TODO - need to clarify which inferred annotations we want to keep, which not.
+    # The inferred annotations can range from names like `Officer 1` which we do
+    # certainly want to keep, to locations like `Street 1` which we probably want
+    # to keep, to generic descriptors for things like hair color or language, such
+    # as `Hair Color 1` which probably doesn't matter as much. The trade-off for
+    # keeping everything is that it could hurt prompt performance by including
+    # too much information; we'd rather have the important stuff right than
+    # many things confused.
+
+
+def save_aliases_sync(aliases: list[dict[str, str]]):
+    """Merge alias map with existing aliases.
+
+    Args:
+        aliases (list[dict[str, str]]): The aliases to save (subjectId -> mask).
+    """
+    # TODO - need to clarify how much this step is necessary; perhaps it will
+    # never provide more information than the input from the request body.
