@@ -14,6 +14,7 @@ from glowplug import MsSqlSettings, SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
+from .authn import AuthnConfig, NoAuthnConfig
 from .lazy import LazyObjectProxy
 from .store import RedisConfig, RedisTestConfig
 
@@ -61,6 +62,7 @@ class Config(BaseSettings):
     debug: bool = False
     queue: QueueConfig = QueueConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
+    authentication: AuthnConfig = NoAuthnConfig()
     processor: ProcessorConfig
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 
 from ..dependencies import *
 from ..handlers import {{tag}}_handler
+from ..auth import ValidateAuth
 
 router = APIRouter(
     tags=['{{tag}}']
@@ -48,6 +49,9 @@ def {{cb_op.function_name}}({{cb_op.snake_case_arguments}}) -> {{cb_op.return_ty
     {% endif %}
     {% if operation.tags%}
     , tags={{operation.tags}}
+    {% endif %}
+    {% if operation.security %}
+    , dependencies=[Depends(ValidateAuth({{ operation.security }}))]
     {% endif %}
     {% if operation.callbacks %}
     , callbacks=_cb_router_{{ operation.function_name }}.routes

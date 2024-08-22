@@ -96,6 +96,14 @@ async def begin_store_session(request: Request, call_next):
 
 
 @generated_app.middleware("http")
+async def begin_authn_session(request: Request, call_next):
+    """Load authentication driver for the request."""
+    request.state.authn = config.authentication.driver
+    request.state.authn_method = config.authentication.method
+    return await call_next(request)
+
+
+@generated_app.middleware("http")
 async def begin_db_session(request: Request, call_next):
     async with request.app.state.db.async_session_with_args(
         pool_pre_ping=True

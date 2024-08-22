@@ -43,6 +43,9 @@ automigrate = true
 engine = "sqlite"
 path = "{db_path}"
 
+[authentication]
+{authentication_config}
+
 [processor]
 pipe = [
     {{ engine = "extract:tesseract" }},
@@ -223,6 +226,7 @@ def default_worker_env(
         db_path=sqlite_db_path,
         queue_store_config=queue_store_config,
         queue_broker_config=queue_broker_config,
+        authentication_config="method = 'none'",
     )
 
     # Write changes to a temporary file
@@ -233,8 +237,13 @@ def default_worker_env(
 
 
 @pytest.fixture
+def authn_config(request) -> str:
+    return getattr(request, "param", "method = 'none'")
+
+
+@pytest.fixture
 def config(
-    config_file, sqlite_db_path, request, logger
+    config_file, sqlite_db_path, request, logger, authn_config
 ) -> Generator["LazyObjectProxy", None, None]:
     """Generate a configuration file for a single test.
 
@@ -286,6 +295,7 @@ def config(
         db_path=sqlite_db_path,
         queue_store_config=queue_store_config,
         queue_broker_config=queue_broker_config,
+        authentication_config=authn_config,
     )
 
     # Write new config to a temporary file
