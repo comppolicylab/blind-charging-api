@@ -40,6 +40,19 @@ async def test_authn_preshared_valid(api: TestClient):
 
 
 @pytest.mark.parametrize(
+    "authn_config", ['method = "preshared"\nsecret = ["s1", "s2"]'], indirect=True
+)
+async def test_authn_preshared_valid_multi(api: TestClient):
+    for secret in ["s1", "s2"]:
+        for method, route in PROTECTED_ROUTES:
+            response = api.request(
+                method, route, headers={"Authorization": f"Bearer {secret}"}
+            )
+            # As long as we don't get 401 or 403 we should be good.
+            assert response.status_code in {200, 422}
+
+
+@pytest.mark.parametrize(
     "authn_config", ["method = 'preshared'\nsecret = 'something'"], indirect=True
 )
 async def test_authn_preshared_corrupted(api: TestClient):
