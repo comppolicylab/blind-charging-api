@@ -1,10 +1,10 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
-from typing import Optional, Type, TypeVar
+from typing import Optional, Type, TypeVar, Union
 
-from glowplug import DbDriver
-from sqlalchemy import ForeignKey, select
+from glowplug import DbDriver, MsSqlSettings, SqliteSettings
+from sqlalchemy import ForeignKey, delete, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
@@ -13,7 +13,11 @@ from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
 
+from .time import NowFn, utcnow
+
 logger = logging.getLogger(__name__)
+
+RdbmsConfig = Union[MsSqlSettings, SqliteSettings]
 
 BaseT = TypeVar("BaseT", bound="Base")
 
@@ -35,11 +39,6 @@ Disqualifier = Enum(
     "assigned_to_unblind case_type_ineligible prior_knowledge_bias "
     "narrative_incomplete redaction_missing redaction_illegible other",
 )
-
-
-def nowts() -> datetime:
-    """Return the current datetime with the timezone set to UTC."""
-    return datetime.now(timezone.utc)
 
 
 def primary_key() -> bytes:
@@ -81,8 +80,8 @@ class Assignment(Base):
     value: Mapped[text] = mapped_column()
     ts: Mapped[datetime] = mapped_column()
     event_id: Mapped[str_256] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=nowts)
-    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
 class Exposure(Base):
@@ -95,8 +94,8 @@ class Exposure(Base):
     document_ids: Mapped[str_4096] = mapped_column()
     reviewer_id: Mapped[str_256] = mapped_column()
     review_type: Mapped[ReviewType] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=nowts)
-    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
 class Outcome(Base):
@@ -121,8 +120,8 @@ class Outcome(Base):
     additional_evidence: Mapped[text] = mapped_column(nullable=True)
     page_open_ts: Mapped[datetime] = mapped_column()
     decision_ts: Mapped[datetime] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=nowts)
-    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
 class OutcomeDisqualifiers(Base):
@@ -132,8 +131,8 @@ class OutcomeDisqualifiers(Base):
     outcome_id: Mapped[UUID] = mapped_column(ForeignKey("outcome.id"))
     outcome: Mapped[Outcome] = relationship("Outcome", back_populates="disqualifiers")
     disqualifier: Mapped[Disqualifier] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(default=nowts)
-    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
 class DocumentStatus(Base):
@@ -145,8 +144,67 @@ class DocumentStatus(Base):
     document_id: Mapped[str_256] = mapped_column()
     status: Mapped[str_256] = mapped_column()
     error: Mapped[str_4096] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=nowts)
-    updated_at: Mapped[datetime] = mapped_column(default=nowts, onupdate=nowts)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
+class Client(Base):
+    __tablename__ = "client"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    name: Mapped[str_256] = mapped_column(unique=True)
+    secret_hash: Mapped[str_256] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
+class Revocation(Base):
+    __tablename__ = "revocation"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    @classmethod
+    async def check(cls, session: AsyncSession, token_id: str) -> bool:
+        """Check if token has been revoked given its JTI.
+
+        Args:
+            session (AsyncSession): The database session.
+            token_id (str): The JTI of the token, as a hex-string.
+
+        Returns:
+            bool: Whether the token has been revoked.
+        """
+        q = select(cls).filter(cls.id == bytes.fromhex(token_id))
+        result = await session.execute(q)
+        return result.scalar_one_or_none() is not None
+
+    @classmethod
+    async def revoke(
+        cls, session: AsyncSession, token_id: str, expires_at: datetime
+    ) -> None:
+        """Revoke a token given its JTI.
+
+        Args:
+            session (AsyncSession): The database session.
+            token_id (str): The JTI of the token, as a hex-string.
+            expires_at (datetime): The expiration time of the token.
+        """
+        r = cls(id=bytes.fromhex(token_id), expires_at=expires_at)
+        session.add(r)
+        await session.commit()
+
+    @classmethod
+    async def vacuum(cls, session: AsyncSession, now: NowFn = utcnow) -> None:
+        """Remove expired tokens.
+
+        Args:
+            session (AsyncSession): The database session
+        """
+        q = delete(cls).filter(cls.expires_at < now())
+        await session.execute(q)
+        await session.commit()
 
 
 async def init_db(driver: DbDriver, drop_first: bool = False) -> None:

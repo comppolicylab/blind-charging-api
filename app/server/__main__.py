@@ -13,9 +13,44 @@ cli = typer.Typer()
 
 
 @cli.command()
+def create_client(name: str) -> None:
+    """Create a new client in the database.
+
+    Args:
+        name (str): The name of the client (will become Client ID)
+
+    Output:
+        Client ID and Client Secret
+    """
+    driver = config.authentication.driver
+    create = getattr(driver, "register_client", None)
+    if not create:
+        logger.error("Client registration is not supported by the current authn driver")
+        return
+
+    async def _run():
+        async with config.authentication.store.driver.async_session() as session:
+            response = await create(session, name)
+            await session.commit()
+            return response
+
+    client = asyncio.run(_run())
+    print(
+        "\n\nSuccessfully created a client. "
+        "Store the Client ID and Client Secret in a safe place. "
+        "We will not be able to retrieve the secret again.\n"
+    )
+    print(f"\tClient Name:\t{name}")
+    print(f"\tClient ID:\t{client.client_id}")
+    print(f"\tClient Secret:\t{client.client_secret}")
+
+
+@cli.command()
 def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
     """Ensure the database exists.
+
     If `wipe` is True, drop the database first.
+
     Args:
         wipe (bool): Whether to drop the database first.
     """

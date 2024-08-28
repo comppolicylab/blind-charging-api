@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 from fastapi import Request
 
+from ..time import NowFn, utcnow
+
 
 class NotAuthenticated(Exception):
     """Raised when a request is not authenticated."""
@@ -11,7 +13,9 @@ class NotAuthenticated(Exception):
 
 class BaseAuthnDriver(ABC):
     @abstractmethod
-    async def validate_request(self, request: Request, scopes: list[str]):
+    async def validate_request(
+        self, request: Request, scopes: list[str], now: NowFn = utcnow
+    ):
         """Validate an incoming request.
 
         Args:

@@ -213,8 +213,81 @@ paths:
         "201":
           description: "Accepted"
 
+  /oauth2/token:
+    post:
+      summary: Get an access token
+      security: []
+      description: |
+        Get an access token to use the API.
+
+        This endpoint is only available if the `client_credentials` flow is configured
+        for the API deployment. If it is not turned on, this endpoint will return a 501.
+      tags:
+        - operations
+      operationId: get-access-token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCredentialsTokenRequest"
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientCredentialsTokenResponse"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "501":
+          description: "Not implemented"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /oauth2/revoke:
+    post:
+      summary: Revoke an access token
+      security: []
+      description: |
+        Revoke an access token.
+
+        This endpoint is only available if the `client_credentials` flow is configured
+        for the API deployment. If it is not turned on, this endpoint will return a 501.
+      tags:
+        - operations
+      operationId: revoke-access-token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientCredentialsRevokeTokenRequest"
+      responses:
+        "200":
+          description: "OK"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "501":
+          description: "Not implemented"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 security:
   - preshared: []
+  - oauth2: []
 
 # Data types
 components:
@@ -223,6 +296,13 @@ components:
     preshared:
       type: http
       scheme: bearer
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: /oauth2/token
+          scopes:
+            default: "The only scope available at this time."
 
   schemas:
 
@@ -233,6 +313,50 @@ components:
       properties:
         message:
           type: string
+
+    ClientCredentialsRevokeTokenRequest:
+      type: object
+      required:
+        - token
+        - client_id
+        - client_secret
+      properties:
+        token:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+
+    ClientCredentialsTokenRequest:
+      type: object
+      required:
+        - grant_type
+        - client_id
+        - client_secret
+      properties:
+        grant_type:
+          type: string
+          enum:
+            - client_credentials
+        client_id:
+          type: string
+        client_secret:
+          type: string
+
+    ClientCredentialsTokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: integer
 
     DocumentLink:
       type: object

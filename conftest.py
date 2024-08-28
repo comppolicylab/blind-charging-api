@@ -323,6 +323,16 @@ async def exp_db(config) -> AsyncGenerator[DbDriver, None]:
 
 
 @pytest.fixture
+async def authn_db(config) -> AsyncGenerator[DbDriver, None]:
+    """Initialize the database for authentication."""
+    from app.server.db import init_db
+
+    await init_db(config.authentication.store.driver, drop_first=True)
+
+    yield config.authentication.store.driver
+
+
+@pytest.fixture
 def now(request, logger) -> Callable[[], datetime]:
     """Fixture to provide a timezone-aware datetime object.
 

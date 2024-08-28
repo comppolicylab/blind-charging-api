@@ -11,6 +11,7 @@ from .config import RdbmsConfig, config
 from .db import init_db
 from .features import init_gater
 from .generated.main import app as generated_app
+from .time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,13 @@ async def handle_exception(request: Request, exc: Exception):
 
 
 @generated_app.middleware("http")
+async def set_time(request: Request, call_next):
+    """Set a function to get the current timestamp."""
+    request.state.now = getattr(request.app.state, "now", utcnow)
+    return await call_next(request)
+
+
+@generated_app.middleware("http")
 async def begin_store_session(request: Request, call_next):
     """Begin a transaction in the store for each request.
 
@@ -100,7 +108,22 @@ async def begin_authn_session(request: Request, call_next):
     """Load authentication driver for the request."""
     request.state.authn = config.authentication.driver
     request.state.authn_method = config.authentication.method
-    return await call_next(request)
+
+    authn_store = getattr(config.authentication, "store", None)
+    if authn_store:
+        async with authn_store.driver.async_session_with_args(
+            pool_pre_ping=True
+        )() as session:
+            request.state.authn_db = session
+            try:
+                response = await call_next(request)
+                await session.commit()
+                return response
+            except Exception as e:
+                await session.rollback()
+                raise e
+    else:
+        return await call_next(request)
 
 
 @generated_app.middleware("http")

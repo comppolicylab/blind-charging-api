@@ -10,18 +10,16 @@ from blind_charging_core.pipeline import (
     RedactConfig,
     RenderConfig,
 )
-from glowplug import MsSqlSettings, SqliteSettings
+from glowplug import SqliteSettings
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from .authn import AuthnConfig, NoAuthnConfig
+from .db import RdbmsConfig
 from .lazy import LazyObjectProxy
 from .store import RedisConfig, RedisTestConfig
 
 logger = logging.getLogger(__name__)
-
-
-RdbmsConfig = Union[MsSqlSettings, SqliteSettings]
 
 
 class TaskConfig(BaseModel):

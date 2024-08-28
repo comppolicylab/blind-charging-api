@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import Request
 from pydantic import BaseModel
 
+from ..time import NowFn, utcnow
 from .base import BaseAuthnDriver, NotAuthenticated
 from .headers import get_bearer_token_from_header
 
@@ -41,7 +42,9 @@ class PresharedSecretAuthnDriver(BaseAuthnDriver):
     def __init__(self, secrets: str | list[str]):
         self._secrets = set(secrets) if isinstance(secrets, list) else {secrets}
 
-    async def validate_request(self, request: Request, scopes: list[str]):
+    async def validate_request(
+        self, request: Request, scopes: list[str], now: NowFn = utcnow
+    ):
         token = get_bearer_token_from_header(request)
         if not token:
             raise NotAuthenticated("Missing bearer token")

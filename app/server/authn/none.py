@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import Request
 from pydantic import BaseModel
 
+from ..time import NowFn, utcnow
 from .base import BaseAuthnDriver
 
 
@@ -16,5 +17,7 @@ class NoAuthnConfig(BaseModel):
 
 
 class NoAuthnDriver(BaseAuthnDriver):
-    async def validate_request(self, request: Request, scopes: list[str]):
+    async def validate_request(
+        self, request: Request, scopes: list[str], now: NowFn = utcnow
+    ):
         pass

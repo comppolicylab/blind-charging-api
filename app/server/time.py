@@ -1,4 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from typing import Callable
+
+NowFn = Callable[[], datetime]
 
 
 def expire_h(hours: float) -> datetime:
@@ -11,3 +14,12 @@ def expire_h(hours: float) -> datetime:
         datetime: The datetime `hours` from now.
     """
     return datetime.now() + timedelta(hours=hours)
+
+
+def utcnow() -> datetime:
+    """Return the current UTC datetime.
+
+    Returns:
+        datetime: The current UTC datetime.
+    """
+    return datetime.now(UTC)
