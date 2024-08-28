@@ -295,7 +295,7 @@ def config(
         db_path=sqlite_db_path,
         queue_store_config=queue_store_config,
         queue_broker_config=queue_broker_config,
-        authentication_config=authn_config,
+        authentication_config=authn_config.format(db_path=sqlite_db_path),
     )
 
     # Write new config to a temporary file

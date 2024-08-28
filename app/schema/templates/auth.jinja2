@@ -18,7 +18,7 @@ class ValidateAuth:
         """
         scopes = self._compile_scopes(request.state.authn_method)
         try:
-            await request.state.authn.validate_request(request, scopes)
+            await request.state.authn.validate_request(request, scopes, now = request.state.now)
         except Exception as e:
             raise HTTPException(status_code=401, detail=str(e))
 
