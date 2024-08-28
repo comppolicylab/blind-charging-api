@@ -8,7 +8,7 @@ info:
     **_This is a draft specification. The objects and routes are subject to revision._**
 
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.5.0
+  version: 0.6.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
