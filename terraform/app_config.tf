@@ -14,6 +14,10 @@ ${var.app_auth != "none" ? "[authentication]\nmethod = \"${var.app_auth}\"\n" : 
 ${(var.app_auth == "client_credentials" || var.app_auth == "preshared") ? "secret = \"${var.app_auth_secret}\"\n" : ""}
 ${var.app_auth == "client_credentials" ? "[authentication.store]\n${local.db_config}\n" : ""}
 
+[metrics]
+engine = "azure"
+connection_string = "${azurerm_application_insights.main.connection_string}"
+
 [queue]
 
 [queue.store]

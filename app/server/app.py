@@ -53,7 +53,7 @@ async def lifespan(api: FastAPI):
         config.experiments.store, automigrate=config.experiments.automigrate
     )
 
-    async with config.queue.store.driver() as store:
+    async with config.queue.store.driver() as store, config.metrics.driver:
         api.state.queue_store = store
         api.state.db = db
         yield

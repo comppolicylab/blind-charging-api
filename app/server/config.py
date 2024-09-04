@@ -17,6 +17,7 @@ from pydantic_settings import BaseSettings
 from .authn import AuthnConfig, NoAuthnConfig
 from .db import RdbmsConfig
 from .lazy import LazyObjectProxy
+from .metrics import AzureMonitorMetricsConfig, NoMetricsConfig
 from .store import RedisConfig, RedisTestConfig
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,8 @@ class TaskConfig(BaseModel):
 StoreConfig = Union[RedisConfig, RedisTestConfig]
 
 BrokerConfig = Union[RedisConfig, RedisTestConfig]
+
+MetricsConfig = Union[AzureMonitorMetricsConfig, NoMetricsConfig]
 
 
 AnyPipelineProcessingConfig = Union[
@@ -60,6 +63,7 @@ class Config(BaseSettings):
     debug: bool = False
     queue: QueueConfig = QueueConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
+    metrics: MetricsConfig = NoMetricsConfig()
     authentication: AuthnConfig = NoAuthnConfig()
     processor: ProcessorConfig
 
