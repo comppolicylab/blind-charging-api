@@ -3,7 +3,7 @@ locals {
 engine = "mssql"
 user = "${var.db_user}"
 password = "${var.db_password}"
-host = "${azurerm_private_endpoint.mssql.custom_dns_configs.0.fqdn}"
+host = "${local.mssql_fqdn}"
 database = "${azurerm_mssql_database.main.name}"
 EOF
 
@@ -22,7 +22,7 @@ connection_string = "${azurerm_application_insights.main.connection_string}"
 
 [queue.store]
 engine = "redis"
-host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
+host = "${local.redis_fqdn}"
 ssl = true
 port = 6380
 password = "${azurerm_redis_cache.main.primary_access_key}"
@@ -31,7 +31,7 @@ db = 0
 [queue.broker]
 engine = "redis"
 ssl = true
-host = "${azurerm_private_endpoint.redis.custom_dns_configs.0.fqdn}"
+host = "${local.redis_fqdn}"
 port = 6380
 password = "${azurerm_redis_cache.main.primary_access_key}"
 db = 1
@@ -49,7 +49,7 @@ ${local.db_config}
 [[processor.pipe]]
 # 1) Extract / OCR with Azure DI
 engine = "extract:azuredi"
-endpoint = "${azurerm_cognitive_account.fr.endpoint}"
+endpoint = "${local.fr_endpoint}"
 api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
 extract_labeled_text = false
 
@@ -57,7 +57,7 @@ extract_labeled_text = false
 # 2) Parse textual output into coherent narrative with OpenAI
 engine = "parse:openai"
 [processor.pipe.client]
-azure_endpoint = "${azurerm_cognitive_account.openai.endpoint}"
+azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 
@@ -86,7 +86,7 @@ please return an empty string.""" }
 engine = "redact:openai"
 delimiters = ["[", "]"]
 [processor.pipe.client]
-azure_endpoint = "${azurerm_cognitive_account.openai.endpoint}"
+azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 

@@ -21,6 +21,10 @@ resource "azurerm_private_endpoint" "fr" {
   }
   private_dns_zone_group {
     name                 = "pdz-cs-fr"
-    private_dns_zone_ids = [azurerm_private_dns_zone.main.id]
+    private_dns_zone_ids = [azurerm_private_dns_zone.fr.id]
   }
+}
+
+locals {
+  fr_endpoint = azurerm_cognitive_account.fr.endpoint
 }

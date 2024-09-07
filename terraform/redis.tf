@@ -24,6 +24,10 @@ resource "azurerm_private_endpoint" "redis" {
 
   private_dns_zone_group {
     name                 = "pdz-redis"
-    private_dns_zone_ids = [azurerm_private_dns_zone.main.id]
+    private_dns_zone_ids = [azurerm_private_dns_zone.redis.id]
   }
+}
+
+locals {
+  redis_fqdn = azurerm_redis_cache.main.hostname
 }

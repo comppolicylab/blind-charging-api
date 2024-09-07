@@ -102,3 +102,8 @@ This should *always* be true in production. Only set to false if you want to dep
 for approval to disable filters. Once approved, re-deploy with this set to true.
 EOF
 }
+
+locals {
+  is_gov_cloud = var.azure_env == "usgovernment"
+  description  = "Whether this configuration uses Azure Government Cloud."
+}

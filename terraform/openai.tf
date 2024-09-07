@@ -69,6 +69,10 @@ resource "azurerm_private_endpoint" "openai" {
   }
   private_dns_zone_group {
     name                 = "pdz-cs-oai"
-    private_dns_zone_ids = [azurerm_private_dns_zone.main.id]
+    private_dns_zone_ids = [azurerm_private_dns_zone.openai.id]
   }
+}
+
+locals {
+  openai_endpoint = azurerm_cognitive_account.openai.endpoint
 }
