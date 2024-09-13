@@ -64,22 +64,7 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
-system = { prompt = """\
-I am providing you with a list of paragraphs extracted from a \
-police report via Azure Document Intelligence.
-
-Please extract any and all paragraphs in this output that were \
-derived from a police narrative. A police narrative is a detailed \
-account of events that occurred during a police incident. It typically \
-includes information such as the date, time, location, and description \
-of the incident, as well as the actions taken by the police officers \
-involved.
-
-You should return back ONLY these paragraphs. Do not return anything \
-else.
-
-If you are unable to identify any police narratives in the output, \
-please return an empty string.""" }
+system = { prompt_id = "parse" }
 
 [[processor.pipe]]
 # 3) Redact racial information with OpenAI
@@ -93,33 +78,6 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
-system = { prompt = """\
-Your job is to redact all race-related information in the provided \
-text. Race-related information is any word from the following strict \
-categories:
-- Explicit mentions of race or ethnicity
-- People's names
-- Physical descriptions: Hair color, eye color, or skin color ONLY
-- Location information: Addresses, neighborhood names, commercial \
-establishment names, or major landmarks
-
-Do NOT redact any other types of information, e.g., do not redact \
-dates, objects, or other types of words not listed here.
-
-Replace any person's name with an abbreviation indicating their role \
-in the incident. For example, for the first mentioned victim, use
-"[Victim 1]". Similarly, for the second mentioned victim, use \
-"[Victim 2]". Be as specific as possible about their role (e.g., \
-"Officer Smith and Sergeant Doe" should become "[Officer 1] and \
-[Sergeant 1]"). If a person's role in the incident is unclear, \
-use a generic “[Person X]” (with X replaced by the appropriate \
-number).
-
-If "John Doe" appears in the list of individuals, and then "Johnny \
-D." appears in the narrative, use context to decide if "Johnny D." \
-should be redacted with the same replacement as "John Doe." \
-Similarly, if "Safeway" appears in the list of locations with \
-abbreviation [Store 1], "Safeway Deli" should be redacted as \
-"[Store 1] Deli".""" }
+system = { prompt_id = "redact" }
 EOF
 }
