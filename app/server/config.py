@@ -43,8 +43,52 @@ AnyPipelineProcessingConfig = Union[
 ]
 
 
-class ProcessorConfig(BaseModel):
+class InlineProcessorConfig(BaseModel):
+    """Define the pipeline directly in the main file."""
+
     pipe: list[AnyPipelineProcessingConfig]
+
+
+class ExternalProcessorConfig(BaseModel):
+    """Load the pipeline from a file or an environment variable."""
+
+    @property
+    def pipe(self) -> list[AnyPipelineProcessingConfig]:
+        pipe_string = self._load_pipe_string()
+        try:
+            data = tomllib.loads(pipe_string)
+            return data["pipe"]
+        except Exception as e:
+            raise ValueError("Invalid pipeline configuration") from e
+
+    def _load_pipe_string(self) -> str:
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class FileProcessorConfig(ExternalProcessorConfig):
+    """Load the pipeline from a file."""
+
+    pipe_file: str
+
+    def _load_pipe_string(self) -> str:
+        """Load the raw pipeline text from a file."""
+        return Path(self.pipe_file).read_text()
+
+
+class EnvProcessorConfig(ExternalProcessorConfig):
+    """Load the pipeline from an environment variable."""
+
+    pipe_env: str
+
+    def _load_pipe_string(self) -> str:
+        """Load the raw pipeline text from an environment variable."""
+        s = os.getenv(self.pipe_env)
+        if s is None:
+            raise ValueError(f"Environment variable {self.pipe_env} is not set")
+        return s
+
+
+ProcessorConfig = Union[InlineProcessorConfig, FileProcessorConfig, EnvProcessorConfig]
 
 
 class QueueConfig(BaseModel):
