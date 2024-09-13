@@ -14,3 +14,4 @@ config.*.toml
 .cache/
 test.db
 .terraform/
+*.tfplan
