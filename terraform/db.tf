@@ -28,7 +28,7 @@ resource "azurerm_private_endpoint" "mssql" {
   name                = format("%s-rbc-mssql-pe", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  subnet_id           = azurerm_subnet.default.id
+  subnet_id           = azurerm_subnet.db.id
   private_service_connection {
     name                           = "mssql-psc"
     private_connection_resource_id = azurerm_mssql_server.main.id

@@ -12,7 +12,7 @@ resource "azurerm_private_endpoint" "fr" {
   name                = format("%s-rbc-cs-fr-pe", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  subnet_id           = azurerm_subnet.default.id
+  subnet_id           = azurerm_subnet.fr.id
   private_service_connection {
     name                           = "cs-fr-psc"
     private_connection_resource_id = azurerm_cognitive_account.fr.id

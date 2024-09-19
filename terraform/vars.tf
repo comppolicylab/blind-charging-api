@@ -44,6 +44,19 @@ variable "expose_app" {
   description = "Expose the app outside of the app environment."
 }
 
+variable "waf" {
+  type        = bool
+  default     = true
+  description = "Enable the Web Application Firewall for the application gateway."
+}
+
+variable "ssl_cert_password" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Password for the SSL certificate."
+}
+
 variable "app_auth" {
   type    = string
   default = "none"

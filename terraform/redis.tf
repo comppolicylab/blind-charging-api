@@ -13,7 +13,7 @@ resource "azurerm_private_endpoint" "redis" {
   name                = format("%s-rbc-redis-pe", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  subnet_id           = azurerm_subnet.default.id
+  subnet_id           = azurerm_subnet.redis.id
 
   private_service_connection {
     name                           = "redis-psc"

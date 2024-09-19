@@ -2,11 +2,15 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.0.1"
+      version = "~> 4.2.0"
     }
     azapi = {
       source  = "azure/azapi"
       version = "~> 1.15.0"
+    }
+    pkcs12 = {
+      source  = "chilicat/pkcs12"
+      version = "~> 0.2.5"
     }
   }
 
@@ -26,6 +30,8 @@ provider "azapi" {
   subscription_id = var.subscription_id
   environment     = var.azure_env
 }
+
+provider "pkcs12" {}
 
 data "azurerm_client_config" "current" {}
 

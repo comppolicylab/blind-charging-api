@@ -18,8 +18,13 @@ resource "azurerm_container_app_environment" "main" {
   }
 }
 
+locals {
+  app_name = format("%s-rbc-app", var.partner)
+  app_fqdn = format("%s.%s", local.app_name, azurerm_container_app_environment.main.default_domain)
+}
+
 resource "azurerm_container_app" "main" {
-  name                         = format("%s-rbc-app", var.partner)
+  name                         = local.app_name
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
   tags                         = var.tags

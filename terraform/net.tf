@@ -11,8 +11,8 @@ resource "azurerm_subnet" "default" {
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
   address_prefixes                              = ["10.0.0.0/24"]
-  private_link_service_network_policies_enabled = true
-  default_outbound_access_enabled               = true
+  private_link_service_network_policies_enabled = false
+  default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "app" {
@@ -33,6 +33,61 @@ resource "azurerm_subnet" "app" {
   }
 }
 
+resource "azurerm_subnet" "redis" {
+  name                                          = "redis"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = ["10.0.2.0/24"]
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
+resource "azurerm_subnet" "fr" {
+  name                                          = "fr"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = ["10.0.3.0/24"]
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
+resource "azurerm_subnet" "db" {
+  name                                          = "db"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = ["10.0.4.0/24"]
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
+resource "azurerm_subnet" "openai" {
+  name                                          = "openai"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = ["10.0.5.0/24"]
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
+resource "azurerm_subnet" "gateway" {
+  name                                          = "gateway"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = ["10.0.6.0/24"]
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
+resource "azurerm_subnet" "gateway-pl" {
+  name                 = "gateway-pl"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.0.7.0/24"]
+  # Confusingly, this must be false to enable private link.
+  private_link_service_network_policies_enabled = false
+  default_outbound_access_enabled               = true
+}
+
 resource "azurerm_private_dns_zone" "openai" {
   name                = "privatelink.openai.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
@@ -51,6 +106,36 @@ resource "azurerm_private_dns_zone" "mssql" {
 resource "azurerm_private_dns_zone" "redis" {
   name                = "privatelink.redis.cache.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
   resource_group_name = azurerm_resource_group.main.name
+}
+
+resource "azurerm_private_dns_zone" "app" {
+  name                = azurerm_container_app_environment.main.default_domain
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+resource "azurerm_private_dns_a_record" "app_wildcard" {
+  count               = var.expose_app ? 1 : 0
+  name                = "*"
+  zone_name           = azurerm_private_dns_zone.app.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  records             = [azurerm_container_app_environment.main.static_ip_address]
+}
+
+resource "azurerm_private_dns_a_record" "app_exact" {
+  count               = var.expose_app ? 1 : 0
+  name                = "@"
+  zone_name           = azurerm_private_dns_zone.app.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  records             = [azurerm_container_app_environment.main.static_ip_address]
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "app" {
+  name                  = format("%s-app-dns-link", var.partner)
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.app.name
+  virtual_network_id    = azurerm_virtual_network.main.id
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
@@ -79,4 +164,13 @@ resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.redis.name
   virtual_network_id    = azurerm_virtual_network.main.id
+}
+
+resource "azurerm_public_ip" "gateway" {
+  count               = var.expose_app ? 1 : 0
+  name                = format("%s-rbc-gateway-ip", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
 }
