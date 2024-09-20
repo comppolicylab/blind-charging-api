@@ -45,7 +45,7 @@ To do so, open a bash shell in the `rbc-api`in the container in the "Console" ta
 Then, run the following command:
 
 ```bash
-python -m app.server create-client '<your name>'
+python -m cli create-client '<your name>'
 ```
 
 Replace `<your name>` with some reasonable identifier for this client.

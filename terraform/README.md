@@ -29,6 +29,8 @@ Make a new `<my-new-env>.tfvars` file with the relevant values.
 (See `./vars.tf` for more information on the available options.)
 The Harvard team will need to provision some of these values.
 
+**NOTE** See [the CLI `provision` command](../cli/README.md) for help generating this file.
+
 ### 4. Run Terraform
 
 If you don't have the Terraform CLI installed yet, [set that up](https://developer.hashicorp.com/terraform/install).
