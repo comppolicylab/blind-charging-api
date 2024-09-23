@@ -92,7 +92,7 @@ class ObservedRequest:
         return self.__repr__()
 
 
-class TestCallbackServer(BackgroundServer):
+class MockCallbackServer(BackgroundServer):
     def __init__(self, logger: logging.Logger | None = None):
         self._requests = list[ObservedRequest]()
         self._condition = Condition()

@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -43,6 +44,7 @@ async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
     return store.driver
 
 
+@asynccontextmanager
 async def lifespan(api: FastAPI):
     """Setup and teardown logic for the server."""
     logger.warning("Starting up ...")

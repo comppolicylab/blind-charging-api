@@ -8,7 +8,7 @@ from glowplug import DbDriver
 
 from app.server.db import DocumentStatus
 
-from .testutil import SAMPLE_DATA_DIR, TestCallbackServer
+from .testutil import SAMPLE_DATA_DIR, MockCallbackServer
 
 
 @pytest.mark.skip(reason="Can't run integration tests on CI yet")
@@ -16,7 +16,7 @@ async def test_redact(
     api: TestClient,
     exp_db: DbDriver,
     real_queue: None,
-    callback_server: TestCallbackServer,
+    callback_server: MockCallbackServer,
     logger: Logger,
 ):
     request = {

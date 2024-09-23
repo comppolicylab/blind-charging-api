@@ -1,7 +1,9 @@
 import asyncio
 import logging
+from pathlib import Path
 
 import typer
+from fastapi_cli.cli import run
 
 from app.server.config import config
 from app.server.db import init_db
@@ -102,6 +104,21 @@ def worker(
     """
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
         queue.Worker(task_events=monitor).start()
+
+
+@_cli.command()
+def api(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    workers: int = 1,
+    proxy_headers: bool = False,
+) -> None:
+    """Run the API server.
+
+    Run the API HTTP server on the given host and port.
+    """
+    app_path = Path(__file__).parent.parent / "app" / "server" / "app.py"
+    run(app_path, host=host, port=port, workers=workers, proxy_headers=proxy_headers)
 
 
 init_provision_cli(_cli)
