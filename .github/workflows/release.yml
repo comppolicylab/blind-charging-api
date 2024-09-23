@@ -18,7 +18,7 @@ jobs:
 
       - name: Configure git
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config --global user.name "RBC Bot (GitHub Actions)"
           git config --global user.email "jnudell+rbcbot@hks.harvard.edu"
