@@ -73,19 +73,25 @@ jobs:
           lfs: false
           persist-credentials: false
 
-      - name: Set up SSH - bc2
-        uses: MrSquaare/ssh-setup-action@v3
-        with:
-          host: github.com
-          private-key: ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-          private-key-name: bc2-deploy-key
+      # - name: Set up SSH - bc2
+      #   uses: MrSquaare/ssh-setup-action@v3
+      #   with:
+      #     host: github.com
+      #     private-key: ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
+      #     private-key-name: bc2-deploy-key
 
-      - name: Set up SSH - alligater
-        uses: MrSquaare/ssh-setup-action@v3
+      # - name: Set up SSH - alligater
+      #   uses: MrSquaare/ssh-setup-action@v3
+      #   with:
+      #     host: github.com
+      #     private-key: ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
+      #     private-key-name: alligater-deploy-key
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: github.com
-          private-key: ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
-          private-key-name: alligater-deploy-key
+          ssh-private-key: |
+            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
+            ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
