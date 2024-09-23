@@ -6,8 +6,13 @@ on:
     paths: [pyproject.toml, app/schema/openapi.yaml]
 
 jobs:
+
+  # Tag the API and schema based on version specified in their files
   tag:
     runs-on: ubuntu-latest
+    outputs:
+      api_release: ${{ steps.api.outputs.release }}
+      api_version: ${{ steps.api.outputs.version }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -26,18 +31,18 @@ jobs:
           git fetch --tags
 
       - name: Tag API based on pyproject.toml version
-        id: apitag
+        id: api
         run: |
           API_VERSION=$(cat pyproject.toml | grep '^version' | awk '{print$3}' | sed 's/"//g')
+          echo "version=$API_VERSION" >> "$GITHUB_OUTPUT"
 
           if git rev-parse "api-$API_VERSION" >/dev/null 2>&1; then
             echo "Tag api-$API_VERSION already exists"
-            echo "::set-output name=release::false"
-            echo "::set-output name=version::$API_VERSION"
+            echo "release=false" >> "$GITHUB_OUTPUT"
           else
             git tag -a "api-$API_VERSION" -m "[auto] API version $API_VERSION"
             echo "Tagged api-$API_VERSION"
-            echo "::set-output name=release::true"
+            echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Tag schema based on openapi.yaml
@@ -55,9 +60,10 @@ jobs:
         run: git push origin main --tags
 
 
+  # Create Docker image and push to Azure Container Registry
   docker:
     needs: [tag]
-    if: needs.tag.outputs.release == 'true'
+    if: needs.tag.outputs.api_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -99,7 +105,7 @@ jobs:
         with:
           ssh: default
           push: true
-          tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ steps.apitag.outputs.version }}
+          tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
 
 
   # Create GitHub release with notes
@@ -117,8 +123,8 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          name: v${{ steps.apitag.outputs.version }}
-          tag_name: api-${{ steps.apitag.outputs.version }}
+          name: v${{ needs.tag.outputs.api_version }}
+          tag_name: api-${{ needs.tag.outputs.api_version }}
           prerelease: false
           make_latest: true
           generate_release_notes: true
@@ -126,8 +132,9 @@ jobs:
       - name: Post Slack message
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          API_VERSION: ${{ needs.tag.outputs.api_version }}
         run: |
-          MSG="Released blind-charging-api v${{ steps.apitag.outputs.version }} :tada:"
+          MSG="Released blind-charging-api v$API_VERSION :tada:"
 
           curl -X POST -H 'Content-Type: application/json' \
             --data "{\"text\": \"$MSG\", \"blocks\": [{\"type\":\"section\", \"text\": {\"type\": \"plain_text\", \"text\": \"$MSG\", \"emoji\": true}}]}" \
