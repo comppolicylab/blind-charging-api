@@ -1,16 +1,19 @@
 import asyncio
 import logging
+import os
 from pathlib import Path
+from typing import Optional
 
 import typer
+from fastapi_cli.cli import dev as _dev
 from fastapi_cli.cli import run
-
-from app.server.config import config
-from app.server.db import init_db
-from app.server.tasks import get_liveness_app, queue
 
 from .provision import init_provision_cli
 
+_APP_ROOT = Path(__file__).parent.parent
+_APP_PATH = _APP_ROOT / "app" / "server" / "app.py"
+
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 _cli = typer.Typer()
@@ -26,6 +29,8 @@ def create_client(name: str) -> None:
     Output:
         Client ID and Client Secret
     """
+    from app.server.config import config
+
     driver = config.authentication.driver
     create = getattr(driver, "register_client", None)
     if not create:
@@ -58,6 +63,9 @@ def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
     Args:
         wipe (bool): Whether to drop the database first.
     """
+    from app.server.config import config
+    from app.server.db import init_db
+
     driver = config.experiments.store.driver
     from_scratch = asyncio.run(driver.is_blank_slate())
 
@@ -84,6 +92,8 @@ def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
 @_cli.command()
 def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
     """Run the database migrations."""
+    from app.server.config import config
+
     driver = config.experiments.store.driver
     if downgrade:
         logger.info("Downgrading database to revision %s", revision)
@@ -102,6 +112,8 @@ def worker(
 
     This command also starts an HTTP liveness probe on port 8001.
     """
+    from app.server.tasks import get_liveness_app, queue
+
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
         queue.Worker(task_events=monitor).start()
 
@@ -117,8 +129,33 @@ def api(
 
     Run the API HTTP server on the given host and port.
     """
-    app_path = Path(__file__).parent.parent / "app" / "server" / "app.py"
-    run(app_path, host=host, port=port, workers=workers, proxy_headers=proxy_headers)
+    run(_APP_PATH, host=host, port=port, workers=workers, proxy_headers=proxy_headers)
+
+
+@_cli.command()
+def dev(
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    reload: bool = True,
+    config: Optional[str] = None,
+) -> None:
+    """Run the API server in development mode."""
+    if config:
+        logger.info("Using config file: %s", config)
+        os.environ["CONFIG_PATH"] = config
+    elif "CONFIG_PATH" not in os.environ:
+        # Try to set a smart default for the config path
+        local_config_path = _APP_ROOT / "config.local.toml"
+        if local_config_path.exists():
+            abs_config_path = str(local_config_path.absolute())
+            logger.info("Detected local config file: %s", abs_config_path)
+            os.environ["CONFIG_PATH"] = abs_config_path
+        else:
+            logger.warning("No config file specified. Using default.")
+    else:
+        logger.info("Using config file: %s", os.environ["CONFIG_PATH"])
+
+    _dev(_APP_PATH, host=host, port=port, reload=reload)
 
 
 init_provision_cli(_cli)

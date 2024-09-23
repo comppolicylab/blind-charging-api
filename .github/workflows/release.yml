@@ -1,0 +1,134 @@
+name: Release Blind Charging API
+
+on:
+  push:
+    branches: [main]
+    paths: [pyproject.toml, app/schema/openapi.yaml]
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{github.head_ref}}
+          lfs: false
+          persist-credentials: false
+
+      - name: Configure git
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.name "RBC Bot (GitHub Actions)"
+          git config --global user.email "jnudell+rbcbot@hks.harvard.edu"
+          git config http.extraHeader "Authorization: Basic $(echo -n $GITHUB_TOKEN | base64)"
+          git fetch --tags
+
+      - name: Tag API based on pyproject.toml version
+        id: apitag
+        run: |
+          API_VERSION=$(cat pyproject.toml | grep '^version' | awk '{print$3}' | sed 's/"//g')
+
+          if git rev-parse "api-$API_VERSION" >/dev/null 2>&1; then
+            echo "Tag api-$API_VERSION already exists"
+            echo "::set-output name=release::false"
+            echo "::set-output name=version::$API_VERSION"
+          else
+            git tag -a "api-$API_VERSION" -m "[auto] API version $API_VERSION"
+            echo "Tagged api-$API_VERSION"
+            echo "::set-output name=release::true"
+          fi
+
+      - name: Tag schema based on openapi.yaml
+        run: |
+          SCHEMA_VERSION=$(cat app/schema/openapi.yaml | grep '^  version' | awk '{print$2}' | sed 's/"//g')
+
+          if git rev-parse "schema-$SCHEMA_VERSION" >/dev/null 2>&1; then
+            echo "Tag schema-$SCHEMA_VERSION already exists"
+          else
+            git tag -a "schema-$SCHEMA_VERSION" -m "[auto] Schema version $SCHEMA_VERSION"
+            echo "Tagged schema-$SCHEMA_VERSION"
+          fi
+
+      - name: Push tags
+        run: git push origin main --tags
+
+
+  docker:
+    needs: [tag]
+    if: needs.tag.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{github.head_ref}}
+          lfs: false
+          persist-credentials: false
+
+      - name: Set up SSH - bc2
+        uses: MrSquaare/ssh-setup-action@v3
+        with:
+          host: github.com
+          private-key: ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
+          private-key-name: bc2-deploy-key
+
+      - name: Set up SSH - alligater
+        uses: MrSquaare/ssh-setup-action@v3
+        with:
+          host: github.com
+          private-key: ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
+          private-key-name: alligater-deploy-key
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to private registry
+        uses: docker/login-action@v3
+        with:
+          registry: blindchargingapi.azurecr.io
+          username: blindchargingapi
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          ssh: default
+          push: true
+          tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ steps.apitag.outputs.version }}
+
+
+  # Create GitHub release with notes
+  release:
+    needs: [tag, docker]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{github.head_ref}}
+          lfs: false
+          persist-credentials: false
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.apitag.outputs.version }}
+          tag_name: api-${{ steps.apitag.outputs.version }}
+          prerelease: false
+          make_latest: true
+          generate_release_notes: true
+
+      - name: Post Slack message
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          MSG="Released blind-charging-api v${{ steps.apitag.outputs.version }} :tada:"
+
+          curl -X POST -H 'Content-Type: application/json' \
+            --data "{\"text\": \"$MSG\", \"blocks\": [{\"type\":\"section\", \"text\": {\"type\": \"plain_text\", \"text\": \"$MSG\", \"emoji\": true}}]}" \
+            $SLACK_WEBHOOK

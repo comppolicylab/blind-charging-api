@@ -117,6 +117,8 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
     if not Path(path).exists():
         logger.warning(f"Config file not found: {path}")
         return Config()
+    else:
+        logger.info(f"Loading config file: {path}")
     raw_cfg = Path(path).read_text()
     cfg = tomllib.loads(raw_cfg)
     return Config.model_validate(cfg)
