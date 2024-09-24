@@ -73,26 +73,6 @@ jobs:
           lfs: false
           persist-credentials: false
 
-      # - name: Set up SSH - bc2
-      #   uses: MrSquaare/ssh-setup-action@v3
-      #   with:
-      #     host: github.com
-      #     private-key: ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-      #     private-key-name: bc2-deploy-key
-
-      # - name: Set up SSH - alligater
-      #   uses: MrSquaare/ssh-setup-action@v3
-      #   with:
-      #     host: github.com
-      #     private-key: ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
-      #     private-key-name: alligater-deploy-key
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
-            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -106,13 +86,36 @@ jobs:
           username: blindchargingapi
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
+            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
+
+      # The webfactory/ssh-agent step generates a .gitconfig and .ssh/config
+      # that need to be 1) copied into the build context, and 2) injected into
+      # the Dockerfile so that the build can access private repositories.
+      - name: Patch git and ssh in Dockerfile
+        run: |
+          mkdir -p custom-config
+          cp -r ~/.gitconfig ~/.ssh custom-config/
+          ed -s Dockerfile <<EOF
+          /WORKDIR/
+          i
+          COPY custom-config/.gitconfig /root/.gitconfig
+          COPY custom-config/.ssh /root/.ssh
+          .
+          w
+          q
+          EOF
+
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
-          ssh: default=${{ env.SSH_AUTH_SOCK }}
+          ssh: default
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
-
 
   # Create GitHub release with notes
   release:
