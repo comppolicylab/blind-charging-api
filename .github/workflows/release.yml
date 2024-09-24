@@ -107,6 +107,7 @@ jobs:
           i
           COPY custom-config/.gitconfig /home/.gitconfig
           COPY custom-config/.ssh /home/.ssh
+          RUN sed 's|/home/runner|/home|g' -i.bak /home/.ssh/config
           .
           w
           q
