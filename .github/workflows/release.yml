@@ -97,10 +97,12 @@ jobs:
       # that need to be 1) copied into the build context, and 2) injected into
       # the Dockerfile so that the build can access private repositories.
       - name: Patch git and ssh in Dockerfile
+        env:
+          DIR: ${{github.workspace}}
         run: |
           mkdir -p custom-config
           cp -r ~/.gitconfig ~/.ssh custom-config/
-          ed -s Dockerfile <<EOF
+          ed -s $DIR/Dockerfile <<EOF
           /WORKDIR/
           i
           COPY custom-config/.gitconfig /root/.gitconfig
@@ -109,11 +111,14 @@ jobs:
           w
           q
           EOF
+          ls -a .
+          cat Dockerfile
 
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
           ssh: default
+          file: ${{github.workspace}}/Dockerfile
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
 
