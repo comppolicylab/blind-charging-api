@@ -105,9 +105,12 @@ jobs:
           ed -s $DIR/Dockerfile <<EOF
           /WORKDIR/
           i
-          COPY custom-config/.gitconfig /home/.gitconfig
-          COPY custom-config/.ssh /home/.ssh
-          RUN sed 's|/home/runner|/home|g' -i.bak /home/.ssh/config
+          COPY custom-config/.gitconfig /root/.gitconfig
+          COPY custom-config/.ssh /root/.ssh
+          RUN sed 's|/home/runner|/root|g' -i.bak /root/.ssh/config
+          RUN cat /root/.ssh/config
+          RUN cat /root/.gitconfig
+          RUN git config --list
           .
           w
           q
@@ -120,7 +123,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           # Use the configured ssh-agent in the build for private repos.
-          ssh: default
+          ssh: default=${{ env.SSH_AUTH_SOCK }}
           # Override default context to use the checkout with Dockerfile modifications.
           context: ${{github.workspace}}
           file: ${{github.workspace}}/Dockerfile
