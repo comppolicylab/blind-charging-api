@@ -105,8 +105,8 @@ jobs:
           ed -s $DIR/Dockerfile <<EOF
           /WORKDIR/
           i
-          COPY custom-config/.gitconfig /root/.gitconfig
-          COPY custom-config/.ssh /root/.ssh
+          COPY custom-config/.gitconfig /home/.gitconfig
+          COPY custom-config/.ssh/config /home/.ssh/config
           .
           w
           q
