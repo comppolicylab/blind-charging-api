@@ -42,4 +42,4 @@ COPY config.toml /config/
 ENV CONFIG_PATH=/config/config.toml
 
 ENTRYPOINT [ "python", "-m", "cli" ]
-CMD [ "api", "--host", "0.0.0.0", "--port", "$PORT", "--workers", "1", "--proxy-headers" ]
+CMD [ "api", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers" ]

@@ -38,6 +38,7 @@ services:
     restart: always
     expose: [8000]
     ports: ["8000:8000"]
+    command: ["api", "--host", "0.0.0.0", "--port", "8000"]
     secrets:
       - source: app_config
         target: /code/config.toml
