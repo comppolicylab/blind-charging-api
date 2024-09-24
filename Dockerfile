@@ -35,6 +35,7 @@ COPY alembic.ini /code/
 COPY alembic/ /code/alembic
 COPY app/ /code/app
 COPY cli/ /code/cli
+COPY terraform/ /code/terraform
 
 # Set up default config file
 COPY config.toml /config/
