@@ -50,7 +50,7 @@ resource "azurerm_container_app" "main" {
   }
 
   registry {
-    server               = "blindchargingapi.azurecr.io"
+    server               = var.api_image_registry
     username             = var.partner
     password_secret_name = "registry-password"
   }
@@ -76,12 +76,11 @@ resource "azurerm_container_app" "main" {
     min_replicas = 1
 
     init_container {
-      name    = "rbc-init-ensure-db"
-      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
-      cpu     = 1.0
-      memory  = "2Gi"
-      command = ["python"]
-      args    = ["-m", "app.server", "create-db"]
+      name   = "rbc-init-ensure-db"
+      image  = local.api_image_tag
+      cpu    = 1.0
+      memory = "2Gi"
+      args   = ["create-db"]
       volume_mounts {
         name = "secrets"
         path = "/secrets"
@@ -93,12 +92,11 @@ resource "azurerm_container_app" "main" {
     }
 
     container {
-      name    = "rbc-api"
-      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
-      cpu     = 1.0
-      memory  = "2Gi"
-      command = ["uvicorn"]
-      args    = ["app.server.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--app-dir", "/code/"]
+      name   = "rbc-api"
+      image  = local.api_image_tag
+      cpu    = 1.0
+      memory = "2Gi"
+      args   = ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
       volume_mounts {
         name = "secrets"
         path = "/secrets"
@@ -118,12 +116,11 @@ resource "azurerm_container_app" "main" {
     }
 
     container {
-      name    = "rbc-worker"
-      image   = "blindchargingapi.azurecr.io/blind-charging-api:latest"
-      cpu     = 1.0
-      memory  = "2Gi"
-      command = ["python"]
-      args    = ["-m", "app.server", "worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
+      name   = "rbc-worker"
+      image  = local.api_image_tag
+      cpu    = 1.0
+      memory = "2Gi"
+      args   = ["worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
       volume_mounts {
         name = "secrets"
         path = "/secrets"

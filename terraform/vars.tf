@@ -95,8 +95,35 @@ variable "registry_password" {
   description = <<EOF
 Password for authenticating with the container registry.
 
-This value is issued from the Computational Policy Lab's Azure Container Registry;
+This value is typically issued from the Computational Policy Lab's Azure Container Registry;
 the `blind-charging-api` image is only deployed there, and not in this Terraform configuration.
+EOF
+}
+
+variable "api_image_registry" {
+  type        = string
+  default     = "blindchargingapi.azurecr.io"
+  description = "The Docker image registry where the `api_image` is hosted."
+}
+
+variable "api_image" {
+  type        = string
+  default     = "blind-charging-api"
+  description = "The base tag (without the version) of the Docker image used to run the API."
+}
+
+variable "api_image_version" {
+  type        = string
+  default     = "latest"
+  description = <<EOF
+The version of the Docker image used to run the API.
+
+This version must exist in the repo specified in `var.api_image`.
+
+**WARNING** If the tag is `latest` (the default!), the image version may upgrade
+unexpectedly when the app containers restart. This is usually fine, but it's
+recommended to lock the version and increment it manually in case a new image
+contains incompatible changes.
 EOF
 }
 
@@ -123,6 +150,7 @@ EOF
 }
 
 locals {
-  is_gov_cloud = var.azure_env == "usgovernment"
-  description  = "Whether this configuration uses Azure Government Cloud."
+  is_gov_cloud  = var.azure_env == "usgovernment"
+  description   = "Whether this configuration uses Azure Government Cloud."
+  api_image_tag = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
 }
