@@ -34,10 +34,11 @@ RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
 COPY alembic.ini /code/
 COPY alembic/ /code/alembic
 COPY app/ /code/app
+COPY cli/ /code/cli
 
 # Set up default config file
 COPY config.toml /config/
 ENV CONFIG_PATH=/config/config.toml
 
-ENTRYPOINT [ "python", "-m", "cli", "api" ]
-CMD [ "--host", "0.0.0.0", "--port", "$PORT", "--workers", "1", "--proxy-headers" ]
+ENTRYPOINT [ "python", "-m", "cli" ]
+CMD [ "api", "--host", "0.0.0.0", "--port", "$PORT", "--workers", "1", "--proxy-headers" ]
