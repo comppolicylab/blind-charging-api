@@ -109,7 +109,7 @@ jobs:
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
-          ssh: default
+          ssh: default=${{ env.SSH_AUTH_SOCK }}
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
 
