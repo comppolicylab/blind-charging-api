@@ -106,11 +106,14 @@ jobs:
           /WORKDIR/
           i
           COPY custom-config/.gitconfig /home/.gitconfig
-          COPY custom-config/.ssh/config /home/.ssh/config
+          COPY custom-config/.ssh /home/.ssh
           .
           w
           q
           EOF
+          ls -l custom-config/.ssh
+          cat custom-config/.ssh/config
+          cat custom-config/.gitconfig
 
       - name: Build and push API image
         uses: docker/build-push-action@v6
