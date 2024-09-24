@@ -111,14 +111,16 @@ jobs:
           w
           q
           EOF
-          ls -a .
-          cat Dockerfile
 
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
+          # Use the configured ssh-agent in the build for private repos.
           ssh: default
+          # Override default context to use the checkout with Dockerfile modifications.
+          context: ${{github.workspace}}
           file: ${{github.workspace}}/Dockerfile
+          # Apply new version tag and replace any existing `latest` tag.
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-api:latest,blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
 
