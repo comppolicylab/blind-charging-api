@@ -108,9 +108,6 @@ jobs:
           COPY custom-config/.gitconfig /root/.gitconfig
           COPY custom-config/.ssh /root/.ssh
           RUN sed 's|/home/runner|/root|g' -i.bak /root/.ssh/config
-          RUN cat /root/.ssh/config
-          RUN cat /root/.gitconfig
-          RUN git config --list
           .
           w
           q
