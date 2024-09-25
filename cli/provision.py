@@ -33,9 +33,15 @@ class Variable(Generic[T, U]):
     value: U | None = None
 
 
+def _ensure_bool(v: bool | str) -> bool:
+    if isinstance(v, bool):
+        return v
+    return v.lower() in {"yes", "true", "t", "1"}
+
+
 _DATA_TYPES: list[DataType[Any, Any]] = [
     DataType("${string}", str, str),
-    DataType("${bool}", bool, bool),
+    DataType("${bool}", bool, bool, _ensure_bool),
     DataType("${map(string)}", dict[str, str], str, json.loads),
 ]
 
@@ -128,11 +134,19 @@ def _cli_provision(cfg_vars: list[Variable], **kwargs):
         if v.value is None and v.name in _AUTO_GENERATE:
             logger.info("Auto-generating value for %s", v.name)
             v.value = _AUTO_GENERATE[v.name]()
-        # Prompt for required values if needed.
+        # Prompt for required values
         if v.required and v.value is None:
             # Prompt for input
             raw_val = input(f"{v.name}> ")
             v.value = v.type_.parser(raw_val)
+        else:
+            # Prompt to confirm the value we have already
+            yn_val = ""
+            while yn_val not in {"yes", "no", "y", "n"}:
+                yn_val = input(f"{v.name} = {v.value} ('yes' to confirm)> ").lower()
+            if yn_val.startswith("n"):
+                new_raw_val = input(f"{v.name}> ")
+                v.value = v.type_.parser(new_raw_val)
         n = len(v.name)
         if n > max_len:
             max_len = n
