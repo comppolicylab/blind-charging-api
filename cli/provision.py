@@ -39,10 +39,17 @@ def _ensure_bool(v: bool | str) -> bool:
     return v.lower() in {"yes", "true", "t", "1"}
 
 
+def _ensure_number(v: float | int | str) -> float:
+    if isinstance(v, (float, int)):
+        return float(v)
+    return float(v)
+
+
 _DATA_TYPES: list[DataType[Any, Any]] = [
     DataType("${string}", str, str),
     DataType("${bool}", bool, bool, _ensure_bool),
     DataType("${map(string)}", dict[str, str], str, json.loads),
+    DataType("${number}", float, float, _ensure_number),
 ]
 
 
