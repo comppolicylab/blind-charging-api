@@ -15,3 +15,5 @@ config.*.toml
 test.db
 .terraform/
 *.tfplan
+*.tfstate
+.infracost/
