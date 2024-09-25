@@ -1,7 +1,7 @@
 resource "azurerm_cognitive_account" "openai" {
   name                  = format("%s-rbc-cs-oai", var.partner)
   resource_group_name   = azurerm_resource_group.main.name
-  location              = azurerm_resource_group.main.location
+  location              = local.openai_location
   sku_name              = "S0"
   kind                  = "OpenAI"
   tags                  = var.tags
@@ -50,7 +50,7 @@ resource "azurerm_cognitive_deployment" "llm" {
   }
   sku {
     name     = "Standard"
-    capacity = 80
+    capacity = var.openai_capacity
   }
   rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Default"
   version_upgrade_option = "NoAutoUpgrade"

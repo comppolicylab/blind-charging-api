@@ -38,6 +38,18 @@ variable "location" {
   description = "Azure region to deploy to. Available options depend on the Azure environment."
 }
 
+variable "openai_location" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = <<EOF
+Azure region to deploy the OpenAI cognitive service to. Available options depend on the Azure environment.
+
+By default, this is the same as the main location.
+Some models are not available in all regions, so the default location can be overridden as needed.
+EOF
+}
+
 variable "azure_env" {
   type        = string
   default     = "usgovernment"
@@ -149,8 +161,15 @@ for approval to disable filters. Once approved, re-deploy with this set to true.
 EOF
 }
 
+variable "openai_capacity" {
+  type        = number
+  default     = 80
+  description = "In thousands of tokens per minute."
+}
+
 locals {
-  is_gov_cloud  = var.azure_env == "usgovernment"
-  description   = "Whether this configuration uses Azure Government Cloud."
-  api_image_tag = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
+  is_gov_cloud    = var.azure_env == "usgovernment"
+  description     = "Whether this configuration uses Azure Government Cloud."
+  api_image_tag   = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
+  openai_location = var.openai_location != null ? var.openai_location : var.location
 }
