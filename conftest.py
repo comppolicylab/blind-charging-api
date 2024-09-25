@@ -347,8 +347,20 @@ def now(request, logger) -> Callable[[], datetime]:
     return lambda: dt
 
 
+def _patch_queue_store(cfg):
+    """Patch the queue store to use a fake redis server.
+
+    This must be run in the thread that the test client is running in.
+    """
+    from fakeredis import FakeRedis
+
+    from app.server.tasks import queue
+
+    queue.backend.client = FakeRedis(server=cfg.queue.store.server)
+
+
 @pytest.fixture
-def api(config, exp_db, now) -> Generator[TestClient, None, None]:
+def api(config, exp_db, now, request) -> Generator[TestClient, None, None]:
     """Fixture to provide a test client for the FastAPI app.
 
     The fixture will reference the database and message queue objects.
@@ -364,6 +376,10 @@ def api(config, exp_db, now) -> Generator[TestClient, None, None]:
         store_driver = api.portal.wrap_async_context_manager(
             config.queue.store.driver()
         )
+        # The celery object backend also needs patching!
+        if "fake_redis_store" in request.fixturenames:
+            api.portal.call(_patch_queue_store, config)
+
         with store_driver as qstore:
             api.app.state.now = now
             api.app.state.queue_store = qstore

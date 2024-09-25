@@ -119,6 +119,121 @@ async def test_redact_handler(
 
 
 @patch("app.server.tasks.controller.chain")
+async def test_redact_handler_no_callback(
+    chain_mock: MagicMock,
+    api: TestClient,
+    exp_db: DbDriver,
+    fake_redis_store: FakeRedis,
+):
+    # Return a fake task ID when calling `chain().apply_async()`
+    chain_mock.return_value.apply_async.return_value = "fake_task_id"
+
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjects": [
+            {
+                "role": "accused",
+                "subject": {
+                    "subjectId": "sub1",
+                    "name": "jack doe",
+                    "aliases": [
+                        {"firstName": "john", "lastName": "p", "middleName": "doe"}
+                    ],
+                },
+            }
+        ],
+        "objects": [
+            {
+                "document": {
+                    "attachmentType": "LINK",
+                    "documentId": "doc1",
+                    "url": "https://test_document.pdf",
+                }
+            }
+        ],
+    }
+
+    response = api.post("/api/v1/redact", json=request)
+    assert response.status_code == 200
+
+    # Assert that the `chain` function was called with the correct arguments
+    chain_mock.assert_called_once()
+    # NOTE(jnu): better diff when using `assert` than with `.assert_called_once_with()`
+    assert chain_mock.mock_calls[0].args == (
+        fetch.s(
+            FetchTask(
+                document=Document(
+                    root=DocumentLink(
+                        attachmentType="LINK",
+                        documentId="doc1",
+                        url="https://test_document.pdf",
+                    )
+                )
+            )
+        ),
+        redact.s(
+            RedactionTask(
+                document_id="doc1",
+                jurisdiction_id="jur1",
+                case_id="case1",
+                renderer="PDF",
+            )
+        ),
+        format.s(FormatTask(target_blob_url=None)),
+        callback.s(CallbackTask(callback_url=None)),
+        finalize.s(
+            FinalizeTask(
+                jurisdiction_id="jur1",
+                case_id="case1",
+                subject_ids=["sub1"],
+                renderer="PDF",
+            )
+        ),
+    )
+
+    # Check that the right stuff was stored in redis
+    assert fake_redis_store.hgetall("jur1:case1:role") == {b"sub1": b"accused"}
+    assert fake_redis_store.smembers("jur1:case1:aliases:sub1") == {
+        b'{"firstName": "jack", "lastName": "doe", "middleName": "", "nickname": "'
+        b'", "suffix": "", "title": ""}',
+        b'{"firstName": "john", "lastName": "p", "middleName": "doe", "nickname": '
+        b'null, "suffix": null, "title": null}',
+    }
+    assert fake_redis_store.get("jur1:case1:aliases:sub1:primary") == (
+        b'{"firstName": "jack", "lastName": "doe", "middleName": "", '
+        b'"nickname": "", "suffix": "", "title": ""}'
+    )
+    assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
+    queue_len = fake_redis_store.llen("jur1:case1:objects")
+    assert queue_len == 1
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, queue_len) == [
+        (
+            b'{"callbackUrl": null, '
+            b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
+            b'"url": "https://test_document.pdf/"}, "targetBlobUrl": null}'
+        ),
+    ]
+
+    # Now check the response from the sync API
+    sync_response = api.get("/api/v1/redact/jur1/case1")
+    assert sync_response.status_code == 200
+    assert sync_response.json() == {
+        "caseId": "case1",
+        "jurisdictionId": "jur1",
+        "requests": [
+            {
+                "caseId": "case1",
+                "inputDocumentId": "doc1",
+                "jurisdictionId": "jur1",
+                "maskedSubjects": [],
+                "status": "QUEUED",
+            },
+        ],
+    }
+
+
+@patch("app.server.tasks.controller.chain")
 async def test_redact_handler_multi_doc(
     chain_mock: MagicMock,
     api: TestClient,

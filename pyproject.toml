@@ -6,7 +6,7 @@ authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 aiohttp = "3.10.5"
 fastapi = {extras = ["standard"], version = "^0.115.0"}
 pyjwt = "^2.8.0"

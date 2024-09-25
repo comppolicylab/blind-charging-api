@@ -22,7 +22,7 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..tasks import create_document_redaction_task
+from ..tasks import create_document_redaction_task, get_result
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +208,7 @@ async def get_redaction_status(
 
     for doc_id, task_id in tasks.items():
         # Get the status of the task from celery
-        task_result = tasks.get_result(task_id)
+        task_result = get_result(task_id)
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
         if not task_result:
