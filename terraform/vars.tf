@@ -59,13 +59,37 @@ variable "azure_env" {
 variable "expose_app" {
   type        = bool
   default     = true
-  description = "Expose the app outside of the app environment."
+  description = "Expose the app to the public internet."
 }
 
 variable "waf" {
   type        = bool
   default     = true
-  description = "Enable the Web Application Firewall for the application gateway."
+  description = <<EOF
+Enable the Web Application Firewall for the application gateway.
+
+This should be enabled if `expose_app` is true (and the app is exposed to the public internet).
+It will be ignored if the app is not exposed to the public internet.
+EOF
+}
+
+variable "peered_network_id" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = "Make the app available to another virtual network via peering."
+}
+
+variable "app_ingress_transport" {
+  type        = string
+  default     = "https"
+  description = <<EOF
+Transport protocol for the app ingress. Must be 'http' or 'https' or 'tcp'.
+
+When set to `https`, the ingress will not accept insecure connections.
+
+When set to `tcp`, the ingress will accept TCP traffic on the container port (usually 8000).
+EOF
 }
 
 variable "ssl_cert_password" {

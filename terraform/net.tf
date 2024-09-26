@@ -114,7 +114,6 @@ resource "azurerm_private_dns_zone" "app" {
 }
 
 resource "azurerm_private_dns_a_record" "app_wildcard" {
-  count               = var.expose_app ? 1 : 0
   name                = "*"
   zone_name           = azurerm_private_dns_zone.app.name
   resource_group_name = azurerm_resource_group.main.name
@@ -123,7 +122,6 @@ resource "azurerm_private_dns_a_record" "app_wildcard" {
 }
 
 resource "azurerm_private_dns_a_record" "app_exact" {
-  count               = var.expose_app ? 1 : 0
   name                = "@"
   zone_name           = azurerm_private_dns_zone.app.name
   resource_group_name = azurerm_resource_group.main.name
@@ -173,4 +171,13 @@ resource "azurerm_public_ip" "gateway" {
   location            = azurerm_resource_group.main.location
   allocation_method   = "Static"
   sku                 = "Standard"
+}
+
+resource "azurerm_virtual_network_peering" "app_to_cms" {
+  count                        = var.peered_network_id != null ? 1 : 0
+  name                         = format("%s-rbc-app-to-cms-peering", var.partner)
+  resource_group_name          = azurerm_resource_group.main.name
+  virtual_network_name         = azurerm_virtual_network.main.name
+  remote_virtual_network_id    = var.peered_network_id
+  allow_virtual_network_access = true
 }
