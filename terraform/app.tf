@@ -56,7 +56,7 @@ resource "azurerm_container_app" "main" {
   }
 
   ingress {
-    allow_insecure_connections = var.app_ingress_transport != "https"
+    allow_insecure_connections = var.app_ingress_transport == "http"
     target_port                = 8000
     external_enabled           = true
     # The allowed types are actually `http` and `tcp`, not `https`.
