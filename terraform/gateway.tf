@@ -1,13 +1,21 @@
 locals {
-  app_gateway_name                = format("%s-rbc-app-gw", var.partner)
-  frontend_ip_config_name         = format("%s-rbc-app-gw-feip", var.partner)
-  frontend_https_port_name        = format("%s-rbc-app-gw-feport-http", var.partner)
-  https_listener_name             = format("%s-rbc-app-gw-listener", var.partner)
-  backend_address_pool_name       = format("%s-rbc-app-gw-be-pool", var.partner)
-  backend_http_settings_name      = format("%s-rbc-app-gw-be-settings", var.partner)
-  ssl_cert_name                   = format("%s-rbc-app-gw-cert", var.partner)
-  private_link_configuration_name = format("%s-rbc-app-gw-plc", var.partner)
-  probe_name                      = format("%s-rbc-app-gw-probe", var.partner)
+  app_gateway_name                    = format("%s-rbc-app-gw", var.partner)
+  frontend_ip_config_name             = format("%s-rbc-app-gw-feip", var.partner)
+  frontend_https_port_name            = format("%s-rbc-app-gw-feport-https", var.partner)
+  frontend_http_port_name             = format("%s-rbc-app-gw-feport-http", var.partner)
+  https_listener_name                 = format("%s-rbc-app-gw-listener", var.partner)
+  http_listener_name                  = format("%s-rbc-app-gw-listener-http", var.partner)
+  http_to_https_redirect_name         = format("%s-rbc-app-gw-redirect", var.partner)
+  backend_address_pool_name           = format("%s-rbc-app-gw-be-pool", var.partner)
+  backend_http_settings_name          = format("%s-rbc-app-gw-be-settings", var.partner)
+  ssl_cert_name                       = format("%s-rbc-app-gw-cert", var.partner)
+  private_link_configuration_name     = format("%s-rbc-app-gw-plc", var.partner)
+  probe_name                          = format("%s-rbc-app-gw-probe", var.partner)
+  research_backend_address_pool_name  = format("%s-rbc-app-gw-be-pool-research", var.partner)
+  research_backend_http_settings_name = format("%s-rbc-app-gw-be-settings-research", var.partner)
+  research_probe_name                 = format("%s-rbc-app-gw-probe-research", var.partner)
+  research_rewrite_rule_set_name      = format("%s-rbc-app-gw-rewrite-rule-set-research", var.partner)
+  url_path_map_name                   = format("%s-rbc-app-gw-url-path-map", var.partner)
 }
 
 
@@ -57,6 +65,8 @@ resource "azurerm_application_gateway" "public" {
     capacity = 2
   }
 
+  // Set up general networking stuff for the gateway
+
   waf_configuration {
     enabled            = var.waf
     firewall_mode      = "Prevention"
@@ -70,9 +80,14 @@ resource "azurerm_application_gateway" "public" {
     subnet_id = azurerm_subnet.gateway.id
   }
 
-  frontend_port {
-    name = local.frontend_https_port_name
-    port = 443
+  private_link_configuration {
+    name = local.private_link_configuration_name
+    ip_configuration {
+      name                          = format("%s-rbc-app-gw-plcipcfg", var.partner)
+      subnet_id                     = azurerm_subnet.gateway-pl.id
+      private_ip_address_allocation = "Dynamic"
+      primary                       = true
+    }
   }
 
   frontend_ip_configuration {
@@ -88,19 +103,41 @@ resource "azurerm_application_gateway" "public" {
     subnet_id                     = azurerm_subnet.gateway.id
   }
 
-  backend_address_pool {
-    name  = local.backend_address_pool_name
-    fqdns = [local.app_fqdn]
+  // Set up an http -> https redirect
+
+  frontend_port {
+    name = local.frontend_http_port_name
+    port = 80
   }
 
-  backend_http_settings {
-    name                                = local.backend_http_settings_name
-    probe_name                          = local.probe_name
-    cookie_based_affinity               = "Disabled"
-    port                                = 443
-    protocol                            = "Https"
-    request_timeout                     = 20
-    pick_host_name_from_backend_address = true
+  http_listener {
+    name                           = local.http_listener_name
+    frontend_ip_configuration_name = local.frontend_ip_config_name
+    frontend_port_name             = local.frontend_http_port_name
+    protocol                       = "Http"
+  }
+
+  request_routing_rule {
+    priority                    = 1
+    name                        = format("%s-rbc-app-gw-rr-http-upgrade", var.partner)
+    rule_type                   = "Basic"
+    redirect_configuration_name = local.http_to_https_redirect_name
+    http_listener_name          = local.http_listener_name
+  }
+
+  redirect_configuration {
+    name                 = local.http_to_https_redirect_name
+    redirect_type        = "Permanent"
+    target_listener_name = local.https_listener_name
+    include_path         = true
+    include_query_string = true
+  }
+
+  // Set up the https listener
+
+  frontend_port {
+    name = local.frontend_https_port_name
+    port = 443
   }
 
   ssl_certificate {
@@ -118,13 +155,45 @@ resource "azurerm_application_gateway" "public" {
   }
 
   request_routing_rule {
-    priority                   = 1
-    name                       = format("%s-rbc-app-gw-rr", var.partner)
-    rule_type                  = "Basic"
-    http_listener_name         = local.https_listener_name
-    backend_address_pool_name  = local.backend_address_pool_name
-    backend_http_settings_name = local.backend_http_settings_name
+    priority           = 2
+    name               = format("%s-rbc-app-gw-rr", var.partner)
+    rule_type          = "PathBasedRouting"
+    url_path_map_name  = local.url_path_map_name
+    http_listener_name = local.https_listener_name
+  }
 
+  url_path_map {
+    name                               = local.url_path_map_name
+    default_backend_address_pool_name  = local.backend_address_pool_name
+    default_backend_http_settings_name = local.backend_http_settings_name
+
+    dynamic "path_rule" {
+      for_each = var.expose_research_env ? [1] : []
+      content {
+        name                       = "research"
+        paths                      = ["/research*"]
+        backend_address_pool_name  = local.research_backend_address_pool_name
+        backend_http_settings_name = local.research_backend_http_settings_name
+        rewrite_rule_set_name      = local.research_rewrite_rule_set_name
+      }
+    }
+  }
+
+  // Set up the app backend
+
+  backend_address_pool {
+    name  = local.backend_address_pool_name
+    fqdns = [local.app_fqdn]
+  }
+
+  backend_http_settings {
+    name                                = local.backend_http_settings_name
+    probe_name                          = local.probe_name
+    cookie_based_affinity               = "Disabled"
+    port                                = 443
+    protocol                            = "Https"
+    request_timeout                     = 20
+    pick_host_name_from_backend_address = true
   }
 
   probe {
@@ -137,13 +206,60 @@ resource "azurerm_application_gateway" "public" {
     unhealthy_threshold                       = 3
   }
 
-  private_link_configuration {
-    name = local.private_link_configuration_name
-    ip_configuration {
-      name                          = format("%s-rbc-app-gw-plcipcfg", var.partner)
-      subnet_id                     = azurerm_subnet.gateway-pl.id
-      private_ip_address_allocation = "Dynamic"
-      primary                       = true
+  // Set up the research environment routing if requested
+
+  dynamic "backend_http_settings" {
+    for_each = var.expose_research_env ? [1] : []
+    content {
+      name                                = local.research_backend_http_settings_name
+      probe_name                          = local.research_probe_name
+      cookie_based_affinity               = "Disabled"
+      port                                = 443
+      protocol                            = "Https"
+      request_timeout                     = 20
+      pick_host_name_from_backend_address = true
+    }
+  }
+
+  dynamic "backend_address_pool" {
+    for_each = var.expose_research_env ? [1] : []
+    content {
+      name  = local.research_backend_address_pool_name
+      fqdns = [local.research_app_fqdn]
+    }
+  }
+
+  dynamic "probe" {
+    for_each = var.expose_research_env ? [1] : []
+    content {
+      name                                      = local.research_probe_name
+      protocol                                  = "Https"
+      pick_host_name_from_backend_http_settings = true
+      path                                      = "/unsupported_browser.htm"
+      interval                                  = 30
+      timeout                                   = 30
+      unhealthy_threshold                       = 3
+    }
+  }
+
+  dynamic "rewrite_rule_set" {
+    for_each = var.expose_research_env ? [1] : []
+    content {
+      name = local.research_rewrite_rule_set_name
+
+      rewrite_rule {
+        name          = "research"
+        rule_sequence = 1
+        condition {
+          ignore_case = false
+          pattern     = "/research(.*)"
+          negate      = false
+          variable    = "var_request_uri"
+        }
+        url {
+          path = "{var_request_uri_1}"
+        }
+      }
     }
   }
 }
