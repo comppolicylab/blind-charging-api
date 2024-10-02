@@ -172,6 +172,17 @@ variable "tags" {
   description = "Tags to apply to all resources (for bookkeeping purposes)."
 }
 
+variable "tfstate_resource_group" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = <<EOF
+Resource group where the Terraform state is stored.
+
+If not provided, the state will be stored locally.
+EOF
+}
+
 variable "disable_content_filter" {
   type        = bool
   default     = true
@@ -250,4 +261,5 @@ locals {
   api_image_tag      = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
   research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
   openai_location    = var.openai_location != null ? var.openai_location : var.location
+  uses_tf_backend    = var.tfstate_resource_group != null
 }
