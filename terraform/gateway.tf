@@ -167,6 +167,13 @@ resource "azurerm_application_gateway" "public" {
     default_backend_address_pool_name  = local.backend_address_pool_name
     default_backend_http_settings_name = local.backend_http_settings_name
 
+    path_rule {
+      name                       = "api"
+      paths                      = ["/api*"]
+      backend_address_pool_name  = local.backend_address_pool_name
+      backend_http_settings_name = local.backend_http_settings_name
+    }
+
     dynamic "path_rule" {
       for_each = var.expose_research_env ? [1] : []
       content {
