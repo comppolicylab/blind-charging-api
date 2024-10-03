@@ -82,7 +82,7 @@ az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resour
 
 # Set the storage account key in the key vault if it doesn't exist
 az keyvault secret show --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --query value &> /dev/null || \
-  az keyvault secret set --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --value $(az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --query '[0].value' -o tsv)
+  az keyvault secret set --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --value $(az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --query '[0].value' -o tsv) > /dev/null
 
 # Create the container if it doesn't exist
 az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT &> /dev/null || \
