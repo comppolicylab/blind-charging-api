@@ -18,41 +18,6 @@ locals {
   url_path_map_name                   = format("%s-rbc-app-gw-url-path-map", var.partner)
 }
 
-
-### SHADY CERTIFICATE THINGS ###
-# NOTE(jnu) -- This self-signed certificate is ONLY useful for bootstrapping
-# a quick environment for testing. In production, exposed apps need to use
-# a real certificate issued for a real custom domain.
-resource "tls_private_key" "app_gateway" {
-  count     = var.expose_app ? 1 : 0
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-resource "tls_self_signed_cert" "app_gateway" {
-  count           = var.expose_app ? 1 : 0
-  private_key_pem = tls_private_key.app_gateway[0].private_key_pem
-  subject {
-    common_name  = local.app_fqdn
-    organization = format("%s Race Blind Charging", var.partner)
-  }
-  validity_period_hours = 8760
-  allowed_uses = [
-    "key_encipherment",
-    "digital_signature",
-    "server_auth",
-  ]
-}
-
-resource "pkcs12_from_pem" "app_gateway" {
-  count           = var.expose_app ? 1 : 0
-  password        = var.ssl_cert_password
-  private_key_pem = tls_private_key.app_gateway[0].private_key_pem
-  cert_pem        = tls_self_signed_cert.app_gateway[0].cert_pem
-}
-
-### END SHADY CERTIFICATE THINGS ###
-
 resource "azurerm_application_gateway" "public" {
   count               = var.expose_app ? 1 : 0
   name                = local.app_gateway_name
@@ -142,7 +107,7 @@ resource "azurerm_application_gateway" "public" {
 
   ssl_certificate {
     name     = local.ssl_cert_name
-    data     = pkcs12_from_pem.app_gateway[0].result
+    data     = local.use_self_signed_cert ? pkcs12_from_pem.app_gateway[0].result : local.use_lets_encrypt_cert ? acme_certificate.app_gateway[0].certificate_p12 : null
     password = var.ssl_cert_password
   }
 

@@ -99,6 +99,47 @@ variable "ssl_cert_password" {
   description = "Password for the SSL certificate."
 }
 
+variable "ssl_cert_email" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = <<EOF
+Email address to use for Let's Encrypt certificate registration.
+
+This is only required if `ssl_mode` is set to 'acme'.
+EOF
+}
+
+variable "ssl_cert" {
+  type    = string
+  default = "none"
+  validation {
+    condition     = can(regex("^(none|self_signed|acme)$", var.ssl_cert))
+    error_message = "ssl_cert must be one of 'none', 'self_signed', or 'acme'."
+  }
+}
+
+variable "ssl_dns_provider" {
+  type        = string
+  default     = "manual"
+  description = <<EOF
+DNS provider to use for Let's Encrypt certificate registration.
+
+By default we use manual provision, where you need to check `challenge.log` and update your DNS records manually
+while running this script.
+
+You generally need to provide additional environment variables to make the provider set here work.
+EOF
+}
+
+variable "ssl_dns_provider_config" {
+  type        = map(string)
+  default     = {}
+  description = <<EOF
+Configuration for the DNS provider. See lego documentation for details for your provider.
+EOF
+}
+
 variable "app_auth" {
   type    = string
   default = "none"

@@ -12,6 +12,10 @@ terraform {
       source  = "chilicat/pkcs12"
       version = "~> 0.2.5"
     }
+    acme = {
+      source  = "vancluever/acme"
+      version = "~> 2.0"
+    }
   }
 
   backend "azurerm" {}
@@ -34,6 +38,10 @@ provider "azapi" {
 }
 
 provider "pkcs12" {}
+
+provider "acme" {
+  server_url = "https://acme-v02.api.letsencrypt.org/directory"
+}
 
 data "azurerm_client_config" "current" {}
 
