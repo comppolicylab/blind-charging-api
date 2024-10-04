@@ -43,15 +43,19 @@ async def log_exposure(request: Request, body: ExposureModel) -> None:
     if not config.experiments.enabled:
         return
 
-    exp = Exposure(
-        jurisdiction_id=body.jurisdictionId,
-        case_id=body.caseId,
-        subject_id=body.subjectId,
-        document_ids=json.dumps(body.documentIds),
-        reviewer_id=body.reviewingAttorneyMaskedId,
-        review_type=review_protocol_to_review_type(body.protocol),
+    subject_ids = (
+        body.subjectId if isinstance(body.subjectId, list) else [body.subjectId]
     )
-    request.state.db.add(exp)
+    for subject_id in subject_ids:
+        exp = Exposure(
+            jurisdiction_id=body.jurisdictionId,
+            case_id=body.caseId,
+            subject_id=subject_id,
+            document_ids=json.dumps(body.documentIds),
+            reviewer_id=body.reviewingAttorneyMaskedId,
+            review_type=review_protocol_to_review_type(body.protocol),
+        )
+        request.state.db.add(exp)
     return
 
 
@@ -69,19 +73,23 @@ async def log_outcome(request: Request, body: Review) -> None:
 
     disqualifiers = decision_params_dict.pop("disqualifiers", [])
 
-    outcome = Outcome(
-        jurisdiction_id=body.jurisdictionId,
-        case_id=body.caseId,
-        subject_id=body.subjectId,
-        reviewer_id=body.reviewingAttorneyMaskedId,
-        document_ids=json.dumps(body.documentIds),
-        page_open_ts=body.timestamps.pageOpen,
-        decision_ts=body.timestamps.decision,
-        disqualifiers=[OutcomeDisqualifiers(disqualifier=d) for d in disqualifiers],
-        **decision_params_dict,
+    subject_ids = (
+        body.subjectId if isinstance(body.subjectId, list) else [body.subjectId]
     )
+    for subject_id in subject_ids:
+        outcome = Outcome(
+            jurisdiction_id=body.jurisdictionId,
+            case_id=body.caseId,
+            subject_id=subject_id,
+            reviewer_id=body.reviewingAttorneyMaskedId,
+            document_ids=json.dumps(body.documentIds),
+            page_open_ts=body.timestamps.pageOpen,
+            decision_ts=body.timestamps.decision,
+            disqualifiers=[OutcomeDisqualifiers(disqualifier=d) for d in disqualifiers],
+            **decision_params_dict,
+        )
 
-    request.state.db.add(outcome)
+        request.state.db.add(outcome)
     return
 
 

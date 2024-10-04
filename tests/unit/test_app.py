@@ -30,6 +30,30 @@ async def test_exposure_blind(api: TestClient, exp_db: DbDriver):
         assert exp.review_type == ReviewType.blind
 
 
+async def test_exposure_multi_subject(api: TestClient, exp_db: DbDriver):
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjectId": ["sub1", "sub2"],
+        "reviewingAttorneyMaskedId": "att1",
+        "documentIds": ["doc1"],
+        "protocol": "BLIND_REVIEW",
+    }
+    response = api.post("/api/v1/exposure", json=request)
+    assert response.status_code == 200
+
+    with exp_db.sync_session() as sesh:
+        exps = sesh.query(Exposure).all()
+        assert len(exps) == 2
+        for i, exp in enumerate(exps):
+            assert exp.jurisdiction_id == "jur1"
+            assert exp.case_id == "case1"
+            assert exp.subject_id == f"sub{i+1}"
+            assert exp.document_ids == '["doc1"]'
+            assert exp.reviewer_id == "att1"
+            assert exp.review_type == ReviewType.blind
+
+
 async def test_exposure_final(api: TestClient, exp_db: DbDriver):
     request = {
         "jurisdictionId": "jur1",
@@ -332,3 +356,43 @@ async def test_outcome_final_decline(api: TestClient, exp_db: DbDriver):
         assert exp.disqualifiers == []
         assert exp.page_open_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
         assert exp.decision_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
+
+
+async def test_outcome_multi_subject(api: TestClient, exp_db: DbDriver):
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjectId": ["sub1", "sub2"],
+        "reviewingAttorneyMaskedId": "att1",
+        "documentIds": ["doc1"],
+        "decision": {
+            "protocol": "FINAL_REVIEW",
+            "outcome": {
+                "finalChargingDecision": "DECLINE",
+                "finalChargingDecisionExplanation": "Decline explanation",
+            },
+        },
+        "timestamps": {
+            "pageOpen": "2024-07-25T18:12:26.118Z",
+            "decision": "2024-07-25T18:12:26.118Z",
+        },
+    }
+    response = api.post("/api/v1/outcome", json=request)
+    assert response.status_code == 200
+
+    with exp_db.sync_session() as sesh:
+        exps = sesh.query(Outcome).all()
+        assert len(exps) == 2
+        for i, exp in enumerate(exps):
+            assert exp.jurisdiction_id == "jur1"
+            assert exp.case_id == "case1"
+            assert exp.subject_id == f"sub{i+1}"
+            assert exp.document_ids == '["doc1"]'
+            assert exp.reviewer_id == "att1"
+            assert exp.review_type == ReviewType.final
+            assert exp.decision == Decision.decline
+            assert exp.explanation == "Decline explanation"
+            assert exp.additional_evidence is None
+            assert exp.disqualifiers == []
+            assert exp.page_open_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
+            assert exp.decision_ts == datetime.fromisoformat("2024-07-25T18:12:26.118")
