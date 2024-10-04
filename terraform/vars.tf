@@ -15,6 +15,17 @@ variable "debug" {
   description = "Enable debug mode for the application."
 }
 
+variable "toy_mode" {
+  type        = bool
+  default     = false
+  description = <<EOF
+Enable demo mode for the application.
+
+This will disable the expensive features like OpenAI and Azure Form Recognizer,
+opting instead for fast and cheap (but low-quality) alternatives.
+EOF
+}
+
 variable "partner" {
   type        = string
   description = "Name of the group deploying this infrastructure. This is used for naming resources."

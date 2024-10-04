@@ -1,4 +1,5 @@
 locals {
+  # Database configuration segment
   db_config = <<EOF
 engine = "mssql"
 user = "${var.db_user}"
@@ -7,6 +8,53 @@ host = "${local.mssql_fqdn}"
 database = "${azurerm_mssql_database.main.name}"
 EOF
 
+  # Processing pipeline configuration segment
+  # Configure the processing pipeline. Just a no-op pipeline on the toy version.
+  app_pipeline_toy_toml = <<EOF
+pipe = [
+    { engine = "extract:tesseract" },
+    { engine = "redact:noop", delimiters = ["[", "]"] },
+]
+EOF
+
+  # This is the full pipeline on the production version.
+  app_pipeline_prod_toml = <<EOF
+[[processor.pipe]]
+# 1) Extract / OCR with Azure DI
+engine = "extract:azuredi"
+endpoint = "${local.fr_endpoint}"
+api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
+extract_labeled_text = false
+
+[[processor.pipe]]
+# 2) Parse textual output into coherent narrative with OpenAI
+engine = "parse:openai"
+[processor.pipe.client]
+azure_endpoint = "${local.openai_endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+
+[processor.pipe.generator]
+method = "chat"
+model = "${azurerm_cognitive_deployment.llm.name}"
+system = { prompt_id = "parse" }
+
+[[processor.pipe]]
+# 3) Redact racial information with OpenAI
+engine = "redact:openai"
+delimiters = ["[", "]"]
+[processor.pipe.client]
+azure_endpoint = "${local.openai_endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+
+[processor.pipe.generator]
+method = "chat"
+model = "${azurerm_cognitive_deployment.llm.name}"
+system = { prompt_id = "redact" }
+EOF
+
+  # Full application config file
   app_config_toml = <<EOF
 debug = ${var.debug}
 
@@ -45,39 +93,6 @@ ${local.db_config}
 
 [processor]
 # Configure the processing pipeline.
-
-[[processor.pipe]]
-# 1) Extract / OCR with Azure DI
-engine = "extract:azuredi"
-endpoint = "${local.fr_endpoint}"
-api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
-extract_labeled_text = false
-
-[[processor.pipe]]
-# 2) Parse textual output into coherent narrative with OpenAI
-engine = "parse:openai"
-[processor.pipe.client]
-azure_endpoint = "${local.openai_endpoint}"
-api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
-api_version = "2024-06-01"
-
-[processor.pipe.generator]
-method = "chat"
-model = "${azurerm_cognitive_deployment.llm.name}"
-system = { prompt_id = "parse" }
-
-[[processor.pipe]]
-# 3) Redact racial information with OpenAI
-engine = "redact:openai"
-delimiters = ["[", "]"]
-[processor.pipe.client]
-azure_endpoint = "${local.openai_endpoint}"
-api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
-api_version = "2024-06-01"
-
-[processor.pipe.generator]
-method = "chat"
-model = "${azurerm_cognitive_deployment.llm.name}"
-system = { prompt_id = "redact" }
+${var.toy_mode ? local.app_pipeline_toy_toml : local.app_pipeline_prod_toml}
 EOF
 }
