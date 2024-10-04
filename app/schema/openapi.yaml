@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.6.2
+  version: 0.6.3
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -688,6 +688,7 @@ components:
           example: CHARGE
         finalChargingDecisionExplanation:
           type: string
+          maxLength: 4194303
           example: "The accused was caught on camera with the stolen goods."
 
     BlindDecisionOutcome:
@@ -712,9 +713,11 @@ components:
           example: CHARGE_LIKELY
         blindChargingDecisionExplanation:
           type: string
+          maxLength: 4194303
           example: "The accused was caught on camera with the stolen goods."
         additionalEvidence:
           type: string
+          maxLength: 4194303
           example: "The accused has a history of theft."
 
     DisqualifyingReason:
@@ -750,6 +753,7 @@ components:
               example: [PRIOR_KNOWLEDGE_BIAS, OTHER]
         disqualifyingReasonExplanation:
           type: string
+          maxLength: 4194303
           example: "I have prior knowledge of the individuals involved in this case."
 
     ReviewProtocol:
