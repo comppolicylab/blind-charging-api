@@ -15,6 +15,7 @@ locals {
   research_backend_http_settings_name = format("%s-rbc-app-gw-be-settings-research", var.partner)
   research_probe_name                 = format("%s-rbc-app-gw-probe-research", var.partner)
   research_rewrite_rule_set_name      = format("%s-rbc-app-gw-rewrite-rule-set-research", var.partner)
+  research_add_slash_redirect_name    = format("%s-rbc-app-gw-redirect-research-root", var.partner)
   url_path_map_name                   = format("%s-rbc-app-gw-url-path-map", var.partner)
 }
 
@@ -98,6 +99,14 @@ resource "azurerm_application_gateway" "public" {
     include_query_string = true
   }
 
+  redirect_configuration {
+    name                 = local.research_add_slash_redirect_name
+    redirect_type        = "Permanent"
+    target_url           = "https://${var.host}/research/"
+    include_path         = false
+    include_query_string = true
+  }
+
   // Set up the https listener
 
   frontend_port {
@@ -139,11 +148,22 @@ resource "azurerm_application_gateway" "public" {
       backend_http_settings_name = local.backend_http_settings_name
     }
 
+    # For the research environment, make sure /research redirects to /research/
+    # And then rewrite the path to remove the `"research"` prefix.
+    dynamic "path_rule" {
+      for_each = var.expose_research_env ? [1] : []
+      content {
+        name                        = "research-root"
+        paths                       = ["/research"]
+        redirect_configuration_name = local.research_add_slash_redirect_name
+      }
+    }
+
     dynamic "path_rule" {
       for_each = var.expose_research_env ? [1] : []
       content {
         name                       = "research"
-        paths                      = ["/research*"]
+        paths                      = ["/research/*"]
         backend_address_pool_name  = local.research_backend_address_pool_name
         backend_http_settings_name = local.research_backend_http_settings_name
         rewrite_rule_set_name      = local.research_rewrite_rule_set_name
@@ -221,7 +241,7 @@ resource "azurerm_application_gateway" "public" {
 
       rewrite_rule {
         name          = "research"
-        rule_sequence = 1
+        rule_sequence = 2
         condition {
           ignore_case = false
           pattern     = "/research(.*)"
@@ -230,6 +250,22 @@ resource "azurerm_application_gateway" "public" {
         }
         url {
           path = "{var_request_uri_1}"
+        }
+        request_header_configuration {
+          header_name  = "X-RStudio-Request"
+          header_value = format("https://%s/research", var.host)
+        }
+        request_header_configuration {
+          header_name  = "X-Forwarded-Host"
+          header_value = var.host
+        }
+        request_header_configuration {
+          header_name  = "X-Forwarded-Proto"
+          header_value = "https"
+        }
+        request_header_configuration {
+          header_name  = "X-RStudio-Root-Path"
+          header_value = "/research"
         }
       }
     }

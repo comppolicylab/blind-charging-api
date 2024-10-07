@@ -26,13 +26,20 @@ RUN apt-get update && \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
 # Install pyenv / latest Python version
-WORKDIR /root
-RUN git clone https://github.com/pyenv/pyenv.git ~/.pyenv
-ENV PYENV_ROOT="/root/.pyenv"
+WORKDIR /usr/local
+RUN git clone https://github.com/pyenv/pyenv.git ./pyenv
+ENV PYENV_ROOT="/usr/local/pyenv"
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
+# Set permissions for everyone to access pyenv
+RUN chmod -R 777 /usr/local/pyenv
 RUN pyenv install 3.12.7
 RUN pyenv global 3.12.7
 RUN python3 -m pip install --upgrade pip
+# Set variables for rstudio user
+RUN cat <<EOF >> /home/rstudio/.bashrc
+export PYENV_ROOT="/usr/local/pyenv"
+export PATH="\$PYENV_ROOT/shims:\$PYENV_ROOT/bin:\$PATH"
+EOF
 
 # Install R packages
 RUN install2.r --error --skipmissing --skipinstalled -n $(nproc --all) \
