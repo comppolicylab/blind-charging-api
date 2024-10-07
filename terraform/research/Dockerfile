@@ -28,21 +28,6 @@ RUN apt-get update && \
 # NOTE: in the GitHub action, this is where the SSH configs will be injected.
 
 WORKDIR /root
-# Install pyenv / latest Python version
-#ENV PYENV_ROOT="/usr/local/.pyenv"
-#RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
-#RUN chmod -R 777 $PYENV_ROOT
-#ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
-# Set permissions for everyone to access pyenv
-#RUN pyenv install 3.12.7
-#RUN pyenv global 3.12.7
-#RUN python3 -m pip install --upgrade pip
-
-# Set variables for rstudio user
-#RUN cat <<EOF >> /home/rstudio/.bashrc
-#export PYENV_ROOT="/usr/local/pyenv"
-#export PATH="\$PYENV_ROOT/shims:\$PYENV_ROOT/bin:\$PATH"
-#EOF
 RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt install -y --no-install-recommends python3.12
 RUN update-alternatives --install /usr/bin/python python $(which python3.12) 1 && \
     update-alternatives --install /usr/bin/python3 python3 $(which python3.12) 1 && \
