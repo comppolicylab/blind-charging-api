@@ -85,4 +85,4 @@ ENV PYTHONFAULTHANDLER=1 \
 RUN python3 -m pip install pyodbc poetry
 COPY poetry.lock pyproject.toml /root/
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-RUN --mount=type=ssh poetry install --without-dev --no-interaction --no-ansi --no-root
+RUN --mount=type=ssh python3 -m poetry install --without-dev --no-interaction --no-ansi --no-root
