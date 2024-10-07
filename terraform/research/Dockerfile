@@ -25,14 +25,15 @@ RUN apt-get update && \
     apt-get install -y -V unixodbc-dev software-properties-common && \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
-# NOTE: in the GitHub action, this is where the SSH configs will be injected.
-
-WORKDIR /root
 RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt install -y --no-install-recommends python3.12
 RUN update-alternatives --install /usr/bin/python python $(which python3.12) 1 && \
     update-alternatives --install /usr/bin/python3 python3 $(which python3.12) 1 && \
     update-alternatives --config python && \
     update-alternatives --config python3
+
+# NOTE: in the GitHub action, this is where the SSH configs will be injected.
+
+WORKDIR /home/rstudio
 
 # Install R packages
 RUN install2.r --error --skipmissing --skipinstalled -n $(nproc --all) \
@@ -75,6 +76,6 @@ ENV PYTHONFAULTHANDLER=1 \
       POETRY_VIRTUALENVS_CREATE=false
 RUN curl https://bootstrap.pypa.io/get-pip.py | python3
 RUN python3 -m pip install pyodbc poetry
-COPY poetry.lock pyproject.toml /root/
+COPY poetry.lock pyproject.toml /home/rstudio
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh python3 -m poetry install --no-interaction --no-ansi --no-root
