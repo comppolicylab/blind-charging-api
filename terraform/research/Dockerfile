@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
 RUN curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
 RUN apt-get update && \
-    apt-get install -y -V unixodbc-dev && \
+    apt-get install -y -V unixodbc-dev software-properties-common && \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
 # NOTE: in the GitHub action, this is where the SSH configs will be injected.
@@ -43,7 +43,11 @@ WORKDIR /root
 #export PYENV_ROOT="/usr/local/pyenv"
 #export PATH="\$PYENV_ROOT/shims:\$PYENV_ROOT/bin:\$PATH"
 #EOF
-RUN apt-get update && apt install -y --no-install-recommends python3-pip
+RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt install -y --no-install-recommends python3.12
+RUN update-alternatives --install /usr/bin/python python $(which python3.12) 1 && \
+    update-alternatives --install /usr/bin/python3 python3 $(which python3.12) 1 && \
+    update-alternatives --config python && \
+    update-alternatives --config python3
 
 # Install R packages
 RUN install2.r --error --skipmissing --skipinstalled -n $(nproc --all) \
@@ -84,6 +88,7 @@ ENV PYTHONFAULTHANDLER=1 \
       PIP_DISABLE_PIP_VERSION_CHECK=on \
       PIP_DEFAULT_TIMEOUT=100 \
       POETRY_VIRTUALENVS_CREATE=false
+RUN curl https://bootstrap.pypa.io/get-pip.py | python3
 RUN python3 -m pip install pyodbc poetry
 COPY poetry.lock pyproject.toml /root/
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
