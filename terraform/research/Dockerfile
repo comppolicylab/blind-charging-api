@@ -25,9 +25,11 @@ RUN apt-get update && \
     apt-get install -y -V unixodbc-dev && \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
+# NOTE: in the GitHub action, this is where the SSH configs will be injected.
+
+WORKDIR /root
 # Install pyenv / latest Python version
-WORKDIR /usr/local
-RUN git clone https://github.com/pyenv/pyenv.git ./pyenv
+RUN git clone https://github.com/pyenv/pyenv.git /usr/local/pyenv
 ENV PYENV_ROOT="/usr/local/pyenv"
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 # Set permissions for everyone to access pyenv
@@ -73,6 +75,6 @@ session-default-new-project-dir=/data/projects
 EOF
 
 # Install Python stuff
-RUN pip install pyodbc
+RUN python3 -m pip install pyodbc
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh python3 -m pip install git+ssh://git@github.com/stanford-policylab/bc2.git@main
