@@ -48,9 +48,10 @@ jobs:
         env:
           DIR: ${{github.workspace}}
         run: |
-          mkdir -p custom-config
-          cp -r ~/.gitconfig ~/.ssh custom-config/
-          ed -s $DIR/Dockerfile <<EOF
+          CONFIG_DIR=terraform/research/custom-config
+          mkdir -p $CONFIG_DIR
+          cp -r ~/.gitconfig ~/.ssh $CONFIG_DIR/
+          ed -s $DIR/terraform/research/Dockerfile <<EOF
           /WORKDIR/
           i
           COPY custom-config/.gitconfig /root/.gitconfig
@@ -60,9 +61,9 @@ jobs:
           w
           q
           EOF
-          ls -l custom-config/.ssh
-          cat custom-config/.ssh/config
-          cat custom-config/.gitconfig
+          ls -l $CONFIG_DIR/.ssh
+          cat $CONFIG_DIR/.ssh/config
+          cat $CONFIG_DIR/.gitconfig
 
       - name: Build and push research image
         uses: docker/build-push-action@v6
