@@ -29,11 +29,11 @@ RUN apt-get update && \
 
 WORKDIR /root
 # Install pyenv / latest Python version
-RUN git clone https://github.com/pyenv/pyenv.git /usr/local/pyenv
-ENV PYENV_ROOT="/usr/local/pyenv"
+ENV PYENV_ROOT="/root/.pyenv"
+RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
+RUN chmod -R 777 $PYENV_ROOT
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
 # Set permissions for everyone to access pyenv
-RUN chmod -R 777 /usr/local/pyenv
 RUN pyenv install 3.12.7
 RUN pyenv global 3.12.7
 RUN python3 -m pip install --upgrade pip
