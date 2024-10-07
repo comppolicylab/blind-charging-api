@@ -29,7 +29,7 @@ RUN apt-get update && \
 
 WORKDIR /root
 # Install pyenv / latest Python version
-ENV PYENV_ROOT="/root/.pyenv"
+ENV PYENV_ROOT="/usr/local/.pyenv"
 RUN git clone https://github.com/pyenv/pyenv.git $PYENV_ROOT
 RUN chmod -R 777 $PYENV_ROOT
 ENV PATH="$PYENV_ROOT/shims:$PYENV_ROOT/bin:$PATH"
@@ -75,6 +75,14 @@ session-default-new-project-dir=/data/projects
 EOF
 
 # Install Python stuff
-RUN python3 -m pip install pyodbc
+ENV PYTHONFAULTHANDLER=1 \
+      PYTHONUNBUFFERED=1 \
+      PYTHONHASHSEED=random \
+      PIP_NO_CACHE_DIR=off \
+      PIP_DISABLE_PIP_VERSION_CHECK=on \
+      PIP_DEFAULT_TIMEOUT=100 \
+      POETRY_VIRTUALENVS_CREATE=false
+RUN python3 -m pip install pyodbc poetry
+COPY poetry.lock pyproject.toml /root/
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-RUN --mount=type=ssh python3 -m pip install git+ssh://git@github.com/stanford-policylab/bc2.git@main
+RUN --mount=type=ssh poetry install --without-dev --no-interaction --no-ansi --no-root
