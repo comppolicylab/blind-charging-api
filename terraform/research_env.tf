@@ -8,16 +8,21 @@ resource "azurerm_storage_account" "research" {
   name                     = replace(format("%srbcdata", var.partner), "-", "")
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
-  account_tier             = "Standard"
+  account_tier             = "Premium"
   account_replication_type = "LRS"
   tags                     = var.tags
+  account_kind             = "FileStorage"
 }
 
 resource "azurerm_storage_share" "research" {
   count                = var.enable_research_env ? 1 : 0
   name                 = "rbcdata"
   storage_account_name = azurerm_storage_account.research[0].name
-  quota                = 10 # Gigabytes
+  # 100 Gb is the minimum size for a premium file share. We have to use
+  # a premium file share in order to use NFS. We have to use NFS in order
+  # to mount the file share without issues on the Linux-based container.
+  quota            = 100 # Gb
+  enabled_protocol = "NFS"
 }
 
 resource "azurerm_container_app_environment_storage" "research" {

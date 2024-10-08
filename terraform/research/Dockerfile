@@ -79,3 +79,8 @@ RUN python3 -m pip install pyodbc poetry
 COPY poetry.lock pyproject.toml /home/rstudio
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 RUN --mount=type=ssh python3 -m poetry install --no-interaction --no-ansi --no-root
+
+# Copy start script and run
+COPY start.sh /start
+RUN chmod +x /start
+CMD ["/start"]
