@@ -2,7 +2,12 @@
 
 set -e
 
-# If the environment variable SMB_SHARE_URL is set, mount the SMB share
+# If the environment variable SMB_SHARE_URL is set, mount the SMB share.
+# Environment variables:
+# - SMB_SHARE_URL: The URL of the SMB share to mount.
+# - SMB_USER: The username to use for the SMB share.
+# - SMB_PASSWORD: The password to use for the SMB share.
+# - SMB_MOUNT_PATH: The path to mount the SMB share to. Defaults to "/data".
 echo "Checking for SMB mount..."
 if [ -n "$SMB_SHARE_URL" ]; then
   echo "Mounting SMB share $SMB_SHARE_URL ..."

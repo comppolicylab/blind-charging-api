@@ -6,7 +6,7 @@ name: Release Blind Charging Research image
 on:
   push:
     branches: [main]
-    paths: [terraform/research/Dockerfile]
+    paths: [terraform/research/*]
 
 jobs:
 
