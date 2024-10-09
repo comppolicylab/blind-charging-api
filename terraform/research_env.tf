@@ -2,7 +2,7 @@ locals {
   research_app_name      = format("%s-rbc-research", var.partner)
   research_app_fqdn      = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
   storage_domain         = "file.core.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
-  research_smb_share_url = format("//%s.%s/%s", azurerm_storage_share.research[0].name, local.storage_domain, azurerm_storage_share.research[0].name)
+  research_smb_share_url = format("//%s.%s/%s", azurerm_storage_account.research[0].name, local.storage_domain, azurerm_storage_share.research[0].name)
 }
 
 resource "azurerm_storage_account" "research" {
@@ -86,12 +86,6 @@ resource "azurerm_container_app" "research" {
     min_replicas = 1
     max_replicas = 1
 
-    volume {
-      name         = "data"
-      storage_type = "AzureFile"
-      storage_name = azurerm_container_app_environment_storage.research[0].name
-    }
-
     container {
       name   = "rbc-research"
       image  = local.research_image_tag
@@ -130,11 +124,6 @@ resource "azurerm_container_app" "research" {
         transport        = "HTTP"
         initial_delay    = 5
         interval_seconds = 15
-      }
-
-      volume_mounts {
-        name = "data"
-        path = "/data"
       }
     }
   }
