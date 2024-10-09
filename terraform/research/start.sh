@@ -26,15 +26,15 @@ if [ -n "$SMB_SHARE_URL" ]; then
 
   # Mount the share
   echo "$SMB_SHARE_URL /mnt/datafs cifs nofail,credentials=/etc/smbcredentials/datafs.cred,dir_mode=0777,file_mode=0777,serverino,nosharesock,actimeo=30,noperm" >> /etc/fstab
-  sudo mount -t cifs "$SMB_SHARE_URL" /mnt/datafs -o credentials=/etc/smbcredentials/datafs.cred,dir_mode=0777,file_mode=0777,serverino,nosharesock,actimeo=30,noperm
+  #sudo mount -t cifs "$SMB_SHARE_URL" /mnt/datafs -o credentials=/etc/smbcredentials/datafs.cred,dir_mode=0777,file_mode=0777,serverino,nosharesock,actimeo=30,noperm
 
   # Link the mount point to the configured path, or just "/data"
-  mount_point=${SMB_MOUNT_PATH:-/data}
-  ln -s /mnt/datafs $mount_point
+  #mount_point=${SMB_MOUNT_PATH:-/data}
+  #ln -s /mnt/datafs $mount_point
 
   # Ensure the mount point is writable for everyone
-  chmod 777 /mnt/datafs
-  chmod 777 $mount_point
+  #chmod 777 /mnt/datafs
+  #chmod 777 $mount_point
 else
   echo "SMB_SHARE_URL not set, skipping SMB mount."
 fi
