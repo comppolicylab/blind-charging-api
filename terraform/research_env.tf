@@ -1,6 +1,8 @@
 locals {
-  research_app_name = format("%s-rbc-research", var.partner)
-  research_app_fqdn = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
+  research_app_name      = format("%s-rbc-research", var.partner)
+  research_app_fqdn      = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
+  storage_domain         = "file.core.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
+  research_smb_share_url = format("//%s.%s/%s", azurerm_storage_share.research[0].name, local.storage_domain, azurerm_storage_share.research[0].name)
 }
 
 resource "azurerm_storage_account" "research" {
@@ -8,21 +10,16 @@ resource "azurerm_storage_account" "research" {
   name                     = replace(format("%srbcdata", var.partner), "-", "")
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
-  account_tier             = "Premium"
+  account_tier             = "Standard"
   account_replication_type = "LRS"
   tags                     = var.tags
-  account_kind             = "FileStorage"
 }
 
 resource "azurerm_storage_share" "research" {
   count                = var.enable_research_env ? 1 : 0
-  name                 = "rbcdata"
+  name                 = "rbcdatafs"
   storage_account_name = azurerm_storage_account.research[0].name
-  # 100 Gb is the minimum size for a premium file share. We have to use
-  # a premium file share in order to use NFS. We have to use NFS in order
-  # to mount the file share without issues on the Linux-based container.
-  quota            = 100 # Gb
-  enabled_protocol = "NFS"
+  quota                = 10 # Gigabytes
 }
 
 resource "azurerm_container_app_environment_storage" "research" {
@@ -62,6 +59,11 @@ resource "azurerm_container_app" "research" {
     value = var.research_password
   }
 
+  secret {
+    name  = "smb-password"
+    value = azurerm_storage_account.research[0].primary_access_key
+  }
+
   registry {
     server               = var.research_image_registry
     username             = var.partner
@@ -99,6 +101,26 @@ resource "azurerm_container_app" "research" {
       env {
         name        = "PASSWORD"
         secret_name = "research-password"
+      }
+
+      env {
+        name  = "SMB_MOUNT_PATH"
+        value = "/data"
+      }
+
+      env {
+        name  = "SMB_SHARE_URL"
+        value = local.research_smb_share_url
+      }
+
+      env {
+        name  = "SMB_USER"
+        value = azurerm_storage_account.research[0].name
+      }
+
+      env {
+        name        = "SMB_PASSWORD"
+        secret_name = "smb-password"
       }
 
       liveness_probe {
