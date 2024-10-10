@@ -1,8 +1,6 @@
 locals {
-  research_app_name      = format("%s-rbc-research", var.partner)
-  research_app_fqdn      = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
-  storage_domain         = "file.core.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
-  research_smb_share_url = format("//%s.%s/%s", azurerm_storage_account.research[0].name, local.storage_domain, azurerm_storage_share.research[0].name)
+  research_app_name = format("%s-rbc-research", var.partner)
+  research_app_fqdn = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
 }
 
 resource "azurerm_storage_account" "research" {
@@ -50,24 +48,19 @@ resource "azurerm_container_app" "research" {
   }
 
   secret {
-    name  = "registry-password"
+    name  = "registrypassword"
     value = var.registry_password
   }
 
   secret {
-    name  = "research-password"
+    name  = "researchpassword"
     value = var.research_password
-  }
-
-  secret {
-    name  = "smb-password"
-    value = azurerm_storage_account.research[0].primary_access_key
   }
 
   registry {
     server               = var.research_image_registry
     username             = var.partner
-    password_secret_name = "registry-password"
+    password_secret_name = "registrypassword"
   }
 
   ingress {
@@ -86,6 +79,12 @@ resource "azurerm_container_app" "research" {
     min_replicas = 1
     max_replicas = 1
 
+    volume {
+      name         = "data"
+      storage_type = "AzureFile"
+      storage_name = azurerm_container_app_environment_storage.research[0].name
+    }
+
     container {
       name   = "rbc-research"
       image  = local.research_image_tag
@@ -94,27 +93,12 @@ resource "azurerm_container_app" "research" {
 
       env {
         name        = "PASSWORD"
-        secret_name = "research-password"
+        secret_name = "researchpassword"
       }
 
-      env {
-        name  = "SMB_MOUNT_PATH"
-        value = "/data"
-      }
-
-      env {
-        name  = "SMB_SHARE_URL"
-        value = local.research_smb_share_url
-      }
-
-      env {
-        name  = "SMB_USER"
-        value = azurerm_storage_account.research[0].name
-      }
-
-      env {
-        name        = "SMB_PASSWORD"
-        secret_name = "smb-password"
+      volume_mounts {
+        name = "data"
+        path = "/data"
       }
 
       liveness_probe {
@@ -124,6 +108,40 @@ resource "azurerm_container_app" "research" {
         transport        = "HTTP"
         initial_delay    = 5
         interval_seconds = 15
+      }
+    }
+  }
+}
+
+// azurerm doesn't support "mount options" yet. "noperm" is required
+// for the SMB share to work properly.
+// https://github.com/hashicorp/terraform-provider-azurerm/issues/26131
+//
+// "noperm" is not actually valid in Azure, so we use `uid` and `gid`
+// instead and this will give `rstudio` user the permission to do most
+// things in this directory (unless they actually need to `chmod` or `chown`).
+//
+// Separately, azapi_update_resource only supports PUT, which hits an
+// error since it will try to merge the config with secrets (which it can't
+// find values for due to security reasons). azapi_resource_action is used
+// instead to send a PATCH request.
+// https://github.com/Azure/terraform-provider-azapi/issues/542
+resource "azapi_resource_action" "fix_smb_mount_options" {
+  resource_id = azurerm_container_app.research[0].id
+  depends_on  = [azurerm_container_app.research[0]]
+  type        = "Microsoft.App/containerApps@2024-03-01"
+  method      = "PATCH"
+  body = {
+    properties = {
+      template = {
+        volumes = [
+          {
+            name         = "data"
+            storageType  = "AzureFile"
+            storageName  = azurerm_container_app_environment_storage.research[0].name
+            mountOptions = "dir_mode=0777,file_mode=0777,uid=1000,gid=1000,nobrl,mfsymlinks,cache=none"
+          }
+        ]
       }
     }
   }

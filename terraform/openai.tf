@@ -16,7 +16,7 @@ resource "azapi_resource" "no_content_filter" {
   name                      = "NoFilter"
   parent_id                 = azurerm_cognitive_account.openai.id
   schema_validation_enabled = false
-  body = jsonencode({
+  body = {
     name = "NoFilter"
     properties = {
       basePolicyName = "Microsoft.Default"
@@ -36,7 +36,7 @@ resource "azapi_resource" "no_content_filter" {
         { name = "protected_material_text", blocking = false, enabled = false, source = "Completion" },
       ]
     }
-  })
+  }
   depends_on = [azurerm_cognitive_account.openai]
 }
 
