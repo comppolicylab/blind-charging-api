@@ -57,6 +57,11 @@ resource "azurerm_container_app" "research" {
     value = var.research_password
   }
 
+  secret {
+    name  = "config"
+    value = local.research_env_toml
+  }
+
   registry {
     server               = var.research_image_registry
     username             = var.partner
@@ -80,6 +85,11 @@ resource "azurerm_container_app" "research" {
     max_replicas = 1
 
     volume {
+      name         = "secrets"
+      storage_type = "Secret"
+    }
+
+    volume {
       name         = "data"
       storage_type = "AzureFile"
       storage_name = azurerm_container_app_environment_storage.research[0].name
@@ -99,6 +109,11 @@ resource "azurerm_container_app" "research" {
       volume_mounts {
         name = "data"
         path = "/data"
+      }
+
+      volume_mounts {
+        name = "secrets"
+        path = "/secrets"
       }
 
       liveness_probe {

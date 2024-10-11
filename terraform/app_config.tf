@@ -95,4 +95,20 @@ ${local.db_config}
 # Configure the processing pipeline.
 ${var.toy_mode ? local.app_pipeline_toy_toml : local.app_pipeline_prod_toml}
 EOF
+
+  # Research environment configuration file.
+  # This always includes the production pipeline for debugging purposes.
+  research_env_toml = <<EOF
+debug = true
+
+[experiments]
+enabled = true
+automigrate = false
+
+[experiments.store]
+${local.db_config}
+
+[processor]
+${local.app_pipeline_prod_toml}
+EOF
 }
