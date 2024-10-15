@@ -2,6 +2,7 @@ import json
 
 import responses
 from fakeredis import FakeRedis
+from pydantic import AnyUrl
 from responses import matchers
 
 from app.server.generated.models import Document, DocumentLink
@@ -73,7 +74,7 @@ def test_callback_with_callback_no_error(fake_redis_store: FakeRedis):
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
-                url="http://blob.test.local/abc123",
+                url=AnyUrl("http://blob.test.local/abc123"),
             )
         ),
     )

@@ -116,7 +116,7 @@ def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:
     """Load the configuration from a TOML file."""
     if not Path(path).exists():
         logger.warning(f"Config file not found: {path}")
-        return Config()
+        return Config(processor=InlineProcessorConfig(pipe=[]))
     else:
         logger.info(f"Loading config file: {path}")
     raw_cfg = Path(path).read_text()

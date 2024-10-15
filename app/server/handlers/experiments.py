@@ -98,7 +98,7 @@ class OutcomeDecision(BaseModel):
 
     review_type: ReviewType
     decision: Decision
-    explanation: str
+    explanation: str | None
     disqualifiers: list[Disqualifier] = []
     additional_evidence: str | None = None
 

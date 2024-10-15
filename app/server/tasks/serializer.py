@@ -6,7 +6,7 @@ from pydantic import AnyUrl, BaseModel
 from ..generated.models import OutputFormat
 
 
-def register_type(t: BaseModel):
+def register_type(t: type[BaseModel]) -> None:
     _register_json_type(t, t.__name__, t.model_dump, t.model_validate)
 
 

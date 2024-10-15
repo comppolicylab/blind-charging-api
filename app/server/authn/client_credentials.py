@@ -1,7 +1,7 @@
 import secrets
 from datetime import UTC, datetime
 from functools import cached_property
-from typing import Literal, NamedTuple, Tuple
+from typing import Literal, NamedTuple
 
 import jwt
 from argon2 import PasswordHasher
@@ -9,7 +9,7 @@ from fastapi import Request
 from glowplug import SqliteSettings
 from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid_utils import uuid7
+from uuid_utils import UUID, uuid7
 
 from ..db import Client, RdbmsConfig, Revocation
 from ..time import NowFn, utcnow
@@ -162,7 +162,7 @@ class ClientCredentialsAuthnDriver(BaseAuthnDriver):
 
         request.state.authn_data = decoded
 
-    async def register_client(self, tx: AsyncSession, name: str) -> Tuple[Client, str]:
+    async def register_client(self, tx: AsyncSession, name: str) -> NewClientResponse:
         """Register a client with the authn system.
 
         Args:
@@ -176,7 +176,7 @@ class ClientCredentialsAuthnDriver(BaseAuthnDriver):
         tx.add(client)
         await tx.flush()
         await tx.refresh(client)
-        return NewClientResponse(client_id=client.id.hex(), client_secret=client_secret)
+        return NewClientResponse(client_id=client.id.hex, client_secret=client_secret)
 
     async def issue_token(
         self, tx: AsyncSession, client_id: str, client_secret: str, now: NowFn = utcnow
@@ -200,7 +200,7 @@ class ClientCredentialsAuthnDriver(BaseAuthnDriver):
         tok = encode_jwt(
             AccessTokenData(
                 jti=uuid7().bytes.hex(),
-                sub=client.id.hex(),
+                sub=client.id.hex,
                 scope=DEFAULT_SCOPE,
                 iat=ts,
                 exp=ts + self._expiry_seconds,
@@ -255,7 +255,7 @@ class ClientCredentialsAuthnDriver(BaseAuthnDriver):
         Raises:
             NotAuthenticated: If the client is not found or the secret is invalid
         """
-        client = await Client.get_by_id(tx, bytes.fromhex(client_id))
+        client = await Client.get_by_id(tx, UUID(client_id))
         if not client:
             raise NotAuthenticated("Invalid client")
 

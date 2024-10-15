@@ -9,6 +9,7 @@ from blind_charging_core.pipeline import (
     TextRenderConfig,
 )
 from celery import Task
+from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
@@ -28,7 +29,7 @@ class RedactionTask(BaseModel):
     case_id: str
     renderer: OutputFormat = OutputFormat.PDF
 
-    def s(self):
+    def s(self) -> Signature:
         return redact.s(self)
 
 

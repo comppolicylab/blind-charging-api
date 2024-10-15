@@ -60,6 +60,11 @@ exclude = ["app/server/generated"]
 [tool.ruff.lint]
 select = ["F", "E", "W", "I001", "C", "W", "B"]
 
+[tool.mypy]
+strict = false # TODO: Set to true when we have time to fix all the errors
+ignore_missing_imports = true
+exclude = "^(alembic)"
+
 [[tool.mypy.overrides]]
 module = "app.server.generated.models"
 ignore_errors = true

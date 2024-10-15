@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 
+from celery.canvas import Signature
 from celery.result import AsyncResult
 from pydantic import BaseModel
 
@@ -22,7 +23,7 @@ class FinalizeTask(BaseModel):
     subject_ids: list[str] = []
     renderer: OutputFormat
 
-    def s(self):
+    def s(self) -> Signature:
         return finalize.s(self)
 
 

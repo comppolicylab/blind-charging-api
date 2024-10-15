@@ -1,7 +1,8 @@
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Awaitable, Literal, TypeVar, cast
 
 import redis.asyncio as aioredis
 from pydantic import BaseModel
+from redis.asyncio.client import Pipeline as AsyncPipeline
 
 from .store import SimpleMapping, Store, StoreSession
 
@@ -57,8 +58,17 @@ class RedisTestConfig(BaseModel):
         self._server = None
 
 
+T = TypeVar("T")
+
+
+async def _maybe_wait(val: Awaitable[T] | T) -> T:
+    if isinstance(val, Awaitable):
+        return await val
+    return val
+
+
 class BaseRedisStoreSession(StoreSession):
-    pipe: aioredis.client.Pipeline
+    pipe: AsyncPipeline
     client: aioredis.Redis
 
     async def open(self):
@@ -88,22 +98,32 @@ class BaseRedisStoreSession(StoreSession):
         return await self.client.get(key)
 
     async def sadd(self, key: str, *value):
-        await self.pipe.sadd(key, *value)
+        await _maybe_wait(self.pipe.sadd(key, *value))
 
     async def hsetmapping(self, key: str, mapping: SimpleMapping):
-        await self.pipe.hset(key, mapping=mapping)
+        # NOTE: using a `dict` call here since our typings are a little
+        # more broad than the redis library technically accepts. This should
+        # really be a no-op in most cases.
+        await _maybe_wait(self.pipe.hset(key, mapping=dict(mapping)))
 
     async def hgetall(self, key: str) -> dict[bytes, bytes]:
-        return await self.client.hgetall(key)
+        return await _maybe_wait(self.client.hgetall(key))
 
     async def expire_at(self, key: str, expire_at: int):
         await self.pipe.expireat(key, expire_at)
 
     async def enqueue(self, key: str, value: str):
-        await self.pipe.lpush(key, value)
+        await _maybe_wait(self.pipe.lpush(key, value))
 
     async def dequeue(self, key: str) -> bytes | None:
-        return await self.client.rpop(key)
+        # NOTE: using a cast here because the typing is misleading in the library.
+        # The library gives `str | list | None`. This should really be written using
+        # overloads. The `list` is only returned when `count` is passed, which we don't
+        # do here. Any `str` is only returned when `decode_responses` is set during the
+        # initialization of the client. In our app, at least for now, we will return
+        # bytes. So, the correct type here is really `bytes | None`.
+        p = cast(Awaitable[bytes | None] | bytes | None, self.client.rpop(key))
+        return await _maybe_wait(p)
 
     async def time(self) -> int:
         t, _ = await self.client.time()

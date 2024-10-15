@@ -3,9 +3,10 @@ from datetime import timedelta
 
 import jwt
 import pytest
+from argon2 import PasswordHasher
 from fastapi.testclient import TestClient
 
-from app.server.db import Revocation
+from app.server.db import Client, Revocation
 
 PROTECTED_ROUTES = [
     ("POST", "/api/v1/exposure"),
@@ -103,6 +104,40 @@ async def test_authn_none(api: TestClient):
 
 @pytest.mark.parametrize(
     "authn_config",
+    [
+        """\
+method = 'client_credentials'
+secret = 'something'
+[authentication.store]
+engine = 'sqlite'
+path = "{db_path}"
+"""
+    ],
+    indirect=True,
+)
+async def test_authn_register_client(api: TestClient, config, authn_db):
+    async with authn_db.async_session() as sesh:
+        client = await config.authentication.driver.register_client(sesh, "test")
+        await sesh.commit()
+
+    assert isinstance(client.client_id, str)
+    assert len(client.client_id) == 32
+    assert isinstance(client.client_secret, str)
+    assert len(client.client_secret) == 43
+
+    # Now look up in the database to make sure it's there,
+    # and that the secret is hashed.
+    async with authn_db.async_session() as sesh:
+        db_client = await sesh.get(Client, client.client_id)
+        assert db_client is not None
+        assert db_client.name == "test"
+        assert db_client.secret_hash != client.client_secret
+        ph = PasswordHasher()
+        assert ph.verify(db_client.secret_hash, client.client_secret)
+
+
+@pytest.mark.parametrize(
+    "authn_config",
     ["method = 'client_credentials'\nsecret = 'something'"],
     indirect=True,
 )
@@ -165,7 +200,7 @@ async def test_authn_client_credentials_valid(api: TestClient, config, authn_db,
             raise
 
     # Expiration
-    api.app.state.now = lambda: now() + timedelta(days=2)
+    api.app.state.now = lambda: now() + timedelta(days=2)  # type: ignore
 
     for method, route in PROTECTED_ROUTES:
         response = api.request(
@@ -292,7 +327,7 @@ async def test_authn_client_credentials_revoke_cleanup(
         assert await Revocation.check(sesh, token_id) is True
         await sesh.commit()
 
-    api.app.state.now = lambda: now() + timedelta(seconds=2 * 86400)
+    api.app.state.now = lambda: now() + timedelta(seconds=2 * 86400)  # type: ignore
     new_token_response = api.request(
         "POST",
         "/api/v1/oauth2/token",

@@ -1,11 +1,13 @@
 import base64
+from typing import cast
 
 import requests
+from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
 from ..config import config
-from ..generated.models import Document
+from ..generated.models import Document, DocumentContent, DocumentLink, DocumentText
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -15,7 +17,7 @@ logger = get_task_logger(__name__)
 class FetchTask(BaseModel):
     document: Document
 
-    def s(self):
+    def s(self) -> Signature:
         return fetch.s(self)
 
 
@@ -51,15 +53,19 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
         match params.document.root.attachmentType:
             case "LINK":
                 response = requests.get(
-                    params.document.root.url,
+                    str(cast(DocumentLink, params.document.root).url),
                     timeout=config.queue.task.link_download_timeout_seconds,
                 )
                 response.raise_for_status()
                 content = response.content
             case "TEXT":
-                content = params.document.root.content.encode("utf-8")
+                content = cast(DocumentText, params.document.root).content.encode(
+                    "utf-8"
+                )
             case "BASE64":
-                content = base64.b64decode(params.document.root.content)
+                content = base64.b64decode(
+                    cast(DocumentContent, params.document.root).content
+                )
             case _:
                 raise ValueError(
                     "Unsupported attachment type: "

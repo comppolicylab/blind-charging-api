@@ -1,6 +1,7 @@
 """HTTP server to expose health check endpoint while worker is running."""
 
 import logging
+from typing import Literal, TypedDict
 
 import uvicorn
 from fastapi import FastAPI
@@ -13,8 +14,24 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
+class WorkerHealth(TypedDict):
+    """Response from Celery worker.
+
+    See:
+    https://docs.celeryq.dev/en/v5.3.6/reference/celery.app.control.html#celery.app.control.Control.ping
+    """
+
+    ok: Literal["pong"]
+
+
+class HealthCheckResponse(TypedDict):
+    """Health check response from the worker daemon."""
+
+    workers: list[dict[str, WorkerHealth]]
+
+
 @app.get("/health")
-def health() -> dict:
+def health() -> HealthCheckResponse:
     """Health check endpoint."""
     return {"workers": queue.control.ping()}
 

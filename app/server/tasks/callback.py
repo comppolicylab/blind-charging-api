@@ -3,6 +3,7 @@ import json
 import logging
 
 import requests
+from celery.canvas import Signature
 from pydantic import BaseModel
 
 from ..case import CaseStore
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 class CallbackTask(BaseModel):
     callback_url: str | None = None
 
-    def s(self):
+    def s(self) -> Signature:
         return callback.s(self)
 
 

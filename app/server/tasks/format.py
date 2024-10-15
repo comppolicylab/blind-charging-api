@@ -1,8 +1,9 @@
 import base64
 
 from azure.storage.blob import BlobClient
+from celery.canvas import Signature
 from celery.utils.log import get_task_logger
-from pydantic import BaseModel
+from pydantic import AnyUrl, BaseModel
 
 from ..generated.models import Document, DocumentContent, DocumentLink
 from .queue import ProcessingError, queue
@@ -15,7 +16,7 @@ logger = get_task_logger(__name__)
 class FormatTask(BaseModel):
     target_blob_url: str | None = None
 
-    def s(self):
+    def s(self) -> Signature:
         return format.s(self)
 
 
@@ -62,7 +63,7 @@ def format(
                 root=DocumentLink(
                     documentId=redact_result.document_id,
                     attachmentType="LINK",
-                    url=params.target_blob_url,
+                    url=AnyUrl(params.target_blob_url),
                 )
             )
             if not redact_result.content:
@@ -117,7 +118,7 @@ def format_document(
             root=DocumentLink(
                 documentId=document_id,
                 attachmentType="LINK",
-                url=format_task.target_blob_url,
+                url=AnyUrl(format_task.target_blob_url),
             )
         )
     else:

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import NamedTuple, cast
+from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
 from .enumerator import RoleEnumerator
 from .generated.models import HumanName, MaskedSubject, RedactionTarget
@@ -36,7 +36,7 @@ class MaskInfo:
         """
         return self._masks[subject_id]
 
-    def set(self, subject_id: bytes, mask_info: SavedMask):
+    def set(self, subject_id: bytes, mask_info: SavedMask) -> None:
         """Set the mask info for a subject by ID.
 
         Args:
@@ -92,7 +92,19 @@ FOUR_HOURS_S = 4 * 60 * 60
 """Four hours in seconds."""
 
 
-def ensure_init(func):
+F_sync = TypeVar("F_sync", bound=Callable[..., Any])
+F_async = TypeVar("F_async", bound=Callable[..., Coroutine[Any, Any, Any]])
+
+
+@overload
+def ensure_init(func: F_sync) -> F_sync: ...
+
+
+@overload
+def ensure_init(func: F_async) -> F_async: ...
+
+
+def ensure_init(func: Any) -> Any:
     """Decorator to ensure that the case store is initialized.
 
     Args:
@@ -104,7 +116,7 @@ def ensure_init(func):
     # Check if the func is async
     if hasattr(func, "__await__"):
 
-        async def async_wrapper(self, *args, **kwargs):
+        async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             if not self.inited:
                 raise ValueError("Case store not initialized")
             return await func(self, *args, **kwargs)
@@ -112,7 +124,7 @@ def ensure_init(func):
         return async_wrapper
     else:
 
-        def sync_wrapper(self, *args, **kwargs):
+        def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             if not self.inited:
                 raise ValueError("Case store not initialized")
             return func(self, *args, **kwargs)
@@ -131,7 +143,9 @@ class CaseStore:
     def inited(self) -> bool:
         return bool(self.jurisdiction_id and self.case_id)
 
-    async def init(self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S):
+    async def init(
+        self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S
+    ) -> None:
         """Initialize the case store.
 
         Args:
@@ -170,7 +184,12 @@ class CaseStore:
             list[MaskedSubject]: The masked subjects.
         """
         masks = await self.store.hgetall(self.key("mask"))
-        return [MaskedSubject(subjectId=k, alias=v or "") for k, v in masks.items()]
+        return [
+            MaskedSubject(
+                subjectId=k.decode("utf-8"), alias=v.decode("utf-8") if v else ""
+            )
+            for k, v in masks.items()
+        ]
 
     @ensure_init
     async def save_masked_name(self, subject_id: str, mask: str) -> None:
@@ -316,7 +335,7 @@ class CaseStore:
         await self.store.expire_at(k, self.expires_at)
 
     @ensure_init
-    async def save_objects_list(self, objects: list[RedactionTarget]):
+    async def save_objects_list(self, objects: list[RedactionTarget]) -> None:
         """Save the objects list for a case.
 
         Args:

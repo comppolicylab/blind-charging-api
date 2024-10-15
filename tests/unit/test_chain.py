@@ -3,6 +3,7 @@ import pathlib
 import responses
 from celery import chain
 from fakeredis import FakeRedis
+from pydantic import AnyUrl
 from responses import matchers
 
 from app.server.db import DocumentStatus
@@ -35,7 +36,7 @@ def test_chain(fake_redis_store: FakeRedis, exp_db):
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
-                url="http://test.local/doc1",
+                url=AnyUrl("http://test.local/doc1"),
             ),
         ),
     )

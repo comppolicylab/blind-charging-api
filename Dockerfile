@@ -1,4 +1,4 @@
-FROM python:3.12.6-slim-bookworm AS buildbox
+FROM python:3.12.7-slim-bookworm AS buildbox
 
 RUN apt-get update && apt-get install -y apt-transport-https curl gnupg2 git
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -

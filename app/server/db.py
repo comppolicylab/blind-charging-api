@@ -1,14 +1,14 @@
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Type, TypeVar, Union
+from typing import Any, Optional, Type, TypeVar, Union
 
 from glowplug import DbDriver, MsSqlSettings, SqliteSettings
-from sqlalchemy import ForeignKey, delete, select
+from sqlalchemy import Dialect, ForeignKey, delete, select
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
-from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String
+from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String, TypeDecorator
 from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
@@ -41,21 +41,60 @@ Disqualifier = Enum(
 )
 
 
-def primary_key() -> bytes:
+class UUID7Type(TypeDecorator):
+    """UUIDv7 type for SQLAlchemy.
+
+    Stores UUIDs as 16-byte binary values.
+    """
+
+    impl = BINARY(16)
+
+    cache_ok = True
+
+    def process_bind_param(self, value: Any | None, dialect: Dialect) -> bytes | None:
+        """Convert a UUID to bytes."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return UUID(value).bytes
+        elif isinstance(value, UUID):
+            return value.bytes
+        elif isinstance(value, bytes):
+            return value
+        return value
+
+    def process_result_value(self, value: Any | None, dialect: Dialect) -> UUID | None:
+        """Convert bytes to a UUID."""
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return UUID(value)
+        elif isinstance(value, bytes):
+            return UUID(value.hex())
+        return value
+
+
+def primary_key() -> UUID:
     """Generate a UUIDv7 primary key."""
-    return uuid7().bytes
+    return uuid7()
 
 
 class Base(AsyncAttrs, DeclarativeBase):
+    id: Mapped[UUID]
+
     type_annotation_map = {
-        UUID: BINARY(16),
+        UUID: UUID7Type,
         datetime: DateTime(timezone=True),
         str_256: String(255),
         str_4096: String(4095),
         ReviewType: SQLEnum(ReviewType),
         Decision: SQLEnum(Decision),
         Disqualifier: SQLEnum(Disqualifier),
-        text: String(4_194_303).with_variant(NVARCHAR("max"), "mssql"),
+        text: String(4_194_303).with_variant(
+            # NOTE: typing is wrong for mssql, "max" is valid.
+            NVARCHAR("max"),  # type: ignore
+            "mssql",
+        ),
     }
 
     @classmethod

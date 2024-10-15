@@ -151,11 +151,11 @@ async def log_request(request: Request, call_next):
         return await call_next(request)
     finally:
         if config.debug:
+            client_host = request.client.host if request.client else "[unknown client]"
             t1 = time.monotonic()
             elapsed = t1 - t0
             logger.debug(
-                f"{request.method} {request.url.path} "
-                f"{request.client.host} {elapsed:.2f}s"
+                f"{request.method} {request.url.path} " f"{client_host} {elapsed:.2f}s"
             )
 
 

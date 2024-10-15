@@ -1,10 +1,12 @@
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 from fakeredis import FakeRedis
 from fastapi.testclient import TestClient
 from glowplug import DbDriver
+from pydantic import AnyUrl
 
-from app.server.generated.models import Document, DocumentLink
+from app.server.generated.models import Document, DocumentLink, OutputFormat
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
@@ -69,7 +71,7 @@ async def test_redact_handler(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",
-                        url="https://test_document.pdf",
+                        url=AnyUrl("https://test_document.pdf"),
                     )
                 )
             )
@@ -79,7 +81,7 @@ async def test_redact_handler(
                 document_id="doc1",
                 jurisdiction_id="jur1",
                 case_id="case1",
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
         format.s(FormatTask(target_blob_url=None)),
@@ -89,7 +91,7 @@ async def test_redact_handler(
                 jurisdiction_id="jur1",
                 case_id="case1",
                 subject_ids=["sub1"],
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
     )
@@ -109,7 +111,7 @@ async def test_redact_handler(
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
     queue_len = fake_redis_store.llen("jur1:case1:objects")
     assert queue_len == 1
-    assert fake_redis_store.lrange("jur1:case1:objects", 0, queue_len) == [
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
         (
             b'{"callbackUrl": "https://echo/", '
             b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
@@ -167,7 +169,7 @@ async def test_redact_handler_no_callback(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",
-                        url="https://test_document.pdf",
+                        url=AnyUrl("https://test_document.pdf"),
                     )
                 )
             )
@@ -177,7 +179,7 @@ async def test_redact_handler_no_callback(
                 document_id="doc1",
                 jurisdiction_id="jur1",
                 case_id="case1",
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
         format.s(FormatTask(target_blob_url=None)),
@@ -187,7 +189,7 @@ async def test_redact_handler_no_callback(
                 jurisdiction_id="jur1",
                 case_id="case1",
                 subject_ids=["sub1"],
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
     )
@@ -207,7 +209,7 @@ async def test_redact_handler_no_callback(
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
     queue_len = fake_redis_store.llen("jur1:case1:objects")
     assert queue_len == 1
-    assert fake_redis_store.lrange("jur1:case1:objects", 0, queue_len) == [
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
         (
             b'{"callbackUrl": null, '
             b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
@@ -291,7 +293,7 @@ async def test_redact_handler_multi_doc(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",
-                        url="https://test_document.pdf",
+                        url=AnyUrl("https://test_document.pdf"),
                     )
                 )
             )
@@ -301,7 +303,7 @@ async def test_redact_handler_multi_doc(
                 document_id="doc1",
                 jurisdiction_id="jur1",
                 case_id="case1",
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
         format.s(FormatTask(target_blob_url=None)),
@@ -311,7 +313,7 @@ async def test_redact_handler_multi_doc(
                 jurisdiction_id="jur1",
                 case_id="case1",
                 subject_ids=["sub1"],
-                renderer="PDF",
+                renderer=OutputFormat.PDF,
             )
         ),
     )
@@ -331,7 +333,7 @@ async def test_redact_handler_multi_doc(
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
     queue_len = fake_redis_store.llen("jur1:case1:objects")
     assert queue_len == 2
-    assert fake_redis_store.lrange("jur1:case1:objects", 0, queue_len) == [
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
         (
             b'{"callbackUrl": "https://echo/2", '
             b'"document": {"attachmentType": "LINK", "documentId": "doc2", '

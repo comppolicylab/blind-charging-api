@@ -2,7 +2,7 @@ import logging
 import os
 import tempfile
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, AsyncGenerator, Callable, Generator
+from typing import IO, TYPE_CHECKING, AsyncGenerator, Callable, Generator, cast
 from urllib.parse import urlparse
 
 import pytest
@@ -21,6 +21,7 @@ from pytest_celery.vendors.worker.defaults import DEFAULT_WORKER_CONTAINER_TIMEO
 from pytest_docker_tools import build, container, fxtr
 
 if TYPE_CHECKING:
+    from app.server.config import Config
     from app.server.lazy import LazyObjectProxy
     from tests.integration.testutil import MockCallbackServer
 
@@ -322,13 +323,18 @@ async def exp_db(config) -> AsyncGenerator[DbDriver, None]:
 
 
 @pytest.fixture
-async def authn_db(config) -> AsyncGenerator[DbDriver, None]:
+async def authn_db(config: "Config") -> AsyncGenerator[DbDriver | None, None]:
     """Initialize the database for authentication."""
+    from app.server.authn.client_credentials import ClientCredentialsAuthnConfig
     from app.server.db import init_db
 
-    await init_db(config.authentication.store.driver, drop_first=True)
-
-    yield config.authentication.store.driver
+    authn = config.authentication
+    if isinstance(authn, ClientCredentialsAuthnConfig):
+        cc_authn = cast(ClientCredentialsAuthnConfig, authn)
+        await init_db(cc_authn.store.driver, drop_first=True)
+        yield cc_authn.store.driver
+    else:
+        yield None
 
 
 @pytest.fixture
@@ -360,7 +366,7 @@ def _patch_queue_store(cfg):
 
 
 @pytest.fixture
-def api(config, exp_db, now, request) -> Generator[TestClient, None, None]:
+def api(config: "Config", exp_db, now, request) -> Generator[TestClient, None, None]:
     """Fixture to provide a test client for the FastAPI app.
 
     The fixture will reference the database and message queue objects.
@@ -373,17 +379,18 @@ def api(config, exp_db, now, request) -> Generator[TestClient, None, None]:
         # same event loop that is managed by the pytest-asyncio `event_loop`
         # fixture. There will be a race condition in the teardown if we
         # manage the queue store outside of this context.
-        store_driver = api.portal.wrap_async_context_manager(
-            config.queue.store.driver()
-        )
-        # The celery object backend also needs patching!
-        if "fake_redis_store" in request.fixturenames:
-            api.portal.call(_patch_queue_store, config)
+        if api.portal:
+            store_driver = api.portal.wrap_async_context_manager(
+                config.queue.store.driver()
+            )
+            # The celery object backend also needs patching!
+            if "fake_redis_store" in request.fixturenames:
+                api.portal.call(_patch_queue_store, config)
 
         with store_driver as qstore:
-            api.app.state.now = now
-            api.app.state.queue_store = qstore
-            api.app.state.db = exp_db
+            api.app.state.now = now  # type: ignore
+            api.app.state.queue_store = qstore  # type: ignore
+            api.app.state.db = exp_db  # type: ignore
 
             yield api
 
