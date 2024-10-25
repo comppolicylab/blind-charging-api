@@ -86,7 +86,7 @@ class BaseRedisStoreSession(StoreSession):
     async def ping(self):
         return await self.client.ping()
 
-    async def set(self, key: str, value: str):
+    async def set(self, key: str, value: str | bytes):
         await self.pipe.set(key, value)
 
     async def get(self, key: str) -> bytes | None:

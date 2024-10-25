@@ -32,7 +32,7 @@ def test_fetch_link():
 
     assert result.get() == FetchTaskResult(
         document_id="doc1",
-        file_bytes=b"hello world",
+        file_storage_id="b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
     )
 
 
@@ -59,7 +59,7 @@ def test_fetch_link_error_code():
 
     assert result.get().model_dump() == {
         "document_id": "doc1",
-        "file_bytes": b"",
+        "file_storage_id": None,
         "errors": [
             {
                 "message": "404 Client Error: Not Found for url: http://doc.test.local/abc123",
@@ -85,7 +85,7 @@ def test_fetch_text():
 
     assert result.get() == FetchTaskResult(
         document_id="doc1",
-        file_bytes=b"hello world",
+        file_storage_id="b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
     )
 
 
@@ -104,7 +104,7 @@ def test_fetch_content():
 
     assert result.get() == FetchTaskResult(
         document_id="doc1",
-        file_bytes=b"hello world",
+        file_storage_id="b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
     )
 
 
@@ -123,7 +123,7 @@ def test_fetch_content_invalid():
 
     assert result.get().model_dump() == {
         "document_id": "doc1",
-        "file_bytes": b"",
+        "file_storage_id": None,
         "errors": [
             {
                 "message": "Incorrect padding",
@@ -150,7 +150,7 @@ def test_fetch_invalid_attachment_type():
 
     assert result.get().model_dump() == {
         "document_id": "doc1",
-        "file_bytes": b"",
+        "file_storage_id": None,
         "errors": [
             {
                 "message": "Unsupported attachment type: INVALID",

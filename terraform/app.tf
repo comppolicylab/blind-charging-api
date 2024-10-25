@@ -121,8 +121,8 @@ resource "azurerm_container_app" "main" {
     container {
       name   = "rbc-worker"
       image  = local.api_image_tag
-      cpu    = 1.0
-      memory = "2Gi"
+      cpu    = 2.0
+      memory = "4Gi"
       args   = ["worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
       volume_mounts {
         name = "secrets"

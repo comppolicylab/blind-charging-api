@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from ..case import CaseStore, MaskInfo
 from ..config import config
 from ..generated.models import OutputFormat
-from .fetch import FetchTaskResult
+from .fetch import FetchTaskResult, save_document_sync
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -38,7 +38,7 @@ class RedactionTaskResult(BaseModel):
     case_id: str
     document_id: str
     errors: list[ProcessingError] = []
-    content: bytes | None = None
+    file_storage_id: str | None = None
 
 
 register_type(RedactionTask)
@@ -87,7 +87,7 @@ def redact(
             output_format_to_renderer(params.renderer)
         ]
         pipeline = Pipeline(pipeline_cfg)
-        input_buffer = io.BytesIO(fetch_result.file_bytes)
+        input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))
         output_buffer = io.BytesIO()
 
         # Fetch context about the case from the database.
@@ -113,12 +113,12 @@ def redact(
             save_aliases_sync(ctx.annotations)
 
         content = output_buffer.getvalue()
-
+        content_storage_id = save_document_sync(content)
         return RedactionTaskResult(
             jurisdiction_id=params.jurisdiction_id,
             case_id=params.case_id,
             document_id=params.document_id,
-            content=content,
+            file_storage_id=content_storage_id,
         )
     except Exception as e:
         if self.request.retries >= self.max_retries:
@@ -207,3 +207,23 @@ def save_aliases_sync(aliases: list[dict[str, str]]):
     """
     # TODO - need to clarify how much this step is necessary; perhaps it will
     # never provide more information than the input from the request body.
+
+
+def get_document_sync(file_storage_id: str | None) -> bytes:
+    """Get the document content from the store.
+
+    Args:
+        file_storage_id: The ID in the store where the content was saved.
+
+    Returns:
+        bytes: The content.
+    """
+    if not file_storage_id:
+        return b""
+
+    async def _get():
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                return await CaseStore.get_blob(tx, file_storage_id)
+
+    return asyncio.run(_get())

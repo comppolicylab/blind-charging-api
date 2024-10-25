@@ -1,5 +1,8 @@
 from unittest.mock import patch
 
+from fakeredis import FakeRedis
+from pydantic import AnyUrl
+
 from app.server.generated.models import Document, DocumentContent, DocumentLink
 from app.server.tasks import (
     FormatTask,
@@ -10,12 +13,13 @@ from app.server.tasks import (
 )
 
 
-def test_format_no_blob():
+def test_format_no_blob(fake_redis_store: FakeRedis):
+    fake_redis_store.set("abc123", b"content")
     redact_result = RedactionTaskResult(
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        content=b"content",
+        file_storage_id="abc123",
         errors=[],
     )
 
@@ -36,12 +40,13 @@ def test_format_no_blob():
 
 
 @patch("azure.storage.blob.BlobClient.upload_blob")
-def test_format_with_blob_url(blob_upload):
+def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
+    fake_redis_store.set("abc123", b"content")
     redact_result = RedactionTaskResult(
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        content=b"content",
+        file_storage_id="abc123",
         errors=[],
     )
 
@@ -54,7 +59,7 @@ def test_format_with_blob_url(blob_upload):
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
-                url=blob_sas_url,
+                url=AnyUrl(blob_sas_url),
             )
         ),
         jurisdiction_id="jur1",
@@ -66,12 +71,13 @@ def test_format_with_blob_url(blob_upload):
 
 
 @patch("azure.storage.blob.BlobClient.upload_blob")
-def test_format_with_invalid_blob_url(blob_upload):
+def test_format_with_invalid_blob_url(blob_upload, fake_redis_store: FakeRedis):
+    fake_redis_store.set("abc123", b"content")
     redact_result = RedactionTaskResult(
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        content=b"content",
+        file_storage_id="abc123",
         errors=[],
     )
 
@@ -104,7 +110,7 @@ def test_format_errors():
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
-        content=None,
+        file_storage_id=None,
         errors=[
             ProcessingError(
                 message="error",

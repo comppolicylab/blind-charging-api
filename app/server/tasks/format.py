@@ -7,7 +7,7 @@ from pydantic import AnyUrl, BaseModel
 
 from ..generated.models import Document, DocumentContent, DocumentLink
 from .queue import ProcessingError, queue
-from .redact import RedactionTaskResult
+from .redact import RedactionTaskResult, get_document_sync
 from .serializer import register_type
 
 logger = get_task_logger(__name__)
@@ -66,11 +66,12 @@ def format(
                     url=AnyUrl(params.target_blob_url),
                 )
             )
-            if not redact_result.content:
+            content = get_document_sync(redact_result.file_storage_id)
+            if not content:
                 raise ValueError("Missing redacted content")
 
             # TODO - we can validate the blob URL to guard against accidental inputs
-            write_to_azure_blob_url(params.target_blob_url, redact_result.content)
+            write_to_azure_blob_url(params.target_blob_url, content)
         else:
             document = format_document(params, redact_result)
 
@@ -122,13 +123,14 @@ def format_document(
             )
         )
     else:
-        if not redaction.content:
+        content = get_document_sync(redaction.file_storage_id)
+        if not content:
             raise ValueError("No redacted content")
         return Document(
             root=DocumentContent(
                 documentId=document_id,
                 attachmentType="BASE64",
-                content=base64.b64encode(redaction.content).decode("utf-8"),
+                content=base64.b64encode(content).decode("utf-8"),
             )
         )
 
