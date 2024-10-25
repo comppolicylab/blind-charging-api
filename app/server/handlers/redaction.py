@@ -220,6 +220,7 @@ async def get_redaction_status(
                         inputDocumentId=doc_id,
                         maskedSubjects=masked_subjects,
                         status="QUEUED",
+                        statusDetail="Task not found",
                     )
                 )
             )
@@ -235,6 +236,9 @@ async def get_redaction_status(
                             inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="QUEUED",
+                            statusDetail="Task pending"
+                            if task_result.status == "PENDING"
+                            else "Task retrying",
                         )
                     )
                 )
@@ -247,6 +251,7 @@ async def get_redaction_status(
                             inputDocumentId=doc_id,
                             maskedSubjects=masked_subjects,
                             status="PROCESSING",
+                            statusDetail="Task is currently being processed",
                         )
                     )
                 )

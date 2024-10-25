@@ -230,6 +230,7 @@ async def test_redact_handler_no_callback(
                 "jurisdictionId": "jur1",
                 "maskedSubjects": [],
                 "status": "QUEUED",
+                "statusDetail": "Task pending",
             },
         ],
     }
