@@ -14,6 +14,12 @@ variable "resource_group_name" {
   default     = "RaceBlindCharging"
 }
 
+variable "app_infra_resource_group_name" {
+  type        = string
+  description = "Name of the resource group to deploy the app infrastructure to."
+  default     = "rbc-app-env-rg"
+}
+
 variable "container_app_env_name" {
   type        = string
   default     = ""
