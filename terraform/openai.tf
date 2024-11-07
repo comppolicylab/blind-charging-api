@@ -1,5 +1,5 @@
 resource "azurerm_cognitive_account" "openai" {
-  name                  = format("%s-rbc-cs-oai", var.partner)
+  name                  = local.openai_account_name
   resource_group_name   = azurerm_resource_group.main.name
   location              = local.openai_location
   sku_name              = "S0"
@@ -41,7 +41,7 @@ resource "azapi_resource" "no_content_filter" {
 }
 
 resource "azurerm_cognitive_deployment" "llm" {
-  name                 = format("%s-rbc-oai-llm", var.partner)
+  name                 = local.openai_llm_deployment_name
   cognitive_account_id = azurerm_cognitive_account.openai.id
   model {
     format  = "OpenAI"
@@ -57,10 +57,11 @@ resource "azurerm_cognitive_deployment" "llm" {
 }
 
 resource "azurerm_private_endpoint" "openai" {
-  name                = format("%s-rbc-cs-oai-pe", var.partner)
+  name                = local.openai_private_endpoint_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.openai.id
+  tags                = var.tags
   private_service_connection {
     name                           = "cs-oai-psc"
     private_connection_resource_id = azurerm_cognitive_account.openai.id

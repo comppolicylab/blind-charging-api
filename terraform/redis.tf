@@ -1,5 +1,5 @@
 resource "azurerm_redis_cache" "main" {
-  name                 = format("%s-rbc-redis", var.partner)
+  name                 = local.redis_cache_name
   resource_group_name  = azurerm_resource_group.main.name
   location             = azurerm_resource_group.main.location
   capacity             = 3
@@ -10,10 +10,11 @@ resource "azurerm_redis_cache" "main" {
 }
 
 resource "azurerm_private_endpoint" "redis" {
-  name                = format("%s-rbc-redis-pe", var.partner)
+  name                = local.redis_private_endpoint_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.redis.id
+  tags                = var.tags
 
   private_service_connection {
     name                           = "redis-psc"

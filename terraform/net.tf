@@ -1,25 +1,25 @@
 resource "azurerm_virtual_network" "main" {
-  name                = format("%s-rbc-vnet", var.partner)
+  name                = local.virtual_network_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  address_space       = ["10.0.0.0/16"]
+  address_space       = var.virtual_network_address_space
   tags                = var.tags
 }
 
 resource "azurerm_subnet" "default" {
-  name                                          = "default"
+  name                                          = var.default_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.0.0/24"]
+  address_prefixes                              = var.default_subnet_address_space
   private_link_service_network_policies_enabled = false
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "app" {
-  name                                          = "app"
+  name                                          = var.app_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.1.0/24"]
+  address_prefixes                              = var.app_subnet_address_space
   private_endpoint_network_policies             = "Enabled"
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = true
@@ -34,55 +34,55 @@ resource "azurerm_subnet" "app" {
 }
 
 resource "azurerm_subnet" "redis" {
-  name                                          = "redis"
+  name                                          = var.redis_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.2.0/24"]
+  address_prefixes                              = var.redis_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "fr" {
-  name                                          = "fr"
+  name                                          = var.form_recognizer_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.3.0/24"]
+  address_prefixes                              = var.form_recognizer_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "db" {
-  name                                          = "db"
+  name                                          = var.database_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.4.0/24"]
+  address_prefixes                              = var.database_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "openai" {
-  name                                          = "openai"
+  name                                          = var.openai_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.5.0/24"]
+  address_prefixes                              = var.openai_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "gateway" {
-  name                                          = "gateway"
+  name                                          = var.gateway_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.6.0/24"]
+  address_prefixes                              = var.gateway_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
 
 resource "azurerm_subnet" "gateway-pl" {
-  name                 = "gateway-pl"
+  name                 = var.gateway_private_link_subnet_name
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = ["10.0.7.0/24"]
+  address_prefixes     = var.gateway_private_link_subnet_address_space
   # Confusingly, this must be false to enable private link.
   private_link_service_network_policies_enabled = false
   default_outbound_access_enabled               = true
@@ -90,10 +90,10 @@ resource "azurerm_subnet" "gateway-pl" {
 
 resource "azurerm_subnet" "fs" {
   count                                         = var.enable_research_env ? 1 : 0
-  name                                          = "fs"
+  name                                          = var.file_storage_subnet_name
   resource_group_name                           = azurerm_resource_group.main.name
   virtual_network_name                          = azurerm_virtual_network.main.name
-  address_prefixes                              = ["10.0.8.0/24"]
+  address_prefixes                              = var.file_storage_subnet_address_space
   private_link_service_network_policies_enabled = true
   default_outbound_access_enabled               = false
 }
@@ -101,32 +101,38 @@ resource "azurerm_subnet" "fs" {
 resource "azurerm_private_dns_zone" "openai" {
   name                = "privatelink.openai.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone" "fr" {
   name                = "privatelink.cognitiveservices.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone" "mssql" {
   name                = "privatelink.database.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone" "redis" {
   name                = "privatelink.redis.cache.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone" "fs" {
   count               = var.enable_research_env ? 1 : 0
   name                = "privatelink.file.core.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone" "app" {
   name                = azurerm_container_app_environment.main.default_domain
   resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_a_record" "app_wildcard" {
@@ -135,6 +141,7 @@ resource "azurerm_private_dns_a_record" "app_wildcard" {
   resource_group_name = azurerm_resource_group.main.name
   ttl                 = 300
   records             = [azurerm_container_app_environment.main.static_ip_address]
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_a_record" "app_exact" {
@@ -143,6 +150,7 @@ resource "azurerm_private_dns_a_record" "app_exact" {
   resource_group_name = azurerm_resource_group.main.name
   ttl                 = 300
   records             = [azurerm_container_app_environment.main.static_ip_address]
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "app" {
@@ -150,6 +158,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "app" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.app.name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
@@ -157,6 +166,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.openai.name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "fr" {
@@ -164,6 +174,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fr" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.fr.name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "mssql" {
@@ -171,6 +182,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mssql" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.mssql.name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
@@ -178,6 +190,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.redis.name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
@@ -186,6 +199,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.fs[0].name
   virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
 }
 
 resource "azurerm_public_ip" "gateway" {
@@ -195,6 +209,7 @@ resource "azurerm_public_ip" "gateway" {
   location            = azurerm_resource_group.main.location
   allocation_method   = "Static"
   sku                 = "Standard"
+  tags                = var.tags
 }
 
 resource "azurerm_virtual_network_peering" "app_to_cms" {

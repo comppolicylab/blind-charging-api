@@ -1,18 +1,19 @@
 resource "azurerm_cognitive_account" "fr" {
-  name                  = format("%s-rbc-cs-fr", var.partner)
+  name                  = local.form_recognizer_name
   resource_group_name   = azurerm_resource_group.main.name
   location              = azurerm_resource_group.main.location
   sku_name              = "S0"
   kind                  = "FormRecognizer"
   tags                  = var.tags
-  custom_subdomain_name = format("%s-rbc-cs-fr", var.partner)
+  custom_subdomain_name = local.form_recognizer_name
 }
 
 resource "azurerm_private_endpoint" "fr" {
-  name                = format("%s-rbc-cs-fr-pe", var.partner)
+  name                = local.form_recognizer_private_endpoint_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.fr.id
+  tags                = var.tags
   private_service_connection {
     name                           = "cs-fr-psc"
     private_connection_resource_id = azurerm_cognitive_account.fr.id

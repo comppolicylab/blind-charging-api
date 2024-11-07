@@ -1,11 +1,10 @@
 locals {
-  research_app_name = format("%s-rbc-research", var.partner)
   research_app_fqdn = format("%s.%s", local.research_app_name, azurerm_container_app_environment.main.default_domain)
 }
 
 resource "azurerm_storage_account" "research" {
   count                    = var.enable_research_env ? 1 : 0
-  name                     = replace(format("%srbcdata", var.partner), "-", "")
+  name                     = local.research_storage_account_name
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
@@ -15,7 +14,7 @@ resource "azurerm_storage_account" "research" {
 
 resource "azurerm_storage_share" "research" {
   count                = var.enable_research_env ? 1 : 0
-  name                 = "rbcdatafs"
+  name                 = var.research_storage_share_name
   storage_account_name = azurerm_storage_account.research[0].name
   quota                = 10 # Gigabytes
 }

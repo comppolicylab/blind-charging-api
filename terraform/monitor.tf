@@ -1,5 +1,5 @@
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = format("%s-rbc-law", var.partner)
+  name                = local.log_analytics_workspace_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = "PerGB2018"
@@ -9,7 +9,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 
 resource "azurerm_application_insights" "main" {
   # TODO(jnu): add app support for metrics instrumentation in config
-  name                = format("%s-rbc-mon-insights", var.partner)
+  name                = local.application_insights_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   application_type    = "web"

@@ -1,5 +1,5 @@
 resource "azurerm_mssql_server" "main" {
-  name                         = format("%s-rbc-sql", var.partner)
+  name                         = local.mssql_server_name
   resource_group_name          = azurerm_resource_group.main.name
   location                     = azurerm_resource_group.main.location
   version                      = "12.0"
@@ -11,7 +11,7 @@ resource "azurerm_mssql_server" "main" {
 }
 
 resource "azurerm_mssql_database" "main" {
-  name           = format("%s-rbc-db", var.partner)
+  name           = local.mssql_database_name
   server_id      = azurerm_mssql_server.main.id
   collation      = "SQL_Latin1_General_CP1_CI_AS"
   max_size_gb    = 5
@@ -25,10 +25,12 @@ resource "azurerm_mssql_database" "main" {
 }
 
 resource "azurerm_private_endpoint" "mssql" {
-  name                = format("%s-rbc-mssql-pe", var.partner)
+  name                = local.mssql_private_endpoint_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   subnet_id           = azurerm_subnet.db.id
+  tags                = var.tags
+
   private_service_connection {
     name                           = "mssql-psc"
     private_connection_resource_id = azurerm_mssql_server.main.id

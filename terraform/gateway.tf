@@ -1,5 +1,4 @@
 locals {
-  app_gateway_name                    = format("%s-rbc-app-gw", var.partner)
   frontend_ip_config_name             = format("%s-rbc-app-gw-feip", var.partner)
   frontend_https_port_name            = format("%s-rbc-app-gw-feport-https", var.partner)
   frontend_http_port_name             = format("%s-rbc-app-gw-feport-http", var.partner)
@@ -9,7 +8,6 @@ locals {
   backend_address_pool_name           = format("%s-rbc-app-gw-be-pool", var.partner)
   backend_http_settings_name          = format("%s-rbc-app-gw-be-settings", var.partner)
   ssl_cert_name                       = format("%s-rbc-app-gw-cert", var.partner)
-  private_link_configuration_name     = format("%s-rbc-app-gw-plc", var.partner)
   probe_name                          = format("%s-rbc-app-gw-probe", var.partner)
   research_backend_address_pool_name  = format("%s-rbc-app-gw-be-pool-research", var.partner)
   research_backend_http_settings_name = format("%s-rbc-app-gw-be-settings-research", var.partner)
@@ -24,6 +22,7 @@ resource "azurerm_application_gateway" "public" {
   name                = local.app_gateway_name
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+  tags                = var.tags
 
   sku {
     name     = var.waf ? "WAF_v2" : "Standard_v2"
@@ -65,7 +64,7 @@ resource "azurerm_application_gateway" "public" {
   frontend_ip_configuration {
     name                          = format("%s-rbc-app-gw-feip-priv", var.partner)
     private_ip_address_allocation = "Static"
-    private_ip_address            = "10.0.6.66"
+    private_ip_address            = var.gateway_private_ip_address
     subnet_id                     = azurerm_subnet.gateway.id
   }
 

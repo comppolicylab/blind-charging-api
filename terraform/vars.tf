@@ -3,12 +3,6 @@ variable "subscription_id" {
   description = "Azure subscription ID to deploy to. The subscription must be set up before running Terraform."
 }
 
-variable "resource_group_name" {
-  type        = string
-  description = "Name of the resource group to deploy to."
-  default     = "RaceBlindCharging"
-}
-
 variable "debug" {
   type        = bool
   default     = false

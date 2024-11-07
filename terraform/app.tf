@@ -1,10 +1,10 @@
 resource "azurerm_container_app_environment" "main" {
-  name                               = format("%s-rbc-env", var.partner)
+  name                               = local.container_app_env_name
   resource_group_name                = azurerm_resource_group.main.name
   location                           = azurerm_resource_group.main.location
   log_analytics_workspace_id         = azurerm_log_analytics_workspace.main.id
   tags                               = var.tags
-  infrastructure_resource_group_name = "rbc-app-env-rg"
+  infrastructure_resource_group_name = var.app_infra_resource_group_name
   infrastructure_subnet_id           = azurerm_subnet.app.id
   internal_load_balancer_enabled     = true
 
@@ -19,12 +19,11 @@ resource "azurerm_container_app_environment" "main" {
 }
 
 locals {
-  app_name = format("%s-rbc-app", var.partner)
-  app_fqdn = format("%s.%s", local.app_name, azurerm_container_app_environment.main.default_domain)
+  app_fqdn = format("%s.%s", local.container_app_name, azurerm_container_app_environment.main.default_domain)
 }
 
 resource "azurerm_container_app" "main" {
-  name                         = local.app_name
+  name                         = local.container_app_name
   resource_group_name          = azurerm_resource_group.main.name
   container_app_environment_id = azurerm_container_app_environment.main.id
   tags                         = var.tags
