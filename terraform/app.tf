@@ -133,7 +133,7 @@ resource "azurerm_container_app" "main" {
       }
       liveness_probe {
         host                    = "127.0.0.1"
-        path                    = "/"
+        path                    = "/health"
         port                    = 8001
         transport               = "HTTP"
         initial_delay           = 10
@@ -151,7 +151,7 @@ resource "azurerm_container_app" "main" {
       }
       startup_probe {
         host                    = "127.0.0.1"
-        path                    = "/"
+        path                    = "/health"
         port                    = 8001
         transport               = "HTTP"
         failure_count_threshold = 6
