@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from glowplug import DbDriver
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from .config import RdbmsConfig, config
 from .db import init_db
@@ -66,6 +67,7 @@ async def lifespan(api: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+FastAPIInstrumentor().instrument_app(app)
 # Share state between main app and generated app.
 generated_app.state = app.state
 

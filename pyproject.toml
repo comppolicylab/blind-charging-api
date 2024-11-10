@@ -36,12 +36,11 @@ flower = "^2.0.1"
 argon2-cffi = "^23.1.0"
 opentelemetry-sdk = "^1.27.0"
 opentelemetry-api = "^1.27.0"
-azure-monitor-opentelemetry-exporter = "1.0.0b29"
-opentelemetry-instrumentation-celery = "^0.48b0"
-opentelemetry-instrumentation-fastapi = "^0.48b0"
 python-hcl2 = "^4.3.5"
 alembic = "1.13.3"
 fakeredis = "2.24.1"
+azure-monitor-opentelemetry = "^1.6.4"
+opentelemetry-instrumentation-celery = "^0.49b1"
 
 
 [tool.poetry.group.dev.dependencies]

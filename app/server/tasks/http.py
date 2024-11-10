@@ -2,6 +2,7 @@
 
 import logging
 import socket
+from contextlib import asynccontextmanager
 from typing import Literal, TypedDict
 
 import uvicorn
@@ -9,11 +10,19 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from ..bg import BackgroundServer
+from ..config import config
 from .queue import queue
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(api: FastAPI):
+    async with config.metrics.driver:
+        yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 class HealthCheckResponse(TypedDict):
