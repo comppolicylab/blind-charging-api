@@ -139,6 +139,7 @@ resource "azurerm_container_app" "main" {
         initial_delay           = 10
         interval_seconds        = 15
         failure_count_threshold = 3
+        timeout                 = 5
       }
       readiness_probe {
         host                    = "127.0.0.1"
@@ -156,6 +157,7 @@ resource "azurerm_container_app" "main" {
         transport               = "HTTP"
         failure_count_threshold = 6
         interval_seconds        = 5
+        timeout                 = 5
       }
     }
   }

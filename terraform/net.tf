@@ -203,7 +203,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
 }
 
 resource "azurerm_public_ip" "gateway" {
-  count               = var.expose_app ? 1 : 0
+  count               = var.expose_app_to_public_internet ? 1 : 0
   name                = format("%s-rbc-gateway-ip", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location

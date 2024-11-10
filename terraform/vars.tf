@@ -61,10 +61,28 @@ variable "azure_env" {
   description = "Azure environment to deploy to. Normally this is GovCloud, but does not have to be."
 }
 
-variable "expose_app" {
+variable "expose_app_to_public_internet" {
+  type        = bool
+  default     = false
+  description = <<EOF
+Configure gateway so that the app is reachable over the public internet.
+
+This will create an Application Gateway with a public IP address that can
+be reachable over the public internet. This should be used in combination
+with a WAF and other security measures.
+EOF
+}
+
+variable "expose_app_to_private_network" {
   type        = bool
   default     = true
-  description = "Expose the app to the public internet."
+  description = <<EOF
+Configure gateway so that other Azure private networks can access the app.
+
+This will create an Application Gateway with a private IP address
+and configure private link so that a private endpoint can be created
+in another vnet to access this app.
+EOF
 }
 
 variable "waf" {
@@ -73,7 +91,7 @@ variable "waf" {
   description = <<EOF
 Enable the Web Application Firewall for the application gateway.
 
-This should be enabled if `expose_app` is true (and the app is exposed to the public internet).
+This should be enabled if `expose_app_to_public_internet` is true.
 It will be ignored if the app is not exposed to the public internet.
 EOF
 }
