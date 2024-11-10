@@ -139,10 +139,13 @@ resource "azurerm_application_gateway" "public" {
     port = 443
   }
 
-  ssl_certificate {
-    name     = local.ssl_cert_name
-    data     = local.use_self_signed_cert ? pkcs12_from_pem.app_gateway[0].result : local.use_lets_encrypt_cert ? acme_certificate.app_gateway[0].certificate_p12 : null
-    password = var.ssl_cert_password
+  dynamic "ssl_certificate" {
+    for_each = var.expose_app_to_public_internet ? [1] : []
+    content {
+      name     = local.ssl_cert_name
+      data     = local.use_self_signed_cert ? pkcs12_from_pem.app_gateway[0].result : local.use_lets_encrypt_cert ? acme_certificate.app_gateway[0].certificate_p12 : null
+      password = var.ssl_cert_password
+    }
   }
 
   dynamic "http_listener" {

@@ -1,8 +1,6 @@
 locals {
-  # LetsEncrypt *must* be used with public internet connectivity (or else it can't be verified).
   use_lets_encrypt_cert = var.ssl_cert == "acme" && var.expose_app_to_public_internet
-  # The self-signed certificate should become the default option if the app is exposed to the private network.
-  use_self_signed_cert = (!local.use_lets_encrypt_cert && var.expose_app_to_private_network) || (var.ssl_cert == "self_signed" && var.expose_app_to_public_internet)
+  use_self_signed_cert  = var.ssl_cert == "self_signed" && var.expose_app_to_public_internet
 }
 
 ### Self-signed certificate ###
