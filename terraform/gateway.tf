@@ -1,6 +1,6 @@
 locals {
   create_app_gateway                  = var.expose_app_to_private_network || var.expose_app_to_public_internet
-  public_frontend_ip_config_name      = format("%s-rbc-app-gw-feip-pub", var.partner)
+  public_frontend_ip_config_name      = format("%s-rbc-app-gw-feip", var.partner)
   private_frontend_ip_config_name     = format("%s-rbc-app-gw-feip-priv", var.partner)
   frontend_https_port_name            = format("%s-rbc-app-gw-feport-https", var.partner)
   frontend_http_port_name             = format("%s-rbc-app-gw-feport-http", var.partner)
