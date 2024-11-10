@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from ..case import CaseStore
 from ..config import config
 from ..db import DocumentStatus
-from ..generated.models import Document, OutputFormat, RedactionTarget
+from ..generated.models import OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult
 from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
@@ -31,7 +31,6 @@ class FinalizeTaskResult(BaseModel):
     jurisdiction_id: str
     case_id: str
     document_id: str
-    document: Document | None
     errors: list[ProcessingError] = []
     next_task_id: str | None = None
 
@@ -94,7 +93,6 @@ def finalize(
         )
 
     return FinalizeTaskResult(
-        document=format_result.document,
         jurisdiction_id=format_result.jurisdiction_id,
         case_id=format_result.case_id,
         document_id=format_result.document_id,

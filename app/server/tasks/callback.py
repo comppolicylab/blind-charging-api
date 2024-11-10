@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from ..case import CaseStore
 from ..config import config
 from ..generated.models import (
+    Document,
     MaskedSubject,
     RedactionResult,
     RedactionResultError,
@@ -62,7 +63,7 @@ def callback(
             logger.exception("Error getting masked subjects")
             masked_subjects = []
 
-        if format_result.errors or not format_result.document:
+        if format_result.errors:
             body = RedactionResult(
                 RedactionResultError(
                     jurisdictionId=format_result.jurisdiction_id,
@@ -74,16 +75,33 @@ def callback(
                 )
             )
         else:
-            body = RedactionResult(
-                RedactionResultSuccess(
-                    jurisdictionId=format_result.jurisdiction_id,
-                    caseId=format_result.case_id,
-                    inputDocumentId=format_result.document_id,
-                    maskedSubjects=masked_subjects,
-                    redactedDocument=format_result.document,
-                    status="COMPLETE",
-                )
+            doc = get_result_sync(
+                format_result.jurisdiction_id,
+                format_result.case_id,
+                format_result.document_id,
             )
+            if not doc:
+                body = RedactionResult(
+                    RedactionResultError(
+                        jurisdictionId=format_result.jurisdiction_id,
+                        caseId=format_result.case_id,
+                        inputDocumentId=format_result.document_id,
+                        maskedSubjects=masked_subjects,
+                        error="Redaction result not found",
+                        status="ERROR",
+                    )
+                )
+            else:
+                body = RedactionResult(
+                    RedactionResultSuccess(
+                        jurisdictionId=format_result.jurisdiction_id,
+                        caseId=format_result.case_id,
+                        inputDocumentId=format_result.document_id,
+                        maskedSubjects=masked_subjects,
+                        redactedDocument=doc,
+                        status="COMPLETE",
+                    )
+                )
         response = requests.post(
             params.callback_url,
             json=body.model_dump(mode="json"),
@@ -136,3 +154,25 @@ def get_masks_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
                 return await cs.get_masked_names()
 
     return asyncio.run(_get_masks_with_store())
+
+
+def get_result_sync(jurisdiction_id: str, case_id: str, doc_id: str) -> Document | None:
+    """Get the redacted document for a case.
+
+    Args:
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+        doc_id (str): The document ID.
+
+    Returns:
+        Document | None: The redacted document.
+    """
+
+    async def _get_result_with_store() -> Document | None:
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
+                return await cs.get_result_doc(doc_id)
+
+    return asyncio.run(_get_result_with_store())

@@ -1,3 +1,4 @@
+import asyncio
 import base64
 
 from azure.storage.blob import BlobClient
@@ -5,9 +6,12 @@ from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import AnyUrl, BaseModel
 
+from ..case import CaseStore
+from ..case_helper import get_document_sync
+from ..config import config
 from ..generated.models import Document, DocumentContent, DocumentLink
 from .queue import ProcessingError, queue
-from .redact import RedactionTaskResult, get_document_sync
+from .redact import RedactionTaskResult
 from .serializer import register_type
 
 logger = get_task_logger(__name__)
@@ -21,7 +25,6 @@ class FormatTask(BaseModel):
 
 
 class FormatTaskResult(BaseModel):
-    document: Document | None
     jurisdiction_id: str
     case_id: str
     document_id: str
@@ -51,7 +54,6 @@ def format(
     if redact_result.errors:
         # If there are errors from the redact task, pass through.
         return FormatTaskResult(
-            document=None,
             jurisdiction_id=redact_result.jurisdiction_id,
             case_id=redact_result.case_id,
             document_id=redact_result.document_id,
@@ -75,8 +77,14 @@ def format(
         else:
             document = format_document(params, redact_result)
 
+        save_result_sync(
+            redact_result.jurisdiction_id,
+            redact_result.case_id,
+            redact_result.document_id,
+            document,
+        )
+
         return FormatTaskResult(
-            document=document,
             jurisdiction_id=redact_result.jurisdiction_id,
             case_id=redact_result.case_id,
             document_id=redact_result.document_id,
@@ -90,7 +98,6 @@ def format(
             logger.error(f"Format task failed for {redact_result.document_id}")
             logger.exception(e)
             return FormatTaskResult(
-                document=None,
                 jurisdiction_id=redact_result.jurisdiction_id,
                 case_id=redact_result.case_id,
                 document_id=redact_result.document_id,
@@ -144,3 +151,28 @@ def write_to_azure_blob_url(sas_url: str, content: bytes):
     """
     client = BlobClient.from_blob_url(blob_url=sas_url)
     client.upload_blob(content)
+
+
+def save_result_sync(
+    jurisdiction_id: str, case_id: str, doc_id: str, document: Document
+) -> str:
+    """Save the formatted document in the queue's store.
+
+    Args:
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+        doc_id (str): The document ID.
+        document (Document): The formatted document.
+
+    Returns:
+        ID in the store where the content was saved.
+    """
+
+    async def _save():
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
+                return await cs.save_result_doc(doc_id, document)
+
+    return asyncio.run(_save())

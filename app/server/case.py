@@ -4,7 +4,7 @@ import logging
 from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
 from .enumerator import RoleEnumerator
-from .generated.models import HumanName, MaskedSubject, RedactionTarget
+from .generated.models import Document, HumanName, MaskedSubject, RedactionTarget
 from .name import human_name_to_str
 from .store import SimpleMapping, StoreSession
 
@@ -232,6 +232,35 @@ class CaseStore:
         mapping_key = self.key("mask")
         await self.store.hsetmapping(mapping_key, {subject_id: mask})
         await self.store.expire_at(mapping_key, self.expires_at)
+
+    @ensure_init
+    async def save_result_doc(self, doc_id: str, doc: Document) -> None:
+        """Save a result ID for a case.
+
+        Args:
+            doc_id (str): The document ID.
+            doc (Document): The document.
+
+        Returns:
+            None
+        """
+        k = self.key("result:" + doc_id)
+        serialized_doc = doc.model_dump_json()
+        await self.store.set(k, serialized_doc)
+        await self.store.expire_at(k, self.expires_at)
+
+    @ensure_init
+    async def get_result_doc(self, doc_id: str) -> Document | None:
+        """Get the result ID for a case.
+
+        Returns:
+            Document: The document.
+        """
+        k = self.key("result:" + doc_id)
+        serialized_doc = await self.store.get(k)
+        if not serialized_doc:
+            return None
+        return Document.model_validate_json(serialized_doc)
 
     @ensure_init
     async def save_roles(

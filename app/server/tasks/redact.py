@@ -14,9 +14,10 @@ from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
 from ..case import CaseStore, MaskInfo
+from ..case_helper import get_document_sync, save_document_sync
 from ..config import config
 from ..generated.models import OutputFormat
-from .fetch import FetchTaskResult, save_document_sync
+from .fetch import FetchTaskResult
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -207,23 +208,3 @@ def save_aliases_sync(aliases: list[dict[str, str]]):
     """
     # TODO - need to clarify how much this step is necessary; perhaps it will
     # never provide more information than the input from the request body.
-
-
-def get_document_sync(file_storage_id: str | None) -> bytes:
-    """Get the document content from the store.
-
-    Args:
-        file_storage_id: The ID in the store where the content was saved.
-
-    Returns:
-        bytes: The content.
-    """
-    if not file_storage_id:
-        return b""
-
-    async def _get():
-        async with config.queue.store.driver() as store:
-            async with store.tx() as tx:
-                return await CaseStore.get_blob(tx, file_storage_id)
-
-    return asyncio.run(_get())

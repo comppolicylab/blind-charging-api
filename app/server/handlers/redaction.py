@@ -211,6 +211,7 @@ async def get_redaction_status(
         task_result = get_result(task_id)
 
         # The job should exist, but if it doesn't, we'll just assume it's queued.
+        # TODO(jnu): do some remediation here to ensure that job is actually started
         if not task_result:
             redaction_results.append(
                 RedactionResult(
@@ -256,18 +257,33 @@ async def get_redaction_status(
                     )
                 )
             case "SUCCESS":
-                redaction_results.append(
-                    RedactionResult(
-                        RedactionResultSuccess(
-                            jurisdictionId=jurisdiction_id,
-                            caseId=case_id,
-                            inputDocumentId=doc_id,
-                            maskedSubjects=masked_subjects,
-                            status="COMPLETE",
-                            redactedDocument=task_result.result.document,
+                doc = await store.get_result_doc(doc_id)
+                if not doc:
+                    redaction_results.append(
+                        RedactionResult(
+                            RedactionResultError(
+                                jurisdictionId=jurisdiction_id,
+                                caseId=case_id,
+                                inputDocumentId=doc_id,
+                                maskedSubjects=masked_subjects,
+                                status="ERROR",
+                                error="Redaction job completed, but result is missing",
+                            )
                         )
                     )
-                )
+                else:
+                    redaction_results.append(
+                        RedactionResult(
+                            RedactionResultSuccess(
+                                jurisdictionId=jurisdiction_id,
+                                caseId=case_id,
+                                inputDocumentId=doc_id,
+                                maskedSubjects=masked_subjects,
+                                status="COMPLETE",
+                                redactedDocument=doc,
+                            )
+                        )
+                    )
             case "FAILURE":
                 redaction_results.append(
                     RedactionResult(

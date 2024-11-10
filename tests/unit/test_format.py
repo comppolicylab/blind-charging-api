@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import patch
 
 from fakeredis import FakeRedis
@@ -24,14 +25,17 @@ def test_format_no_blob(fake_redis_store: FakeRedis):
     )
 
     result = format.s(redact_result, FormatTask()).apply()
+    raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
+    doc = Document.model_validate_json(cast(bytes, raw_doc))
+    assert doc == Document(
+        root=DocumentContent(
+            documentId="doc1",
+            attachmentType="BASE64",
+            content="Y29udGVudA==",
+        )
+    )
+
     assert result.get() == FormatTaskResult(
-        document=Document(
-            root=DocumentContent(
-                documentId="doc1",
-                attachmentType="BASE64",
-                content="Y29udGVudA==",
-            )
-        ),
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
@@ -54,14 +58,18 @@ def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
     blob_sas_url = "https://teststorage.blob.core.windows.net/testcontainer/testblob.pdf?sv=2019-12-12&st=2021-10-01T00%3A00%3A00Z&se=2021-10-01T00%3A00%3A00Z&sr=b&sp=r&sig=abc123"
 
     result = format.s(redact_result, FormatTask(target_blob_url=blob_sas_url)).apply()
+
+    raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
+    doc = Document.model_validate_json(cast(bytes, raw_doc))
+    assert doc == Document(
+        root=DocumentLink(
+            documentId="doc1",
+            attachmentType="LINK",
+            url=AnyUrl(blob_sas_url),
+        )
+    )
+
     assert result.get() == FormatTaskResult(
-        document=Document(
-            root=DocumentLink(
-                documentId="doc1",
-                attachmentType="LINK",
-                url=AnyUrl(blob_sas_url),
-            )
-        ),
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
@@ -85,11 +93,13 @@ def test_format_with_invalid_blob_url(blob_upload, fake_redis_store: FakeRedis):
         redact_result, FormatTask(target_blob_url="http://azure.blob.local/abc123")
     ).apply()
 
+    raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
+    assert raw_doc is None
+
     error_msg = "Invalid URL. Provide a blob_url with a valid blob and container name."
     assert (
         result.get().model_dump()
         == FormatTaskResult(
-            document=None,
             jurisdiction_id="jur1",
             case_id="case1",
             document_id="doc1",

@@ -1,4 +1,3 @@
-import asyncio
 import base64
 from typing import cast
 
@@ -7,7 +6,7 @@ from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
-from ..case import CaseStore
+from ..case_helper import save_document_sync
 from ..config import config
 from ..generated.models import Document, DocumentContent, DocumentLink, DocumentText
 from .queue import ProcessingError, queue
@@ -89,21 +88,3 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
                 document_id=params.document.root.documentId,
                 errors=[ProcessingError.from_exception("fetch", e)],
             )
-
-
-def save_document_sync(file_bytes: bytes) -> str:
-    """Save the fetched document in the queue's store.
-
-    Args:
-        file_bytes: Content to save.
-
-    Returns:
-        ID in the store where the content was saved.
-    """
-
-    async def _save():
-        async with config.queue.store.driver() as store:
-            async with store.tx() as tx:
-                return await CaseStore.save_blob(tx, file_bytes)
-
-    return asyncio.run(_save())

@@ -64,19 +64,21 @@ def test_callback_no_callback_with_error():
 @responses.activate
 def test_callback_with_callback_no_error(fake_redis_store: FakeRedis):
     fake_redis_store.hset("jur1:case1:mask", mapping={"sub1": "Subject 1"})
+    doc = Document(
+        root=DocumentLink(
+            documentId="doc1",
+            attachmentType="LINK",
+            url=AnyUrl("http://blob.test.local/abc123"),
+        )
+    )
+    serialized_doc = doc.model_dump_json()
+    fake_redis_store.set("jur1:case1:result:doc1", serialized_doc)
 
     fmt_result = FormatTaskResult(
         jurisdiction_id="jur1",
         case_id="case1",
         document_id="doc1",
         errors=[],
-        document=Document(
-            root=DocumentLink(
-                documentId="doc1",
-                attachmentType="LINK",
-                url=AnyUrl("http://blob.test.local/abc123"),
-            )
-        ),
     )
 
     responses.add(
@@ -121,7 +123,6 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
         case_id="case1",
         document_id="doc1",
         errors=[ProcessingError(message="error", task="task", exception="Exception")],
-        document=None,
     )
 
     responses.add(
