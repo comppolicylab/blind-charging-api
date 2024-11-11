@@ -51,6 +51,7 @@ async def log_exposure(request: Request, body: ExposureModel) -> None:
             jurisdiction_id=body.jurisdictionId,
             case_id=body.caseId,
             subject_id=subject_id,
+            extra=body.extra,
             document_ids=json.dumps(body.documentIds),
             reviewer_id=body.reviewingAttorneyMaskedId,
             review_type=review_protocol_to_review_type(body.protocol),

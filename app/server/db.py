@@ -133,6 +133,7 @@ class Exposure(Base):
     document_ids: Mapped[str_4096] = mapped_column()
     reviewer_id: Mapped[str_256] = mapped_column()
     review_type: Mapped[ReviewType] = mapped_column()
+    extra: Mapped[text] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
