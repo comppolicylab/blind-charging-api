@@ -141,6 +141,7 @@ resource "azurerm_container_app" "research" {
 // instead to send a PATCH request.
 // https://github.com/Azure/terraform-provider-azapi/issues/542
 resource "azapi_resource_action" "fix_smb_mount_options" {
+  count       = var.enable_research_env ? 1 : 0
   resource_id = azurerm_container_app.research[0].id
   depends_on  = [azurerm_container_app.research[0]]
   type        = "Microsoft.App/containerApps@2024-03-01"
