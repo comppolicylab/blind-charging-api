@@ -194,6 +194,11 @@ variable "research_storage_share_name" {
   description = "Name of the research environment storage share."
 }
 
+variable "firewall_name" {
+  type        = string
+  default     = ""
+  description = "Name of the firewall resource."
+}
 
 ############################################
 # Derived names
@@ -221,4 +226,5 @@ locals {
   redis_private_endpoint_name           = coalesce(var.redis_private_endpoint_name, format("%s-rbc-redis-pe", var.partner))
   research_app_name                     = coalesce(var.research_app_name, format("%s-rbc-research", var.partner))
   research_storage_account_name         = coalesce(var.research_storage_account_name, replace(format("%srbcdata", var.partner), "-", ""))
+  firewall_name                         = coalesce(var.firewall_name, format("%s-rbc-fw", var.partner))
 }

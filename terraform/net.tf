@@ -98,6 +98,15 @@ resource "azurerm_subnet" "fs" {
   default_outbound_access_enabled               = false
 }
 
+resource "azurerm_subnet" "firewall" {
+  name                                          = "AzureFirewallSubnet"
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = var.firewall_subnet_address_space
+  private_link_service_network_policies_enabled = false
+  default_outbound_access_enabled               = false
+}
+
 resource "azurerm_private_dns_zone" "openai" {
   name                = "privatelink.openai.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
@@ -206,6 +215,15 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
 # won't be reachable on the public internet.
 resource "azurerm_public_ip" "gateway" {
   name                = format("%s-rbc-gateway-ip", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = var.tags
+}
+
+resource "azurerm_public_ip" "firewall" {
+  name                = format("%s-rbc-firewall-ip", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   allocation_method   = "Static"
