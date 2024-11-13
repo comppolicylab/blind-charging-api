@@ -102,6 +102,7 @@ resource "azurerm_subnet_route_table_association" "gateway-pl" {
 }
 
 resource "azurerm_subnet_route_table_association" "fs" {
+  count          = var.enable_research_env ? 1 : 0
   subnet_id      = azurerm_subnet.fs[0].id
   route_table_id = azurerm_route_table.main.id
 }
