@@ -92,7 +92,6 @@ variable "waf" {
 Enable the Web Application Firewall for the application gateway.
 
 This should be enabled if `expose_app_to_public_internet` is true.
-It will be ignored if the app is not exposed to the public internet.
 EOF
 }
 

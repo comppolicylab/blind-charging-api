@@ -1,11 +1,13 @@
 resource "azurerm_cognitive_account" "openai" {
-  name                  = local.openai_account_name
-  resource_group_name   = azurerm_resource_group.main.name
-  location              = local.openai_location
-  sku_name              = "S0"
-  kind                  = "OpenAI"
-  tags                  = var.tags
-  custom_subdomain_name = format("%s-rbc-cs-oai", var.partner)
+  name                = local.openai_account_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = local.openai_location
+  sku_name            = "S0"
+  kind                = "OpenAI"
+  tags                = var.tags
+  # NOTE: the subdomain is coerced to lowercase on their end, so we need to do it here
+  # otherwise it'll recreate itself everytime terraform is run.
+  custom_subdomain_name = lower(format("%s-rbc-cs-oai", var.partner))
 }
 
 # TODO(jnu): azurerm does not support the content filter resource yet.

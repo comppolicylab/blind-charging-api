@@ -72,11 +72,12 @@ fi
 
 # Create the storage account name in the format `rbc-<partner>-tfstate`.
 # This must be globally unique.
-STORAGE_ACCOUNT=$partner'rbctfstate'
+_CLEAN_PARTNER=$(echo $partner | sed 's/-//g' | awk '{print tolower($0)}')
+STORAGE_ACCOUNT=$_CLEAN_PARTNER'rbctfstate'
 # Container name is not configurable right now.
 CONTAINER_NAME="tfstate"
 # Key vault name is not configurable right now.
-KEYVAULT_NAME=$partner'rbctfkv'
+KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkv'
 KV_STORAGE_KEY_NAME="terraform-backend-key"
 
 # Yellow

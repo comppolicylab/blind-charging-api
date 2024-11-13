@@ -151,6 +151,10 @@ resource "azapi_resource_action" "fix_smb_mount_options" {
       template = {
         volumes = [
           {
+            name        = "secrets"
+            storageType = "Secret"
+          },
+          {
             name         = "data"
             storageType  = "AzureFile"
             storageName  = azurerm_container_app_environment_storage.research[0].name

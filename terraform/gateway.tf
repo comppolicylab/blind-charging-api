@@ -35,12 +35,15 @@ resource "azurerm_application_gateway" "public" {
 
   // Set up general networking stuff for the gateway
 
-  waf_configuration {
-    enabled            = var.waf
-    firewall_mode      = "Prevention"
-    rule_set_type      = "OWASP"
-    rule_set_version   = "3.2"
-    request_body_check = false
+  dynamic "waf_configuration" {
+    for_each = var.waf ? [1] : []
+    content {
+      enabled            = true
+      firewall_mode      = "Prevention"
+      rule_set_type      = "OWASP"
+      rule_set_version   = "3.2"
+      request_body_check = false
+    }
   }
 
   gateway_ip_configuration {
@@ -58,13 +61,16 @@ resource "azurerm_application_gateway" "public" {
     }
   }
 
-  # Only provision public IP if the app is exposed to the public internet
-  dynamic "frontend_ip_configuration" {
-    for_each = var.expose_app_to_public_internet ? [1] : []
-    content {
-      name                 = local.public_frontend_ip_config_name
-      public_ip_address_id = azurerm_public_ip.gateway[0].id
-    }
+  # NOTE: we need to create a public IP even if the app is *not* exposed
+  # to the public internet, because V2 gateways always require a public IP.
+  #
+  # There is a preview "private" deployment for Gateways that will lift this
+  # requirement, but it's not yet available in GovCloud.
+  # See:
+  # https://learn.microsoft.com/en-us/azure/application-gateway/application-gateway-private-deployment?tabs=portal
+  frontend_ip_configuration {
+    name                 = local.public_frontend_ip_config_name
+    public_ip_address_id = azurerm_public_ip.gateway.id
   }
 
   frontend_ip_configuration {
@@ -82,6 +88,7 @@ resource "azurerm_application_gateway" "public" {
     port = 80
   }
 
+  # Only set up public IP listener if the app is exposed to the public internet
   dynamic "http_listener" {
     for_each = var.expose_app_to_public_internet ? [1] : []
     content {
@@ -148,6 +155,7 @@ resource "azurerm_application_gateway" "public" {
     }
   }
 
+  // Only set up public IP listener if the app is exposed to the public internet
   dynamic "http_listener" {
     for_each = var.expose_app_to_public_internet ? [1] : []
     content {

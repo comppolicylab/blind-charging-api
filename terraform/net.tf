@@ -202,8 +202,9 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
   tags                  = var.tags
 }
 
+# NOTE: Azure requires Gateways to have a public IP, even if they
+# won't be reachable on the public internet.
 resource "azurerm_public_ip" "gateway" {
-  count               = var.expose_app_to_public_internet ? 1 : 0
   name                = format("%s-rbc-gateway-ip", var.partner)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
