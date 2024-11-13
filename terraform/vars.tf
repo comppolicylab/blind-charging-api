@@ -341,6 +341,19 @@ This is required if you want us to write redacted documents to blob storage.
 EOF
 }
 
+variable "allowed_ips" {
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+  description = <<EOF
+List of IP ranges to allow inbound traffic from.
+
+By default, all traffic is allowed.
+
+This is only relevant if the app is exposed to the public internet,
+and the WAF is enabled.
+EOF
+}
+
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
   description        = "Whether this configuration uses Azure Government Cloud."

@@ -47,7 +47,7 @@ We currently reserve a minimum of 184 addresses, as described below.
 | `*-rbc-gateway-ip` | N/A | ? | App Gateway public IP (not known until provisioned) |
 | `*-rbc-firewall-ip` | N/A | ? | Firewall public IP (not known until provisioned) |
 
-# Firewall
+# Outbound Firewall
 
 Outbound traffic for all subnets (excluding the Gateway, which is required to hop directly to the internet) is routed through the firewall.
 
@@ -63,3 +63,9 @@ blindchargingapi.eastus.data.azurecr.io
 Optionally, additional domains can be exempted by setting the `firewall_allowed_domains` variable.
 
 Note that it is necessary to exempt domains in order to use SAS signed links for redaction results.
+
+# Web Application Firewall
+
+When the app is exposed to the public internet, inbound traffic is controlled through the Web Application Firewall.
+
+By default, traffic is not filtered by IP. We recommend restricting traffic to specific IPs using the `var.allowed_ips` setting.

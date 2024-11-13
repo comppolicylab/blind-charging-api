@@ -20,6 +20,46 @@ locals {
   url_path_map_name                   = format("%s-rbc-app-gw-url-path-map", var.partner)
 }
 
+resource "azurerm_web_application_firewall_policy" "gateway" {
+  count               = var.waf ? 1 : 0
+  name                = format("%s-rbc-app-gw-waf-policy", var.partner)
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+
+  # Allow inbound traffic from IPs in `var.allowed_ips`
+  custom_rules {
+    action    = "Block"
+    name      = "BlockNonAllowedIPs"
+    priority  = 100
+    rule_type = "MatchRule"
+    match_conditions {
+      match_variables {
+        variable_name = "RemoteAddr"
+      }
+      operator = "IPMatch"
+      # If the variable is set to empty, we want to DENY ALL IPs.
+      # To do so, we will match everything *without* negation.
+      # Alternatively, if the allowed_ips list is non-empty, we want to ALLOW ONLY those IPs.
+      # To do so, we will match everything *with* negate.
+      match_values       = length(var.allowed_ips) > 0 ? var.allowed_ips : ["0.0.0.0/0"]
+      negation_condition = length(var.allowed_ips) > 0 ? true : false
+    }
+  }
+
+  managed_rules {
+    managed_rule_set {
+      version = "3.2"
+    }
+  }
+
+  policy_settings {
+    enabled                  = true
+    request_body_check       = false
+    request_body_enforcement = false
+    mode                     = "Prevention"
+  }
+}
+
 resource "azurerm_application_gateway" "public" {
   count               = local.create_app_gateway ? 1 : 0
   name                = local.app_gateway_name
@@ -33,18 +73,7 @@ resource "azurerm_application_gateway" "public" {
     capacity = 2
   }
 
-  // Set up general networking stuff for the gateway
-
-  dynamic "waf_configuration" {
-    for_each = var.waf ? [1] : []
-    content {
-      enabled            = true
-      firewall_mode      = "Prevention"
-      rule_set_type      = "OWASP"
-      rule_set_version   = "3.2"
-      request_body_check = false
-    }
-  }
+  firewall_policy_id = var.waf ? azurerm_web_application_firewall_policy.gateway[0].id : null
 
   gateway_ip_configuration {
     name      = format("%s-rbc-app-gw-ip", var.partner)
