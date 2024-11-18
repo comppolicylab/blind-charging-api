@@ -102,18 +102,6 @@ variable "peered_network_id" {
   description = "Make the app available to another virtual network via peering."
 }
 
-variable "app_ingress_transport" {
-  type        = string
-  default     = "https"
-  description = <<EOF
-Transport protocol for the app ingress. Must be 'http' or 'https' or 'tcp'.
-
-When set to `https`, the ingress will not accept insecure connections.
-
-When set to `tcp`, the ingress will accept TCP traffic on the container port (usually 8000).
-EOF
-}
-
 variable "ssl_cert_password" {
   type        = string
   sensitive   = true
@@ -128,7 +116,18 @@ variable "ssl_cert_email" {
   description = <<EOF
 Email address to use for Let's Encrypt certificate registration.
 
-This is only required if `ssl_mode` is set to 'acme'.
+This is only required if `ssl_cert` is set to 'acme'.
+EOF
+}
+
+variable "ssl_p12_file" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = <<EOF
+Path to the P12 file to use for the SSL certificate.
+
+This is only required if `ssl_cert` is set to 'file'.
 EOF
 }
 
@@ -136,8 +135,8 @@ variable "ssl_cert" {
   type    = string
   default = "none"
   validation {
-    condition     = can(regex("^(none|self_signed|acme)$", var.ssl_cert))
-    error_message = "ssl_cert must be one of 'none', 'self_signed', or 'acme'."
+    condition     = can(regex("^(none|self_signed|acme|file)$", var.ssl_cert))
+    error_message = "ssl_cert must be one of 'none', 'self_signed', 'acme', or 'file'."
   }
 }
 

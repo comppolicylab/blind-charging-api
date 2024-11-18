@@ -1,6 +1,12 @@
 locals {
+  // NOTE(jnu):
+  //  - ACME is only available on public domains due to the verification steps.
+  //  - Self-signed is available privately, but untested and may require extra configuration.
+  //  - File-based is recommended to use privately.
   use_lets_encrypt_cert = var.ssl_cert == "acme" && var.expose_app_to_public_internet
-  use_self_signed_cert  = var.ssl_cert == "self_signed" && var.expose_app_to_public_internet
+  use_self_signed_cert  = var.ssl_cert == "self_signed"
+  use_file_cert         = var.ssl_cert == "file"
+  has_cert              = local.use_lets_encrypt_cert || local.use_self_signed_cert || local.use_file_cert
 }
 
 ### Self-signed certificate ###

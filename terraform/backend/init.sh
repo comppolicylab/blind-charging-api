@@ -98,14 +98,17 @@ az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group 
   az keyvault create --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --location $location --enabled-for-deployment true --enabled-for-template-deployment true --enabled-for-disk-encryption true --enabled-for-deployment true --enabled-for-template-deployment true --enabled-for-disk-encryption true
 
 # Create a role assignment for the user to access the key vault if necessary
-az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv) &> /dev/null || \
+ROLES=`az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)`
+# ROLES will be `[]` if the user doesn't have the role assignment.
+if [ "$ROLES" == "[]" ]; then
   az role assignment create --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)
+fi
 
 # The role assignment takes time to propagate, so wait til it's ready.
 done=false
 while [ $done == false ]; do
-  az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv) &> /dev/null
-  if [ $? -eq 0 ]; then
+  ROLES=`az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)`
+  if [ "$ROLES" != "[]" ]; then
     done=true
     # Green
     tput setaf 2
