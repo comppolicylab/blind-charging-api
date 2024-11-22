@@ -53,6 +53,13 @@ Now initialize Terraform:
 terraform init -backend-config="backend/azure.hcl"
 ```
 
+#### Common errors
+
+Sometimes you will see a permission error on the key vault.
+First, try to re-run the `./backend/init.sh` command and see if the permissions just needed more time to propagate.
+If that doesn't work, you can manually grant yourself permission on the key vault through the Azure Portal.
+Look for the newly created KeyVault in the new `tfstate` resource group, and give yourself Key Vault Administrator permissions on this resource. Then, re-run the `./backend/init.sh` command.
+
 ### 5. Now deploy the application
 
 To initialize the Terraform environment. Then, to deploy the application, run:
@@ -61,6 +68,15 @@ To initialize the Terraform environment. Then, to deploy the application, run:
 terraform plan -var-file="<my-new-env>.tfvars" -out="deploy.tfplan"
 terraform apply "deploy.tfplan"
 ```
+
+#### Common errors
+
+**Container App Resource Registration** Sometimes you will see an error that the Container App resource provider is not registered. You can register the Container App resource in your subscription with the Azure CLI with the command:
+
+```
+az provider register --namespace Microsoft.App
+```
+More info on this issue [here](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-providers-and-types).
 
 #### Making subsequent updates
 
