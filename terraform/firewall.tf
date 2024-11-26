@@ -17,7 +17,7 @@ resource "azurerm_firewall" "main" {
 
 resource "azurerm_firewall_network_rule_collection" "main" {
   count               = local.firewall_allow_outbound ? 1 : 0
-  name                = format("%s-rbc-fw-rules", var.partner)
+  name                = format("%s-fw-rules", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
   priority            = 100
@@ -33,7 +33,7 @@ resource "azurerm_firewall_network_rule_collection" "main" {
 }
 
 resource "azurerm_route_table" "main" {
-  name                = format("%s-rbc-main-rt", var.partner)
+  name                = format("%s-main-rt", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   tags                = var.tags
@@ -48,7 +48,7 @@ resource "azurerm_route_table" "main" {
 }
 
 resource "azurerm_route_table" "gateway" {
-  name                = format("%s-rbc-gateway-rt", var.partner)
+  name                = format("%s-gateway-rt", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   tags                = var.tags

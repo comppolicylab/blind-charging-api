@@ -1,28 +1,28 @@
 locals {
   create_app_gateway                  = var.expose_app_to_private_network || var.expose_app_to_public_internet
-  public_frontend_ip_config_name      = format("%s-rbc-app-gw-feip", var.partner)
-  private_frontend_ip_config_name     = format("%s-rbc-app-gw-feip-priv", var.partner)
-  frontend_https_port_name            = format("%s-rbc-app-gw-feport-https", var.partner)
-  frontend_http_port_name             = format("%s-rbc-app-gw-feport-http", var.partner)
-  https_listener_name                 = format("%s-rbc-app-gw-listener", var.partner)
-  http_listener_name                  = format("%s-rbc-app-gw-listener-http", var.partner)
-  private_http_listener_name          = format("%s-rbc-app-gw-listener-http-priv", var.partner)
-  http_to_https_redirect_name         = format("%s-rbc-app-gw-redirect", var.partner)
-  backend_address_pool_name           = format("%s-rbc-app-gw-be-pool", var.partner)
-  backend_http_settings_name          = format("%s-rbc-app-gw-be-settings", var.partner)
-  ssl_cert_name                       = format("%s-rbc-app-gw-cert", var.partner)
-  probe_name                          = format("%s-rbc-app-gw-probe", var.partner)
-  research_backend_address_pool_name  = format("%s-rbc-app-gw-be-pool-research", var.partner)
-  research_backend_http_settings_name = format("%s-rbc-app-gw-be-settings-research", var.partner)
-  research_probe_name                 = format("%s-rbc-app-gw-probe-research", var.partner)
-  research_rewrite_rule_set_name      = format("%s-rbc-app-gw-rewrite-rule-set-research", var.partner)
-  research_add_slash_redirect_name    = format("%s-rbc-app-gw-redirect-research-root", var.partner)
-  url_path_map_name                   = format("%s-rbc-app-gw-url-path-map", var.partner)
+  public_frontend_ip_config_name      = format("%s-app-gw-feip", local.name_prefix)
+  private_frontend_ip_config_name     = format("%s-app-gw-feip-priv", local.name_prefix)
+  frontend_https_port_name            = format("%s-app-gw-feport-https", local.name_prefix)
+  frontend_http_port_name             = format("%s-app-gw-feport-http", local.name_prefix)
+  https_listener_name                 = format("%s-app-gw-listener", local.name_prefix)
+  http_listener_name                  = format("%s-app-gw-listener-http", local.name_prefix)
+  private_http_listener_name          = format("%s-app-gw-listener-http-priv", local.name_prefix)
+  http_to_https_redirect_name         = format("%s-app-gw-redirect", local.name_prefix)
+  backend_address_pool_name           = format("%s-app-gw-be-pool", local.name_prefix)
+  backend_http_settings_name          = format("%s-app-gw-be-settings", local.name_prefix)
+  ssl_cert_name                       = format("%s-app-gw-cert", local.name_prefix)
+  probe_name                          = format("%s-app-gw-probe", local.name_prefix)
+  research_backend_address_pool_name  = format("%s-app-gw-be-pool-research", local.name_prefix)
+  research_backend_http_settings_name = format("%s-app-gw-be-settings-research", local.name_prefix)
+  research_probe_name                 = format("%s-app-gw-probe-research", local.name_prefix)
+  research_rewrite_rule_set_name      = format("%s-app-gw-rewrite-rule-set-research", local.name_prefix)
+  research_add_slash_redirect_name    = format("%s-app-gw-redirect-research-root", local.name_prefix)
+  url_path_map_name                   = format("%s-app-gw-url-path-map", local.name_prefix)
 }
 
 resource "azurerm_web_application_firewall_policy" "gateway" {
   count               = var.waf ? 1 : 0
-  name                = format("%s-rbc-app-gw-waf-policy", var.partner)
+  name                = format("%s-app-gw-waf-policy", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 
@@ -76,14 +76,14 @@ resource "azurerm_application_gateway" "public" {
   firewall_policy_id = var.waf ? azurerm_web_application_firewall_policy.gateway[0].id : null
 
   gateway_ip_configuration {
-    name      = format("%s-rbc-app-gw-ip", var.partner)
+    name      = format("%s-app-gw-ip", local.name_prefix)
     subnet_id = azurerm_subnet.gateway.id
   }
 
   private_link_configuration {
     name = local.private_link_configuration_name
     ip_configuration {
-      name                          = format("%s-rbc-app-gw-plcipcfg", var.partner)
+      name                          = format("%s-app-gw-plcipcfg", local.name_prefix)
       subnet_id                     = azurerm_subnet.gateway-pl.id
       private_ip_address_allocation = "Dynamic"
       primary                       = true
@@ -140,7 +140,7 @@ resource "azurerm_application_gateway" "public" {
     for_each = var.expose_app_to_public_internet ? [1] : []
     content {
       priority                    = 1
-      name                        = format("%s-rbc-app-gw-rr-http-upgrade", var.partner)
+      name                        = format("%s-app-gw-rr-http-upgrade", local.name_prefix)
       rule_type                   = "Basic"
       redirect_configuration_name = local.http_to_https_redirect_name
       http_listener_name          = local.http_listener_name
@@ -201,7 +201,7 @@ resource "azurerm_application_gateway" "public" {
     for_each = var.expose_app_to_public_internet ? [1] : []
     content {
       priority           = 2
-      name               = format("%s-rbc-app-gw-rr", var.partner)
+      name               = format("%s-app-gw-rr", local.name_prefix)
       rule_type          = "PathBasedRouting"
       url_path_map_name  = local.url_path_map_name
       http_listener_name = local.https_listener_name
@@ -210,7 +210,7 @@ resource "azurerm_application_gateway" "public" {
 
   request_routing_rule {
     priority           = 3
-    name               = format("%s-rbc-app-gw-rr-priv", var.partner)
+    name               = format("%s-app-gw-rr-priv", local.name_prefix)
     rule_type          = "PathBasedRouting"
     url_path_map_name  = local.url_path_map_name
     http_listener_name = local.private_http_listener_name

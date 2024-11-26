@@ -92,7 +92,7 @@ terraform plan -var-file="<my-new-env>.tfvars" -out="update.tfplan"
 terraform apply -out="update.tfplan"
 ```
 
-#### Applying new docker image updates
+### Appendix I. Applying new docker image updates
 
 **NOTE** These instructions are liable to change in the future as we automate more deployment steps!
 
@@ -109,3 +109,76 @@ RBC_CONTAINER_APP_NAME=`az containerapp list | jq --raw-output '.[0].name'`
 RBC_CONTAINER_APP_ACTIVE_REVISION_NAME=`az containerapp revision list -n "$RBC_CONTAINER_APP_NAME" -g RaceBlindCharging | jq --raw-output '.[0].name'`
 az containerapp revision restart --revision "$RBC_CONTAINER_APP_ACTIVE_REVISION_NAME" -g RaceBlindCharging
 ```
+
+### Appendix II. Managing multiple environments
+
+It's common to want multiple environments, such as development / staging and production.
+
+There is more than one way to manage multiple environments with Terraform.
+The way we suggest here is to use `terraform workspace`,
+which will let you manage all of your environments easily within the same subscription.
+
+> [!TIP]
+> If you _cannot_ use the same subscription for all of your environments,
+> you will need to create an entirely new backend for your new environment.
+>
+> We do not recommend this.
+
+#### 1. Create a new `tfvars` file
+
+Create a new `<my-other-env>.tfvars` file representing the configuration you want to use for this environment.
+Many parameters will end up being the same as your original `tfvars` file.
+This is actually a _good_ thing, since the closer you can make your test environment to the production environment, the better.
+
+> [!CAUTION]
+>  - The `partner` key must be _identical_ in all of your `tfvars` files.
+>  - The `subscription` key must be _identical_ in all of your `tfvars` files.
+>  - The `registry_password` key can be _identical_ in all of your `tfvars` files. If you would like a new token for different environments, please contact us.
+>  - The `tfstate_resource_group` should only exist in the `tfvars` you used to initialize the backend in step (4). All of your environments will share the same backend storage for their state, so you do _not_ need to define the `tfstate_resource_group` in all files.
+>  - The resource group keys `resource_group_name` and `app_infra_resource_group_name` need to be _unique_ in each tfvars file.
+>  - If you are using custom name variables, it is a good idea to ensure the names are unique. Azure requires some names to be globally unique, so you might encounter errors if you try to re-use names.
+
+#### 2. Create a new `workspace`
+
+Now create a new workspace for your new environment:
+
+```
+terraform workspace new <my-new-env>
+```
+
+You can call your new workspace whatever you want. For example, `terraform workspace new prod` will create a new workspace named `prod`.
+
+> [!TIP]
+> If you already set up an environment without an explicit workspace, it will be called `default`.
+>
+> You can see which workspaces you have available with the command `terraform workspace list`.
+
+#### 3. Create the new resources
+
+You can follow step (5) from the main README above to deploy new resources to this workspace.
+
+The new workspace will have an empty state file,
+so when you run `terraform plan` and `terraform apply` it will create all the new resources instead of modifying resources in your old workspace.
+
+> [!IMPORTANT]
+> Remember to reference the correct `tfvars` file when you run these commands.
+> (I.e., when you are in the `prod` workspace, you will want to use the `prod.tfvars` file, _not_ the `dev.tfvars` file.)
+
+#### 4. Switching between workspaces
+
+You will often need to switch back and forth between workspaces.
+
+Here are some useful commands for working with workspaces:
+
+```bash
+# List all available workspaces
+terraform workspace list
+
+# Show the active workspace
+terraform workspace show
+
+# Switch to a new workspace
+terraform workspace select <name>
+```
+
+Always make sure you have activated the correct workspace and are using the correct tfvars file before applying any new changes to the infrastructure.

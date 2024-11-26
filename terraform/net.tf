@@ -163,7 +163,7 @@ resource "azurerm_private_dns_a_record" "app_exact" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "app" {
-  name                  = format("%s-app-dns-link", var.partner)
+  name                  = format("%s-app-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.app.name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -171,7 +171,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "app" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
-  name                  = format("%s-openai-dns-link", var.partner)
+  name                  = format("%s-openai-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.openai.name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -179,7 +179,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "openai" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "fr" {
-  name                  = format("%s-fr-dns-link", var.partner)
+  name                  = format("%s-fr-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.fr.name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -187,7 +187,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fr" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "mssql" {
-  name                  = format("%s-mssql-dns-link", var.partner)
+  name                  = format("%s-mssql-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.mssql.name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -195,7 +195,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mssql" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
-  name                  = format("%s-redis-dns-link", var.partner)
+  name                  = format("%s-redis-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.redis.name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -204,7 +204,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "redis" {
 
 resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
   count                 = var.enable_research_env ? 1 : 0
-  name                  = format("%s-fs-dns-link", var.partner)
+  name                  = format("%s-fs-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.fs[0].name
   virtual_network_id    = azurerm_virtual_network.main.id
@@ -214,7 +214,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
 # NOTE: Azure requires Gateways to have a public IP, even if they
 # won't be reachable on the public internet.
 resource "azurerm_public_ip" "gateway" {
-  name                = format("%s-rbc-gateway-ip", var.partner)
+  name                = format("%s-gateway-ip", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   allocation_method   = "Static"
@@ -223,7 +223,7 @@ resource "azurerm_public_ip" "gateway" {
 }
 
 resource "azurerm_public_ip" "firewall" {
-  name                = format("%s-rbc-firewall-ip", var.partner)
+  name                = format("%s-firewall-ip", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   allocation_method   = "Static"
@@ -233,7 +233,7 @@ resource "azurerm_public_ip" "firewall" {
 
 resource "azurerm_virtual_network_peering" "app_to_cms" {
   count                        = var.peered_network_id != null ? 1 : 0
-  name                         = format("%s-rbc-app-to-cms-peering", var.partner)
+  name                         = format("%s-app-to-cms-peering", local.name_prefix)
   resource_group_name          = azurerm_resource_group.main.name
   virtual_network_name         = azurerm_virtual_network.main.name
   remote_virtual_network_id    = var.peered_network_id

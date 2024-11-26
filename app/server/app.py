@@ -40,8 +40,11 @@ async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
         logger.info("Stamping database revision as current")
         store.driver.alembic.stamp("head")
     else:
-        logger.info("Applying any pending database migrations ...")
-        store.driver.alembic.upgrade("head")
+        if automigrate:
+            logger.info("Applying any pending database migrations ...")
+            store.driver.alembic.upgrade("head")
+        else:
+            logger.warning("Skipping database migration check!")
     return store.driver
 
 

@@ -50,6 +50,7 @@ _DATA_TYPES: list[DataType[Any, Any]] = [
     DataType("${bool}", bool, bool, _ensure_bool),
     DataType("${map(string)}", dict[str, str], str, json.loads),
     DataType("${number}", float, float, _ensure_number),
+    DataType("${list(string)}", list[str], str, json.loads),
 ]
 
 

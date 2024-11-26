@@ -154,6 +154,10 @@ case $AZURE_ENVIRONMENT in
     ;;
 esac
 
+# Try to register the Azure Container App provider
+echo "Enabling container app provider on subscription ..."
+az provider register --namespace Microsoft.App
+
 # Green
 tput setaf 2
 echo "The Terraform state store has been initialized in Azure."
@@ -175,7 +179,7 @@ export ARM_ACCESS_KEY=$(az keyvault secret show --name $KV_STORAGE_KEY_NAME --va
 # Output an AzureRM backend HCL block for the Terraform configuration
 # in the same directory as this script.
 BASEDIR=$(dirname "$0")
-BACKEND_FILE="$BASEDIR/azure.hcl"
+BACKEND_FILE="$BASEDIR/$_CLEAN_PARTNER.azure.hcl"
 cat << EOF > "$BACKEND_FILE"
 resource_group_name  = "$tfstate_resource_group"
 storage_account_name = "$STORAGE_ACCOUNT"
@@ -198,7 +202,7 @@ read -p "Do you want to initialize Terraform now? (yes/no): " -r
 tput sgr0
 echo
 if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-  terraform init -backend-config="$BACKEND_FILE"
+  terraform init -backend-config="$BACKEND_FILE" -reconfigure
 else
   # Yellow
   tput setaf 3
@@ -207,5 +211,5 @@ else
   echo "You can initialize Terraform yourself with the following command:"
   tput sgr0
   echo
-  echo "terraform init -backend-config=\"$BACKEND_FILE\""
+  echo "terraform init -backend-config=\"$BACKEND_FILE\" -reconfigure"
 fi
