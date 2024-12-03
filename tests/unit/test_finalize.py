@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from app.server.db import DocumentStatus
-from app.server.generated.models import Document, DocumentLink
+from app.server.generated.models import DocumentLink, OutputDocument
 from app.server.tasks import (
     CallbackTaskResult,
     FinalizeTask,
@@ -19,7 +19,7 @@ def test_finalize_no_experiments_success(config):
         status_code=200,
         response="ok",
         formatted=FormatTaskResult(
-            document=Document(
+            document=OutputDocument(
                 root=DocumentLink(
                     documentId="doc1",
                     attachmentType="LINK",
@@ -99,7 +99,7 @@ def test_finalize_experiments_success(config, exp_db):
         status_code=200,
         response="ok",
         formatted=FormatTaskResult(
-            document=Document(
+            document=OutputDocument(
                 root=DocumentLink(
                     documentId="doc1",
                     attachmentType="LINK",
@@ -229,7 +229,7 @@ def test_finalize_no_experiments_more_objects(chain_mock, config, fake_redis_sto
         status_code=200,
         response="ok",
         formatted=FormatTaskResult(
-            document=Document(
+            document=OutputDocument(
                 root=DocumentLink(
                     documentId="doc1",
                     attachmentType="LINK",

@@ -1,10 +1,10 @@
 import responses
 
 from app.server.generated.models import (
-    Document,
     DocumentContent,
     DocumentLink,
     DocumentText,
+    InputDocument,
 )
 from app.server.tasks import FetchTask, FetchTaskResult, fetch
 
@@ -19,7 +19,7 @@ def test_fetch_link():
     )
 
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
@@ -46,7 +46,7 @@ def test_fetch_link_error_code():
     )
 
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
@@ -72,7 +72,7 @@ def test_fetch_link_error_code():
 
 def test_fetch_text():
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentText(
                 documentId="doc1",
                 attachmentType="TEXT",
@@ -91,7 +91,7 @@ def test_fetch_text():
 
 def test_fetch_content():
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentContent(
                 documentId="doc1",
                 attachmentType="BASE64",
@@ -110,7 +110,7 @@ def test_fetch_content():
 
 def test_fetch_content_invalid():
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentContent(
                 documentId="doc1",
                 attachmentType="BASE64",
@@ -136,7 +136,7 @@ def test_fetch_content_invalid():
 
 def test_fetch_invalid_attachment_type():
     params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentContent(
                 documentId="doc1",
                 attachmentType="BASE64",

@@ -7,7 +7,7 @@ from pydantic import AnyUrl
 from responses import matchers
 
 from app.server.db import DocumentStatus
-from app.server.generated.models import Document, DocumentLink, OutputFormat
+from app.server.generated.models import DocumentLink, InputDocument, OutputFormat
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
@@ -32,7 +32,7 @@ def test_chain(fake_redis_store: FakeRedis, exp_db):
     fake_redis_store.hset("jur1:case1:mask", mapping={"sub1": "Subject 1"})
 
     fd_task_params = FetchTask(
-        document=Document(
+        document=InputDocument(
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",

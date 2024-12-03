@@ -4,6 +4,7 @@ import io
 from blind_charging_core import Pipeline, PipelineConfig
 from blind_charging_core.pipeline import (
     HtmlRenderConfig,
+    JsonRenderConfig,
     PdfRenderConfig,
     RenderConfig,
     TextRenderConfig,
@@ -40,6 +41,7 @@ class RedactionTaskResult(BaseModel):
     document_id: str
     errors: list[ProcessingError] = []
     file_storage_id: str | None = None
+    renderer: OutputFormat
 
 
 register_type(RedactionTask)
@@ -67,6 +69,7 @@ def redact(
             case_id=params.case_id,
             document_id=params.document_id,
             errors=fetch_result.errors,
+            renderer=params.renderer,
         )
 
     try:
@@ -120,6 +123,7 @@ def redact(
             case_id=params.case_id,
             document_id=params.document_id,
             file_storage_id=content_storage_id,
+            renderer=params.renderer,
         )
     except Exception as e:
         if self.request.retries >= self.max_retries:
@@ -133,6 +137,7 @@ def redact(
                 case_id=params.case_id,
                 document_id=params.document_id,
                 errors=[*fetch_result.errors, new_error],
+                renderer=params.renderer,
             )
         else:
             logger.warning(
@@ -154,11 +159,13 @@ def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
     """
     match output_format:
         case OutputFormat.PDF:
-            return PdfRenderConfig(engine="render:pdf")
+            return PdfRenderConfig()
         case OutputFormat.TEXT:
-            return TextRenderConfig(engine="render:text")
+            return TextRenderConfig()
         case OutputFormat.HTML:
-            return HtmlRenderConfig(engine="render:html")
+            return HtmlRenderConfig()
+        case OutputFormat.JSON:
+            return JsonRenderConfig()
         case _:
             raise ValueError(f"Unsupported output format: {output_format}")
 

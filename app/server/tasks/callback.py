@@ -9,8 +9,8 @@ from pydantic import BaseModel
 from ..case import CaseStore
 from ..config import config
 from ..generated.models import (
-    Document,
     MaskedSubject,
+    OutputDocument,
     RedactionResult,
     RedactionResultError,
     RedactionResultSuccess,
@@ -156,7 +156,9 @@ def get_masks_sync(jurisdiction_id: str, case_id: str) -> list[MaskedSubject]:
     return asyncio.run(_get_masks_with_store())
 
 
-def get_result_sync(jurisdiction_id: str, case_id: str, doc_id: str) -> Document | None:
+def get_result_sync(
+    jurisdiction_id: str, case_id: str, doc_id: str
+) -> OutputDocument | None:
     """Get the redacted document for a case.
 
     Args:
@@ -165,10 +167,10 @@ def get_result_sync(jurisdiction_id: str, case_id: str, doc_id: str) -> Document
         doc_id (str): The document ID.
 
     Returns:
-        Document | None: The redacted document.
+        OutputDocument | None: The redacted document.
     """
 
-    async def _get_result_with_store() -> Document | None:
+    async def _get_result_with_store() -> OutputDocument | None:
         async with config.queue.store.driver() as store:
             async with store.tx() as tx:
                 cs = CaseStore(tx)

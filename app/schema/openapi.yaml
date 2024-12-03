@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.6.5
+  version: 0.7.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -403,7 +403,45 @@ components:
         content:
           type: string
 
-    Document:
+    DocumentJSON:
+      type: object
+      required:
+        - attachmentType
+        - documentId
+        - content
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - JSON
+        documentId:
+          type: string
+        content:
+          type: object
+          required:
+            - original
+            - redacted
+          properties:
+            original:
+              type: string
+            redacted:
+              type: string
+
+    OutputDocument:
+      oneOf:
+        - $ref: "#/components/schemas/DocumentLink"
+        - $ref: "#/components/schemas/DocumentText"
+        - $ref: "#/components/schemas/DocumentContent"
+        - $ref: "#/components/schemas/DocumentJSON"
+      discriminator:
+        propertyName: attachmentType
+        mapping:
+          LINK: "#/components/schemas/DocumentLink"
+          TEXT: "#/components/schemas/DocumentText"
+          BASE64: "#/components/schemas/DocumentContent"
+          JSON: "#/components/schemas/DocumentJSON"
+
+    InputDocument:
       oneOf:
         - $ref: "#/components/schemas/DocumentLink"
         - $ref: "#/components/schemas/DocumentText"
@@ -455,7 +493,7 @@ components:
           items:
             $ref: "#/components/schemas/MaskedSubject"
         redactedDocument:
-          $ref: "#/components/schemas/Document"
+          $ref: "#/components/schemas/OutputDocument"
         status:
           type: string
           enum:
@@ -648,6 +686,7 @@ components:
             - PDF
             - TEXT
             - HTML
+            - JSON
 
     RedactionTarget:
       type: object
@@ -655,7 +694,7 @@ components:
         - document
       properties:
         document:
-          $ref: "#/components/schemas/Document"
+          $ref: "#/components/schemas/InputDocument"
         callbackUrl:
           type: string
           format: uri

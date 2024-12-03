@@ -47,6 +47,7 @@ def test_redact(fake_redis_store: FakeRedis):
         "case_id": "case1",
         "document_id": "doc1",
         "errors": [],
+        "renderer": OutputFormat.TEXT,
     }
 
 
@@ -75,6 +76,7 @@ def test_redact_errors():
         case_id="case1",
         document_id="doc1",
         errors=fetch_result.errors,
+        renderer=OutputFormat.PDF,
     )
 
 
@@ -106,5 +108,6 @@ def test_redact_new_errors(fake_redis_store: FakeRedis):
                     exception="EmptyExtractionError",
                 )
             ],
+            renderer=OutputFormat.PDF,
         ).model_dump()
     )

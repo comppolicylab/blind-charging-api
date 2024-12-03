@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 
 from azure.storage.blob import BlobClient
 from celery.canvas import Signature
@@ -9,7 +10,14 @@ from pydantic import AnyUrl, BaseModel
 from ..case import CaseStore
 from ..case_helper import get_document_sync
 from ..config import config
-from ..generated.models import Document, DocumentContent, DocumentLink
+from ..generated.models import (
+    Content,
+    DocumentContent,
+    DocumentJSON,
+    DocumentLink,
+    OutputDocument,
+    OutputFormat,
+)
 from .queue import ProcessingError, queue
 from .redact import RedactionTaskResult
 from .serializer import register_type
@@ -49,7 +57,7 @@ def format(
     params: FormatTask,
 ) -> FormatTaskResult:
     """Format redaction into a Document type."""
-    document: Document | None = None
+    document: OutputDocument | None = None
 
     if redact_result.errors:
         # If there are errors from the redact task, pass through.
@@ -61,7 +69,7 @@ def format(
         )
     try:
         if params.target_blob_url:
-            document = Document(
+            document = OutputDocument(
                 root=DocumentLink(
                     documentId=redact_result.document_id,
                     attachmentType="LINK",
@@ -110,7 +118,7 @@ def format(
 
 def format_document(
     format_task: FormatTask, redaction: RedactionTaskResult
-) -> Document:
+) -> OutputDocument:
     """Format a redacted document for the API response.
 
     Args:
@@ -118,11 +126,11 @@ def format_document(
         redaction (RedactionTaskResult): The redaction results.
 
     Returns:
-        Document: The formatted document.
+        OutputDocument: The formatted document.
     """
     document_id = redaction.document_id
     if format_task.target_blob_url:
-        return Document(
+        return OutputDocument(
             root=DocumentLink(
                 documentId=document_id,
                 attachmentType="LINK",
@@ -133,7 +141,19 @@ def format_document(
         content = get_document_sync(redaction.file_storage_id)
         if not content:
             raise ValueError("No redacted content")
-        return Document(
+        if redaction.renderer == OutputFormat.JSON:
+            json_content = json.loads(content)
+            return OutputDocument(
+                root=DocumentJSON(
+                    documentId=document_id,
+                    attachmentType="JSON",
+                    content=Content(
+                        original=json_content["original"],
+                        redacted=json_content["redacted"],
+                    ),
+                )
+            )
+        return OutputDocument(
             root=DocumentContent(
                 documentId=document_id,
                 attachmentType="BASE64",
@@ -154,7 +174,7 @@ def write_to_azure_blob_url(sas_url: str, content: bytes):
 
 
 def save_result_sync(
-    jurisdiction_id: str, case_id: str, doc_id: str, document: Document
+    jurisdiction_id: str, case_id: str, doc_id: str, document: OutputDocument
 ) -> str:
     """Save the formatted document in the queue's store.
 

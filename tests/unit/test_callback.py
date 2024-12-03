@@ -5,7 +5,7 @@ from fakeredis import FakeRedis
 from pydantic import AnyUrl
 from responses import matchers
 
-from app.server.generated.models import Document, DocumentLink
+from app.server.generated.models import DocumentLink, OutputDocument
 from app.server.tasks import (
     CallbackTask,
     CallbackTaskResult,
@@ -21,7 +21,7 @@ def test_callback_no_callback_no_error():
         case_id="case1",
         document_id="doc1",
         errors=[],
-        document=Document(
+        document=OutputDocument(
             root=DocumentLink(
                 documentId="doc1",
                 attachmentType="LINK",
@@ -64,7 +64,7 @@ def test_callback_no_callback_with_error():
 @responses.activate
 def test_callback_with_callback_no_error(fake_redis_store: FakeRedis):
     fake_redis_store.hset("jur1:case1:mask", mapping={"sub1": "Subject 1"})
-    doc = Document(
+    doc = OutputDocument(
         root=DocumentLink(
             documentId="doc1",
             attachmentType="LINK",

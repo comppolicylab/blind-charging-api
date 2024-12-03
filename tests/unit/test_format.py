@@ -4,7 +4,14 @@ from unittest.mock import patch
 from fakeredis import FakeRedis
 from pydantic import AnyUrl
 
-from app.server.generated.models import Document, DocumentContent, DocumentLink
+from app.server.generated.models import (
+    Content,
+    DocumentContent,
+    DocumentJSON,
+    DocumentLink,
+    OutputDocument,
+    OutputFormat,
+)
 from app.server.tasks import (
     FormatTask,
     FormatTaskResult,
@@ -22,16 +29,50 @@ def test_format_no_blob(fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(redact_result, FormatTask()).apply()
     raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
-    doc = Document.model_validate_json(cast(bytes, raw_doc))
-    assert doc == Document(
+    doc = OutputDocument.model_validate_json(cast(bytes, raw_doc))
+    assert doc == OutputDocument(
         root=DocumentContent(
             documentId="doc1",
             attachmentType="BASE64",
             content="Y29udGVudA==",
+        )
+    )
+
+    assert result.get() == FormatTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        errors=[],
+    )
+
+
+def test_format_json(fake_redis_store: FakeRedis):
+    fake_redis_store.set("abc123", b'{"original": "original", "redacted": "redacted"}')
+    redact_result = RedactionTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        file_storage_id="abc123",
+        errors=[],
+        renderer=OutputFormat.JSON,
+    )
+
+    result = format.s(redact_result, FormatTask()).apply()
+    raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
+    doc = OutputDocument.model_validate_json(cast(bytes, raw_doc))
+    assert doc == OutputDocument(
+        root=DocumentJSON(
+            documentId="doc1",
+            attachmentType="JSON",
+            content=Content(
+                original="original",
+                redacted="redacted",
+            ),
         )
     )
 
@@ -52,6 +93,7 @@ def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     # Some fake SAS URL
@@ -60,8 +102,8 @@ def test_format_with_blob_url(blob_upload, fake_redis_store: FakeRedis):
     result = format.s(redact_result, FormatTask(target_blob_url=blob_sas_url)).apply()
 
     raw_doc = fake_redis_store.get("jur1:case1:result:doc1")
-    doc = Document.model_validate_json(cast(bytes, raw_doc))
-    assert doc == Document(
+    doc = OutputDocument.model_validate_json(cast(bytes, raw_doc))
+    assert doc == OutputDocument(
         root=DocumentLink(
             documentId="doc1",
             attachmentType="LINK",
@@ -87,6 +129,7 @@ def test_format_with_invalid_blob_url(blob_upload, fake_redis_store: FakeRedis):
         document_id="doc1",
         file_storage_id="abc123",
         errors=[],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(
@@ -128,6 +171,7 @@ def test_format_errors():
                 exception="Exception",
             )
         ],
+        renderer=OutputFormat.PDF,
     )
 
     result = format.s(redact_result, FormatTask()).apply()

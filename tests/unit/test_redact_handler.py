@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from glowplug import DbDriver
 from pydantic import AnyUrl
 
-from app.server.generated.models import Document, DocumentLink, OutputFormat
+from app.server.generated.models import DocumentLink, InputDocument, OutputFormat
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
@@ -67,7 +67,7 @@ async def test_redact_handler(
     assert chain_mock.mock_calls[0].args == (
         fetch.s(
             FetchTask(
-                document=Document(
+                document=InputDocument(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",
@@ -165,7 +165,7 @@ async def test_redact_handler_no_callback(
     assert chain_mock.mock_calls[0].args == (
         fetch.s(
             FetchTask(
-                document=Document(
+                document=InputDocument(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",
@@ -290,7 +290,7 @@ async def test_redact_handler_multi_doc(
     assert chain_mock.mock_calls[0].args == (
         fetch.s(
             FetchTask(
-                document=Document(
+                document=InputDocument(
                     root=DocumentLink(
                         attachmentType="LINK",
                         documentId="doc1",

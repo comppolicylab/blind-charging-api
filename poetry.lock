@@ -500,7 +500,7 @@ aio = ["azure-core[aio] (>=1.30.0)"]
 
 [[package]]
 name = "bc2"
-version = "0.4.0"
+version = "0.5.0"
 description = ""
 optional = false
 python-versions = "^3.10"
@@ -529,7 +529,7 @@ typer = "0.12.5"
 type = "git"
 url = "git@github.com:stanford-policylab/bc2.git"
 reference = "HEAD"
-resolved_reference = "f74c892f9b10c4d80c25d1b0ac3be496a8452448"
+resolved_reference = "c0bccac701b739d5d923dc7e580a364f90855e48"
 
 [[package]]
 name = "billiard"

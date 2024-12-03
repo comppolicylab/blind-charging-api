@@ -8,7 +8,12 @@ from pydantic import BaseModel
 
 from ..case_helper import save_document_sync
 from ..config import config
-from ..generated.models import Document, DocumentContent, DocumentLink, DocumentText
+from ..generated.models import (
+    DocumentContent,
+    DocumentLink,
+    DocumentText,
+    InputDocument,
+)
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -16,7 +21,7 @@ logger = get_task_logger(__name__)
 
 
 class FetchTask(BaseModel):
-    document: Document
+    document: InputDocument
 
     def s(self) -> Signature:
         return fetch.s(self)
