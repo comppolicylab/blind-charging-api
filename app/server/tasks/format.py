@@ -150,6 +150,7 @@ def format_document(
                     content=Content(
                         original=json_content["original"],
                         redacted=json_content["redacted"],
+                        annotations=json_content.get("annotations", []),
                     ),
                 )
             )

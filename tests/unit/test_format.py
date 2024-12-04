@@ -1,3 +1,4 @@
+import json
 from typing import cast
 from unittest.mock import patch
 
@@ -5,6 +6,7 @@ from fakeredis import FakeRedis
 from pydantic import AnyUrl
 
 from app.server.generated.models import (
+    Annotation,
     Content,
     DocumentContent,
     DocumentJSON,
@@ -52,7 +54,24 @@ def test_format_no_blob(fake_redis_store: FakeRedis):
 
 
 def test_format_json(fake_redis_store: FakeRedis):
-    fake_redis_store.set("abc123", b'{"original": "original", "redacted": "redacted"}')
+    fake_redis_store.set(
+        "abc123",
+        json.dumps(
+            {
+                "original": "original",
+                "redacted": "[redacted]",
+                "annotations": [
+                    {
+                        "originalSpan": [0, 8],
+                        "redactedSpan": [0, 10],
+                        "valid": True,
+                        "openDelim": "[",
+                        "closeDelim": "]",
+                    }
+                ],
+            }
+        ).encode("utf-8"),
+    )
     redact_result = RedactionTaskResult(
         jurisdiction_id="jur1",
         case_id="case1",
@@ -71,7 +90,16 @@ def test_format_json(fake_redis_store: FakeRedis):
             attachmentType="JSON",
             content=Content(
                 original="original",
-                redacted="redacted",
+                redacted="[redacted]",
+                annotations=[
+                    Annotation(
+                        originalSpan=[0, 8],
+                        redactedSpan=[0, 10],
+                        valid=True,
+                        openDelim="[",
+                        closeDelim="]",
+                    )
+                ],
             ),
         )
     )

@@ -1,10 +1,10 @@
-openapi: '3.0.3'
+openapi: '3.1.1'
 
 info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.7.0
+  version: 0.7.1
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -421,11 +421,41 @@ components:
           required:
             - original
             - redacted
+            - annotations
           properties:
             original:
               type: string
             redacted:
               type: string
+            annotations:
+              type: array
+              items:
+                type: object
+                required:
+                  - originalSpan
+                  - redactedSpan
+                  - valid
+                  - openDelim
+                  - closeDelim
+                properties:
+                  originalSpan:
+                    type: array
+                    items:
+                      type: integer
+                    minItems: 2
+                    maxItems: 2
+                  redactedSpan:
+                    type: array
+                    items:
+                      type: integer
+                    minItems: 2
+                    maxItems: 2
+                  valid:
+                    type: boolean
+                  openDelim:
+                    type: [string, 'null']
+                  closeDelim:
+                    type: [string, 'null']
 
     OutputDocument:
       oneOf:
