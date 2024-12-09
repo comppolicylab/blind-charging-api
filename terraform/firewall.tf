@@ -5,8 +5,8 @@ resource "azurerm_firewall" "main" {
   tags                = var.tags
   sku_name            = "AZFW_VNet"
   sku_tier            = "Standard"
-  dns_servers         = local.firewall_allow_outbound ? var.dns_servers : null
-  dns_proxy_enabled   = local.firewall_allow_outbound
+  dns_servers         = var.dns_servers
+  dns_proxy_enabled   = true
 
   ip_configuration {
     name                 = "main"
@@ -15,20 +15,38 @@ resource "azurerm_firewall" "main" {
   }
 }
 
-resource "azurerm_firewall_network_rule_collection" "main" {
-  count               = local.firewall_allow_outbound ? 1 : 0
-  name                = format("%s-fw-rules", local.name_prefix)
+resource "azurerm_firewall_network_rule_collection" "required" {
+  name                = format("%s-fw-rules-required", local.name_prefix)
   resource_group_name = azurerm_resource_group.main.name
   azure_firewall_name = azurerm_firewall.main.name
   priority            = 100
   action              = "Allow"
 
   rule {
-    name              = "Allow outbound access through firewall"
+    name              = "Outbound access to required HKS-RBC services"
     source_addresses  = var.app_subnet_address_space
-    destination_fqdns = local.firewall_allowed_domains
+    destination_fqdns = local.firewall_required_domains
     destination_ports = ["443", "22"]
     protocols         = ["TCP"]
+  }
+}
+
+resource "azurerm_firewall_application_rule_collection" "custom" {
+  count               = local.firewall_custom_outbound ? 1 : 0
+  name                = format("%s-fw-rules-custom", local.name_prefix)
+  resource_group_name = azurerm_resource_group.main.name
+  azure_firewall_name = azurerm_firewall.main.name
+  priority            = 100
+  action              = "Allow"
+
+  rule {
+    name             = "Outbound access to site-specific services"
+    source_addresses = var.app_subnet_address_space
+    target_fqdns     = var.firewall_allowed_domains
+    protocol {
+      port = "443"
+      type = "Https"
+    }
   }
 }
 

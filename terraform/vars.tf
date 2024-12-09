@@ -365,6 +365,5 @@ locals {
     "blindchargingapi.azurecr.io",
     "azurecr.io",
   ]
-  firewall_allowed_domains = concat(var.firewall_allowed_domains, local.firewall_required_domains)
-  firewall_allow_outbound  = length(local.firewall_allowed_domains) > 0
+  firewall_custom_outbound = length(var.firewall_allowed_domains) > 0
 }
