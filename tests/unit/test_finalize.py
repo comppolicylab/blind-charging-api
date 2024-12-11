@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from celery.result import AsyncResult
+
 from app.server.db import DocumentStatus
 from app.server.generated.models import DocumentLink, OutputDocument
 from app.server.tasks import (
@@ -207,7 +209,7 @@ def test_finalize_experiments_failed(config, exp_db):
 def test_finalize_no_experiments_more_objects(chain_mock, config, fake_redis_store):
     config.experiments.enabled = False
 
-    chain_mock.return_value.apply_async.return_value = "new_task_id"
+    chain_mock.return_value.apply_async.return_value = AsyncResult("new_task_id")
 
     # Add two docs to the queue. One is the current doc, the other is the next doc.
     fake_redis_store.rpush(

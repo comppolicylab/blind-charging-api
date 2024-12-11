@@ -7,6 +7,7 @@ from celery.canvas import Signature
 from pydantic import BaseModel
 
 from ..case import CaseStore
+from ..case_helper import save_retry_state_sync
 from ..config import config
 from ..generated.models import (
     MaskedSubject,
@@ -49,6 +50,8 @@ _callback_timeout = config.queue.task.callback_timeout_seconds
     max_retries=5,
     retry_backoff=True,
     autoretry_for=(Exception,),
+    default_retry_delay=30,
+    on_retry=save_retry_state_sync,
 )
 def callback(
     format_result: FormatTaskResult, params: CallbackTask

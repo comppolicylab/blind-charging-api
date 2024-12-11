@@ -3,6 +3,8 @@ import hashlib
 import logging
 from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
+from celery.result import AsyncResult
+
 from .enumerator import RoleEnumerator
 from .generated.models import HumanName, MaskedSubject, OutputDocument, RedactionTarget
 from .name import human_name_to_str
@@ -145,6 +147,36 @@ class CaseStore:
         return bool(self.jurisdiction_id and self.case_id)
 
     @classmethod
+    async def save_key(cls, store: StoreSession, key: str, value: bytes) -> str:
+        """Save a key-value pair in the store.
+
+        Args:
+            store (StoreSession): The store.
+            key (str): The key.
+            value (str): The value.
+
+        Returns:
+            Key under which the data was saved.
+        """
+        await store.set(key, value)
+        t = await store.time()
+        await store.expire_at(key, t + FOUR_HOURS_S)
+        return key
+
+    @classmethod
+    async def get(cls, store: StoreSession, key: str) -> bytes | None:
+        """Get a key-value pair from the store.
+
+        Args:
+            store (StoreSession): The store.
+            key (str): The key.
+
+        Returns:
+            bytes | None: The value if it exists.
+        """
+        return await store.get(key)
+
+    @classmethod
     async def save_blob(cls, store: StoreSession, blob: bytes) -> str:
         """Save a blob of data in the store.
 
@@ -156,23 +188,7 @@ class CaseStore:
             str: The key under which the data was saved.
         """
         key = hashlib.sha256(blob).hexdigest()
-        await store.set(key, blob)
-        t = await store.time()
-        await store.expire_at(key, t + FOUR_HOURS_S)
-        return key
-
-    @classmethod
-    async def get_blob(cls, store: StoreSession, key: str) -> bytes | None:
-        """Get a blob of data from the store.
-
-        Args:
-            store (StoreSession): The store.
-            key (str): The key under which the data was saved.
-
-        Returns:
-            bytes | None: The blob of data if it exists.
-        """
-        return await store.get(key)
+        return await cls.save_key(store, key, blob)
 
     async def init(
         self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S
@@ -368,30 +384,37 @@ class CaseStore:
         return metadata
 
     @ensure_init
-    async def get_doc_tasks(self) -> dict[str, str]:
+    async def get_doc_tasks(self) -> dict[str, list[str]]:
         """Get the document tasks for a case.
 
         Returns:
-            dict[str, str]: The document tasks.
+            dict[str, list[str]]: The chain of tasks for each document.
         """
         result = await self.store.hgetall(self.key("task"))
-        return {k.decode(): v.decode() for k, v in result.items()}
+        return {k.decode(): v.decode().split(",") for k, v in result.items()}
 
     @ensure_init
-    async def save_doc_task(self, doc_id: str, task_id: str) -> None:
+    async def save_doc_task(self, doc_id: str, task: AsyncResult) -> None:
         """Save a document task ID.
 
         Args:
             doc_id (str): The document ID.
-            task_id (str): The task ID.
+            task (AsyncResult): The task result promise.
 
         Returns:
             None
         """
         k = self.key("task")
+        task_ids = list[str]()
+        # Flatten the list of task IDs from the result chain
+        node = task
+        while node:
+            task_ids.insert(0, node.id)
+            node = node.parent
+
         await self.store.hsetmapping(
             k,
-            {doc_id: str(task_id)},
+            {doc_id: ",".join(task_ids)},
         )
         await self.store.expire_at(k, self.expires_at)
 

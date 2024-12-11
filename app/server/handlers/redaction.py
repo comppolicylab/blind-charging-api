@@ -6,11 +6,13 @@ from fastapi import HTTPException, Request
 from nameparser import HumanName
 
 from ..case import CaseStore
+from ..case_helper import get_retry_state, summarize_state
 from ..config import config
 from ..generated.models import (
     HumanName as HumanNameModel,
 )
 from ..generated.models import (
+    MaskedSubject,
     OutputFormat,
     RedactionRequest,
     RedactionResult,
@@ -135,11 +137,11 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     await store.save_objects_list(body.objects)
 
     # Start the task chain
-    task_id = task_chain.apply_async()
+    task = task_chain.apply_async()
     doc_id = body.objects[0].document.root.documentId
-    logger.debug(f"Created redaction task {task_id} for document {doc_id}.")
+    logger.debug(f"Created redaction task {task} for document {doc_id}.")
     # Save the new task to the database
-    await store.save_doc_task(doc_id, str(task_id))
+    await store.save_doc_task(doc_id, task)
 
 
 def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
@@ -192,13 +194,11 @@ async def get_redaction_status(
     Returns:
         RedactionStatus: The redaction status summary.
     """
-    store = CaseStore(request.state.store)
-    await store.init(jurisdiction_id, case_id)
-
-    redaction_results = list[RedactionResult]()
-
     if subject_id:
         raise NotImplementedError("Filtering by subject ID is not yet implemented.")
+
+    store = CaseStore(request.state.store)
+    await store.init(jurisdiction_id, case_id)
 
     # Get the redaction status from the database
     tasks, masked_subjects = await asyncio.gather(
@@ -206,102 +206,138 @@ async def get_redaction_status(
         store.get_masked_names(),
     )
 
-    for doc_id, task_id in tasks.items():
-        # Get the status of the task from celery
-        task_result = get_result(task_id)
+    redaction_results = list[RedactionResult]()
 
-        # The job should exist, but if it doesn't, we'll just assume it's queued.
-        # TODO(jnu): do some remediation here to ensure that job is actually started
-        if not task_result:
-            redaction_results.append(
-                RedactionResult(
-                    RedactionResultPending(
-                        jurisdictionId=jurisdiction_id,
-                        caseId=case_id,
-                        inputDocumentId=doc_id,
-                        maskedSubjects=masked_subjects,
-                        status="QUEUED",
-                        statusDetail="Task not found",
-                    )
-                )
-            )
-            continue
-
-        match task_result.status:
-            case "PENDING" | "RETRY":
-                redaction_results.append(
-                    RedactionResult(
-                        RedactionResultPending(
-                            jurisdictionId=jurisdiction_id,
-                            caseId=case_id,
-                            inputDocumentId=doc_id,
-                            maskedSubjects=masked_subjects,
-                            status="QUEUED",
-                            statusDetail="Task pending"
-                            if task_result.status == "PENDING"
-                            else "Task retrying",
-                        )
-                    )
-                )
-            case "STARTED":
-                redaction_results.append(
-                    RedactionResult(
-                        RedactionResultPending(
-                            jurisdictionId=jurisdiction_id,
-                            caseId=case_id,
-                            inputDocumentId=doc_id,
-                            maskedSubjects=masked_subjects,
-                            status="PROCESSING",
-                            statusDetail="Task is currently being processed",
-                        )
-                    )
-                )
-            case "SUCCESS":
-                doc = await store.get_result_doc(doc_id)
-                if not doc:
-                    redaction_results.append(
-                        RedactionResult(
-                            RedactionResultError(
-                                jurisdictionId=jurisdiction_id,
-                                caseId=case_id,
-                                inputDocumentId=doc_id,
-                                maskedSubjects=masked_subjects,
-                                status="ERROR",
-                                error="Redaction job completed, but result is missing",
-                            )
-                        )
-                    )
-                else:
-                    redaction_results.append(
-                        RedactionResult(
-                            RedactionResultSuccess(
-                                jurisdictionId=jurisdiction_id,
-                                caseId=case_id,
-                                inputDocumentId=doc_id,
-                                maskedSubjects=masked_subjects,
-                                status="COMPLETE",
-                                redactedDocument=doc,
-                            )
-                        )
-                    )
-            case "FAILURE":
-                redaction_results.append(
-                    RedactionResult(
-                        RedactionResultError(
-                            jurisdictionId=jurisdiction_id,
-                            caseId=case_id,
-                            inputDocumentId=doc_id,
-                            maskedSubjects=masked_subjects,
-                            status="ERROR",
-                            error=str(task_result.result),
-                        )
-                    )
-                )
-            case _:
-                raise ValueError(f"Unknown job status: {task_result.status}")
+    for doc_id, task_ids in tasks.items():
+        result = await _get_doc_result(
+            store, jurisdiction_id, case_id, doc_id, task_ids, masked_subjects
+        )
+        redaction_results.append(result)
 
     return RedactionStatus(
         jurisdictionId=jurisdiction_id,
         caseId=case_id,
         requests=redaction_results,
     )
+
+
+async def _get_doc_result(
+    store: CaseStore,
+    jurisdiction_id: str,
+    case_id: str,
+    doc_id: str,
+    task_ids: list[str],
+    masked_subjects: list[MaskedSubject],
+) -> RedactionResult:
+    """Get the redaction result for a document."""
+    # Get the status of each step in the chain from celery.
+    task_results = [get_result(task_id) for task_id in task_ids]
+
+    # The job should exist, but if it doesn't, we'll just assume it's queued.
+    # TODO(jnu): do some remediation here to ensure that job is actually started
+    if not task_results:
+        return RedactionResult(
+            RedactionResultPending(
+                jurisdictionId=jurisdiction_id,
+                caseId=case_id,
+                inputDocumentId=doc_id,
+                maskedSubjects=masked_subjects,
+                status="QUEUED",
+                statusDetail=(
+                    "Redaction request has been received, "
+                    "processing has not been started."
+                ),
+            )
+        )
+
+    # Summarize state info from all tasks in the chain
+    state_info = summarize_state(task_results)
+
+    match state_info.simple_state:
+        case "PENDING":
+            return RedactionResult(
+                RedactionResultPending(
+                    jurisdictionId=jurisdiction_id,
+                    caseId=case_id,
+                    inputDocumentId=doc_id,
+                    maskedSubjects=masked_subjects,
+                    status="QUEUED",
+                    statusDetail=(
+                        "Redaction request has been received "
+                        "and is queued for processing."
+                    ),
+                )
+            )
+        case "RETRY":
+            retry_state = await get_retry_state(state_info.result.id)
+            return RedactionResult(
+                RedactionResultPending(
+                    jurisdictionId=jurisdiction_id,
+                    caseId=case_id,
+                    inputDocumentId=doc_id,
+                    maskedSubjects=masked_subjects,
+                    status="PROCESSING",
+                    statusDetail=(
+                        "One step of the redaction job has failed "
+                        "and is currently being retried. Detail: "
+                        f"{retry_state}"
+                    ),
+                )
+            )
+        case "STARTED":
+            return RedactionResult(
+                RedactionResultPending(
+                    jurisdictionId=jurisdiction_id,
+                    caseId=case_id,
+                    inputDocumentId=doc_id,
+                    maskedSubjects=masked_subjects,
+                    status="PROCESSING",
+                    statusDetail="Task is currently being processed",
+                )
+            )
+        case "SUCCESS":
+            final_task_result = state_info.result.result
+            doc = await store.get_result_doc(doc_id)
+            if not doc:
+                errors = getattr(final_task_result, "errors", [])
+                error_message = (
+                    "Redaction job completed but document "
+                    "is missing and no specific errors were recorded."
+                )
+                if errors:
+                    error_message = str(errors)
+                return RedactionResult(
+                    RedactionResultError(
+                        jurisdictionId=jurisdiction_id,
+                        caseId=case_id,
+                        inputDocumentId=doc_id,
+                        maskedSubjects=masked_subjects,
+                        status="ERROR",
+                        error=error_message,
+                    )
+                )
+            else:
+                return RedactionResult(
+                    RedactionResultSuccess(
+                        jurisdictionId=jurisdiction_id,
+                        caseId=case_id,
+                        inputDocumentId=doc_id,
+                        maskedSubjects=masked_subjects,
+                        status="COMPLETE",
+                        redactedDocument=doc,
+                    )
+                )
+        case "FAILURE":
+            result = state_info.result.result
+            return RedactionResult(
+                RedactionResultError(
+                    jurisdictionId=jurisdiction_id,
+                    caseId=case_id,
+                    inputDocumentId=doc_id,
+                    maskedSubjects=masked_subjects,
+                    status="ERROR",
+                    error=str(result),
+                )
+            )
+        case _:
+            raise ValueError(f"Unknown job status: {state_info.simple_state}")

@@ -1,6 +1,7 @@
 from typing import cast
 from unittest.mock import MagicMock, patch
 
+from celery.result import AsyncResult
 from fakeredis import FakeRedis
 from fastapi.testclient import TestClient
 from glowplug import DbDriver
@@ -29,7 +30,7 @@ async def test_redact_handler(
     fake_redis_store: FakeRedis,
 ):
     # Return a fake task ID when calling `chain().apply_async()`
-    chain_mock.return_value.apply_async.return_value = "fake_task_id"
+    chain_mock.return_value.apply_async.return_value = AsyncResult("fake_task_id")
 
     request = {
         "jurisdictionId": "jur1",
@@ -128,7 +129,7 @@ async def test_redact_handler_no_callback(
     fake_redis_store: FakeRedis,
 ):
     # Return a fake task ID when calling `chain().apply_async()`
-    chain_mock.return_value.apply_async.return_value = "fake_task_id"
+    chain_mock.return_value.apply_async.return_value = AsyncResult("fake_task_id")
 
     request = {
         "jurisdictionId": "jur1",
@@ -230,7 +231,10 @@ async def test_redact_handler_no_callback(
                 "jurisdictionId": "jur1",
                 "maskedSubjects": [],
                 "status": "QUEUED",
-                "statusDetail": "Task pending",
+                "statusDetail": (
+                    "Redaction request has been "
+                    "received and is queued for processing."
+                ),
             },
         ],
     }
@@ -244,7 +248,7 @@ async def test_redact_handler_multi_doc(
     fake_redis_store: FakeRedis,
 ):
     # Return a fake task ID when calling `chain().apply_async()`
-    chain_mock.return_value.apply_async.return_value = "fake_task_id"
+    chain_mock.return_value.apply_async.return_value = AsyncResult("fake_task_id")
 
     request = {
         "jurisdictionId": "jur1",

@@ -8,7 +8,7 @@ from celery.utils.log import get_task_logger
 from pydantic import AnyUrl, BaseModel
 
 from ..case import CaseStore
-from ..case_helper import get_document_sync
+from ..case_helper import get_document_sync, save_retry_state_sync
 from ..config import config
 from ..generated.models import (
     Content,
@@ -50,6 +50,8 @@ register_type(FormatTaskResult)
     task_soft_time_limit=25,
     max_retries=3,
     retry_backoff=True,
+    default_retry_delay=30,
+    on_retry=save_retry_state_sync,
 )
 def format(
     self,

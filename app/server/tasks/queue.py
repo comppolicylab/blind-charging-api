@@ -12,6 +12,7 @@ queue = Celery(
     "app.server.tasks",
     broker=config.queue.broker.url,
     backend=config.queue.store.url,
+    result_extended=True,
 )
 
 

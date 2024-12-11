@@ -15,7 +15,7 @@ from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
 from ..case import CaseStore, MaskInfo
-from ..case_helper import get_document_sync, save_document_sync
+from ..case_helper import get_document_sync, save_document_sync, save_retry_state_sync
 from ..config import config
 from ..generated.models import OutputFormat
 from .fetch import FetchTaskResult
@@ -55,6 +55,8 @@ register_type(RedactionTaskResult)
     task_soft_time_limit=240,
     max_retries=3,
     retry_backoff=True,
+    default_retry_delay=30,
+    on_retry=save_retry_state_sync,
 )
 def redact(
     self: Task, fetch_result: FetchTaskResult, params: RedactionTask
