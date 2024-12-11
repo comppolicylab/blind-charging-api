@@ -47,6 +47,9 @@ def {{cb_op.function_name}}({{cb_op.snake_case_arguments}}) -> {{cb_op.return_ty
             {% endfor %}
         }
     {% endif %}
+    {% if operation.default_status_code %}
+    , status_code={{operation.default_status_code}}
+    {% endif %}
     {% if operation.tags%}
     , tags={{operation.tags}}
     {% endif %}

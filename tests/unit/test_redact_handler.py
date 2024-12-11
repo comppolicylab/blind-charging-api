@@ -60,7 +60,7 @@ async def test_redact_handler(
     }
 
     response = api.post("/api/v1/redact", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     # Assert that the `chain` function was called with the correct arguments
     chain_mock.assert_called_once()
@@ -158,7 +158,7 @@ async def test_redact_handler_no_callback(
     }
 
     response = api.post("/api/v1/redact", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     # Assert that the `chain` function was called with the correct arguments
     chain_mock.assert_called_once()
@@ -286,7 +286,7 @@ async def test_redact_handler_multi_doc(
     }
 
     response = api.post("/api/v1/redact", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     # Assert that the `chain` function was called with the correct arguments
     chain_mock.assert_called_once()

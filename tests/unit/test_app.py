@@ -16,7 +16,7 @@ async def test_exposure_blind(api: TestClient, exp_db: DbDriver):
         "protocol": "BLIND_REVIEW",
     }
     response = api.post("/api/v1/exposure", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Exposure).all()
@@ -41,7 +41,7 @@ async def test_exposure_extra(api: TestClient, exp_db: DbDriver):
         "extra": "some extra info",
     }
     response = api.post("/api/v1/exposure", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Exposure).all()
@@ -66,7 +66,7 @@ async def test_exposure_multi_subject(api: TestClient, exp_db: DbDriver):
         "protocol": "BLIND_REVIEW",
     }
     response = api.post("/api/v1/exposure", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Exposure).all()
@@ -90,7 +90,7 @@ async def test_exposure_final(api: TestClient, exp_db: DbDriver):
         "protocol": "FINAL_REVIEW",
     }
     response = api.post("/api/v1/exposure", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Exposure).all()
@@ -156,7 +156,7 @@ async def test_outcome_blind_disqualify(api: TestClient, exp_db: DbDriver):
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
@@ -233,7 +233,7 @@ async def test_outcome_blind_disqualify_multiple(api: TestClient, exp_db: DbDriv
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
@@ -284,7 +284,7 @@ async def test_outcome_blind_decline(api: TestClient, exp_db: DbDriver):
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
@@ -324,7 +324,7 @@ async def test_outcome_final_charge(api: TestClient, exp_db: DbDriver):
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
@@ -364,7 +364,7 @@ async def test_outcome_final_decline(api: TestClient, exp_db: DbDriver):
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
@@ -404,7 +404,7 @@ async def test_outcome_multi_subject(api: TestClient, exp_db: DbDriver):
         },
     }
     response = api.post("/api/v1/outcome", json=request)
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     with exp_db.sync_session() as sesh:
         exps = sesh.query(Outcome).all()
