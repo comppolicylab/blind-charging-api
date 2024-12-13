@@ -13,6 +13,7 @@ from .config import RdbmsConfig, config
 from .db import init_db
 from .features import init_gater
 from .generated.main import app as generated_app
+from .meta import meta_router
 from .time import utcnow
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ async def lifespan(api: FastAPI):
     logger.warning("Starting up ...")
     gater = init_gater()
     api.state.gater = gater
+    api.state.startup_time = utcnow()
 
     db = await ensure_db(
         config.experiments.store, automigrate=config.experiments.automigrate
@@ -69,7 +71,14 @@ async def lifespan(api: FastAPI):
     logger.info("Bye!")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title="Race Blind Charging",
+    description="See /api/v1/docs for more information.",
+    contact={"name": "Joe Nudell", "email": "jnudell@hks.harvard.edu"},
+    license={"name": "MIT License", "url": "https://opensource.org/license/mit/"},
+)
+
 FastAPIInstrumentor().instrument_app(app)
 # Share state between main app and generated app.
 generated_app.state = app.state
@@ -182,4 +191,5 @@ if config.debug:
     )
 
 
+app.include_router(meta_router)
 app.mount("/api/v1", generated_app)

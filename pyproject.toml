@@ -54,7 +54,7 @@ alembic = "^1.13.2"
 mypy = "^1.11.2"
 
 [tool.ruff]
-exclude = ["app/server/generated"]
+exclude = ["app/server/generated", "app/logo.py"]
 
 [tool.ruff.lint]
 select = ["F", "E", "W", "I001", "C", "W", "B"]
