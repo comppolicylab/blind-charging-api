@@ -29,6 +29,7 @@ meta_router = APIRouter()
 class SystemInfo:
     healthy: bool
     errors: list[str]
+    warnings: list[str]
     cpu_count: int
     cpu_freq: float
     cpu_percent: float
@@ -78,6 +79,7 @@ class WorkerInfo:
     name: str
     healthy: bool
     errors: list[str]
+    warnings: list[str]
     registered_tasks: list[str]
     report: str
     uptime: int
@@ -90,6 +92,7 @@ class WorkerInfo:
 @dataclass
 class QueueInfo:
     errors: list[str]
+    warnings: list[str]
     healthy: bool
     total_workers: int
     healthy_workers: int
@@ -112,6 +115,7 @@ class PlatformInfo:
 class ApiHealth:
     healthy: bool
     errors: list[str]
+    warnings: list[str]
     startup_time: str
     current_time: str
     api_version: str
@@ -122,6 +126,7 @@ class ApiHealth:
 class DbHealth:
     healthy: bool
     errors: list[str]
+    warnings: list[str]
     engine: str
 
 
@@ -159,9 +164,14 @@ def _get_system_info() -> SystemInfo:
     disk = psutil.disk_usage("/")
     net_io = psutil.net_io_counters()
 
+    warnings = list[str]()
+    if cpu_temp == -1:
+        warnings.append("CPU temperature not available.")
+
     return SystemInfo(
         healthy=True,
         errors=[],
+        warnings=warnings,
         cpu_count=cpu_count,
         cpu_freq=cpu_freq,
         cpu_percent=cpu_percent,
@@ -200,7 +210,7 @@ def _get_schema_version() -> str:
         return schema["info"]["version"]
 
 
-async def _get_queue_health(request: Request) -> QueueInfo:
+async def _get_queue_health(request: Request, max_attempts: int = 2) -> QueueInfo:
     broker_ok = False
     broker_error = None
     async with request.app.state.queue_store.tx() as tx:
@@ -214,46 +224,63 @@ async def _get_queue_health(request: Request) -> QueueInfo:
     healthy = 0
     unhealthy = 0
 
-    try:
-        workers = queue.control.ping()
-        inspection = queue.control.inspect()
-        stats = inspection.stats()
-        report = inspection.report()
-        registered = inspection.registered()
-        scheduled = inspection.scheduled()
-        active = inspection.active()
-        revoked = inspection.revoked()
+    # NOTE(jnu): We allow multiple attempts because there is a
+    # known issue on Azure where expired connections used during
+    # `ping` raise an exception, even though the broker is healthy
+    # and the queue is fine.
+    #
+    # This doesn't seem to be a real issue, so if it works with an
+    # automatic retry, we'll consider it healthy.
+    attempts = 0
+    while attempts < max_attempts:
+        attempts += 1
+        try:
+            workers = queue.control.ping()
+            inspection = queue.control.inspect()
+            stats = inspection.stats()
+            report = inspection.report()
+            registered = inspection.registered()
+            scheduled = inspection.scheduled()
+            active = inspection.active()
+            revoked = inspection.revoked()
 
-        for worker in workers:
-            for key in worker.keys():
-                worker_status = worker[key].get("ok")
-                is_healthy = worker_status == "pong"
-                if is_healthy:
-                    healthy += 1
-                else:
-                    unhealthy += 1
-                all_workers.append(
-                    WorkerInfo(
-                        healthy=is_healthy,
-                        errors=[worker_status or "unknown error"]
-                        if not is_healthy
-                        else [],
-                        name=key,
-                        registered_tasks=registered.get(key, []),
-                        report=report.get(key, "").get("ok", ""),
-                        uptime=stats.get(key, {}).get("uptime", 0),
-                        usage=stats.get(key, {}).get("total", {}),
-                        active=active.get(key, []),
-                        scheduled=scheduled.get(key, []),
-                        revoked=revoked.get(key, []),
+            for worker in workers:
+                for key in worker.keys():
+                    worker_status = worker[key].get("ok")
+                    is_healthy = worker_status == "pong"
+                    if is_healthy:
+                        healthy += 1
+                    else:
+                        unhealthy += 1
+                    all_workers.append(
+                        WorkerInfo(
+                            healthy=is_healthy,
+                            errors=[worker_status or "unknown error"]
+                            if not is_healthy
+                            else [],
+                            name=key,
+                            warnings=[],
+                            registered_tasks=registered.get(key, []),
+                            report=report.get(key, "").get("ok", ""),
+                            uptime=stats.get(key, {}).get("uptime", 0),
+                            usage=stats.get(key, {}).get("total", {}),
+                            active=active.get(key, []),
+                            scheduled=scheduled.get(key, []),
+                            revoked=revoked.get(key, []),
+                        )
                     )
-                )
-    except Exception as e:
-        log.exception("Error inspecting workers: %s", e)
+            # Break out of the retry loop if we successfully inspect workers.
+            break
+        except Exception as e:
+            log.exception("Error inspecting workers: %s", e)
+            broker_error = str(e)
 
     errors = list[str]()
+    warnings = list[str]()
     if not broker_ok:
         errors.append(f"Broker error: {broker_error}")
+    elif broker_error:
+        warnings.append(f"Broker warning: {broker_error}")
     if healthy == 0:
         errors.append("No healthy workers found.")
 
@@ -265,6 +292,7 @@ async def _get_queue_health(request: Request) -> QueueInfo:
         broker_host=config.queue.broker.host,
         workers=all_workers,
         errors=errors,
+        warnings=warnings,
         healthy=not errors,
     )
 
@@ -283,6 +311,7 @@ def _get_api_health(startup_time: datetime) -> ApiHealth:
     return ApiHealth(
         healthy=True,
         errors=[],
+        warnings=[],
         startup_time=startup_time.isoformat(),
         current_time=utcnow().isoformat(),
         api_version=_get_api_version(),
@@ -292,7 +321,9 @@ def _get_api_health(startup_time: datetime) -> ApiHealth:
 
 async def _get_db_health(request: Request) -> DbHealth:
     if not config.experiments.store:
-        return DbHealth(healthy=True, errors=["No database configured."], engine="")
+        return DbHealth(
+            healthy=True, errors=[], warnings=["No database configured."], engine=""
+        )
 
     engine = config.experiments.store.engine
     async with request.app.state.db.async_session_with_args(
@@ -300,9 +331,9 @@ async def _get_db_health(request: Request) -> DbHealth:
     )() as session:
         try:
             await session.execute(text("SELECT 1"))
-            return DbHealth(healthy=True, errors=[], engine=engine)
+            return DbHealth(healthy=True, errors=[], warnings=[], engine=engine)
         except Exception as e:
-            return DbHealth(healthy=False, errors=[str(e)], engine=engine)
+            return DbHealth(healthy=False, errors=[str(e)], warnings=[], engine=engine)
 
 
 async def inspect_api(request: Request) -> ApiMeta:
@@ -335,7 +366,7 @@ def _format_meta_html(content: str) -> str:
             header {{
                 padding-top: 2rem;
             }}
-            h2 {{ margin: 1rem 0; }}
+            h2, h3 {{ margin: 1rem 0; }}
             p {{ margin-bottom: 2rem; }}
             a {{
                 color: #007BFF;
@@ -350,6 +381,10 @@ def _format_meta_html(content: str) -> str:
             }}
             .nay {{
                 color: #dc3545;
+                font-weight: bold;
+            }}
+            .warn {{
+                color: #ffc107;
                 font-weight: bold;
             }}
             .divider {{
@@ -437,6 +472,8 @@ def _format_worker_info(worker: WorkerInfo) -> str:
         <tr><td>Healthy</td><td>{worker.healthy}</td></tr>
         <tr><td>Errors</td><td>
         <pre>{"\n".join(worker.errors) or "-"}</pre></td></tr>
+        <tr><td>Warnings</td><td>
+        <pre>{"\n".join(worker.warnings) or "-"}</pre></td></tr>
         <tr><td>Registered Tasks</td><td>
         <pre>{"\n".join(worker.registered_tasks) or "-"}</pre></td></tr>
         <tr><td>Report</td><td>{worker.report}</td></tr>
@@ -471,7 +508,14 @@ async def status(request: Request, format: str | None = None):
     elif format == "html":
         errors_content = ""
         for err in health.errors():
+            if not errors_content:
+                errors_content += "<h3 class='nay'>[Errors]</h3>"
             errors_content += f"<p class='nay'>{err}</p>"
+        warnings_content = ""
+        for warn in health.system.warnings:
+            if not warnings_content:
+                warnings_content += "<h3 class='warn'>[Warnings]</h3>"
+            warnings_content += f"<p class='warn'>{warn}</p>"
         content = _format_meta_html(f"""
             <h2>API Status</h2>
             <p>The service appears to be {
@@ -480,6 +524,7 @@ async def status(request: Request, format: str | None = None):
                 "<span class='nay'>unhealthy<span>"
             }.</p>
             {errors_content}
+            {warnings_content}
             <hr class="divider" />
 
             <div class="status_grid">
@@ -502,6 +547,8 @@ async def status(request: Request, format: str | None = None):
                 <td>{health.db.healthy}</td></tr>
                 <tr><td>Errors</td>
                 <td><pre>{"\n".join(health.db.errors) or "-"}</pre></td></tr>
+                <tr><td>Warnings</td>
+                <td><pre>{"\n".join(health.db.warnings) or "-"}</pre></td></tr>
             </table>
             </div>
 
