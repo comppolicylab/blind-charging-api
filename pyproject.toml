@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "blind-charging-api"
-version = "0.9.3"
+version = "0.9.4"
 description = "Race-blind Charging API"
 authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
 readme = "README.md"
