@@ -768,12 +768,16 @@ async def edit_config():
 
             async function callApi(route, method, data) {{
                 const token = await getToken();
+                const headers = {{}};
+                if (data) {{
+                    headers["Content-Type"] = "application/json";
+                }}
+                if (token) {{
+                    headers["Authorization"] = `Bearer ${{token}}`;
+                }}
                 const res = await fetch(route, {{
                     method: method,
-                    headers: {{
-                        "Content-Type": data ? "application/json" : undefined,
-                        "Authorization": token ? `Bearer ${{token}}` : undefined,
-                    }},
+                    headers: headers,
                     body: data ? JSON.stringify(data) : undefined,
                 }});
                 if (res.status >= 300) {{
