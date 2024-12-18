@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Union
+from typing import Annotated, Union
 
 import tomllib
 from blind_charging_core.pipeline import (
@@ -11,7 +11,7 @@ from blind_charging_core.pipeline import (
     RenderConfig,
 )
 from glowplug import SqliteSettings
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 from .authn import AuthnConfig, NoAuthnConfig
@@ -99,8 +99,9 @@ class QueueConfig(BaseModel):
 
 class ExperimentsConfig(BaseModel):
     enabled: bool = False
-    automigrate: bool = False
+    automigrate: Annotated[bool, Field(deprecated=True)] = True
     store: RdbmsConfig = SqliteSettings(engine="sqlite")
+    config_reload_interval: float = 30.0
 
 
 class Config(BaseSettings):
@@ -138,6 +139,8 @@ environment variable, or from `config.toml` in the current directory.
 
 
 # Set up logging
+# NOTE(jnu): Need to import all libraries that set up logging before this point.
+# Alligater logs are useful to see, so make sure that's set up.
 _log_level = logging.DEBUG if config.debug else logging.INFO
 logging.basicConfig(level=logging.WARNING)
 # Set log level for any loggers that have been instantiated before this point.

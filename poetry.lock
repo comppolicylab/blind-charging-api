@@ -189,7 +189,7 @@ tz = ["backports.zoneinfo"]
 
 [[package]]
 name = "alligater"
-version = "0.3.0"
+version = "0.3.1"
 description = "Randomization and gating library for Python."
 optional = false
 python-versions = "^3.11"
@@ -207,7 +207,7 @@ urllib3 = "^2.2"
 type = "git"
 url = "git@github.com:stanford-policylab/alligater.git"
 reference = "HEAD"
-resolved_reference = "8f61871843bfa822a0a6956b21335f01fd1ec606"
+resolved_reference = "2ac2a888f8562bb91b6a1c07222b4ea7c76e6330"
 
 [[package]]
 name = "amqp"

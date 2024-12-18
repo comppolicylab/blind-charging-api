@@ -8,6 +8,7 @@ import typer
 from fastapi_cli.cli import dev as _dev
 from fastapi_cli.cli import run
 
+import alembic.util.exc
 from app.logo import cli_logo
 
 from .provision import init_provision_cli
@@ -95,6 +96,7 @@ def create_db(wipe: bool = False, alembic_config: str = "alembic.ini") -> None:
 def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
     """Run the database migrations."""
     from app.server.config import config
+    from app.server.db import clear_invalid_revision
 
     driver = config.experiments.store.driver
     if downgrade:
@@ -102,8 +104,31 @@ def migrate_db(revision: str = "head", downgrade: bool = False) -> None:
         driver.alembic.downgrade(revision)
     else:
         logger.info("Upgrading database to revision %s", revision)
-        driver.alembic.upgrade(revision)
+        try:
+            driver.alembic.upgrade(revision)
+        except alembic.util.exc.CommandError as e:
+            if "Can't locate revision" in str(e):
+                logger.info("Existing revision not found. Trying to auto-remediate.")
+                clear_invalid_revision(driver)
+                driver.alembic.upgrade(revision)
+            else:
+                logger.error("Failed to apply database migrations: %s", e)
+                logger.error("Trying to fix the underlying issue and retry.")
+                raise
+
     logger.info("Database migrations complete")
+
+
+@_cli.command()
+def stamp_db(revision: str = "head") -> None:
+    """Stamp the database with the given revision."""
+    from app.server.config import config
+
+    driver = config.experiments.store.driver
+    logger.info(f"Stamping database revision {revision} as current")
+    driver.alembic.stamp(revision if revision != "none" else None)
+
+    logger.info("Done")
 
 
 @_cli.command()

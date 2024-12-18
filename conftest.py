@@ -38,7 +38,6 @@ debug = true
 
 [experiments]
 enabled = true
-automigrate = true
 
 [experiments.store]
 engine = "sqlite"
@@ -318,6 +317,7 @@ async def exp_db(config) -> AsyncGenerator[DbDriver, None]:
     from app.server.db import init_db
 
     await init_db(config.experiments.store.driver, drop_first=True)
+    config.experiments.store.driver.alembic.stamp("head")
 
     yield config.experiments.store.driver
 
@@ -332,6 +332,7 @@ async def authn_db(config: "Config") -> AsyncGenerator[DbDriver | None, None]:
     if isinstance(authn, ClientCredentialsAuthnConfig):
         cc_authn = cast(ClientCredentialsAuthnConfig, authn)
         await init_db(cc_authn.store.driver, drop_first=True)
+        config.experiments.store.driver.alembic.stamp("head")
         yield cc_authn.store.driver
     else:
         yield None

@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.7.1
+  version: 0.8.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -209,6 +209,107 @@ paths:
         "201":
           description: "Accepted"
 
+  /configs:
+    get:
+      summary: Get all experiment configurations
+      description: |
+        Get all the randomizations configurations for the API deployment.
+      tags:
+        - experiments
+      operationId: get-all-configs
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ExperimentConfig"
+
+  /config:
+    get:
+      summary: Get the experiment configuration
+      description: |
+        Get the active randomizations configuration for the API deployment.
+      tags:
+        - experiments
+      operationId: get-active-config
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperimentConfig"
+    post:
+      summary: Update the experiment configuration
+      description: |
+        Update the randomizations configuration for the API deployment.
+      tags:
+        - experiments
+      operationId: update-config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewExperimentConfig"
+      responses:
+        "201":
+          description: "Accepted"
+        "400":
+          description: "Bad request"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /config/{version}/activate:
+    post:
+      summary: Activate an experiment configuration
+      description: |
+        Activate a specific randomizations configuration for the API deployment.
+      tags:
+        - experiments
+      operationId: activate-config
+      parameters:
+        - name: version
+          in: path
+          required: true
+          description: The version of the configuration to activate
+          schema:
+            type: string
+      responses:
+        "201":
+          description: "OK"
+
+  /config/{version}:
+    get:
+      summary: Get the experiment configuration
+      description: |
+        Get the randomizations configuration for the API deployment for a specific version.
+      tags:
+        - experiments
+      operationId: get-config
+      parameters:
+        - name: version
+          in: path
+          required: true
+          description: The version of the configuration to retrieve
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExperimentConfig"
+
   /oauth2/token:
     post:
       summary: Get an access token
@@ -308,6 +409,52 @@ components:
         - message
       properties:
         message:
+          type: string
+
+    ExperimentConfig:
+      type: object
+      required:
+        - version
+        - blob
+        - active
+        - createdAt
+        - updatedAt
+      properties:
+        version:
+          type: string
+        blob:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        parent:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        author:
+          type: string
+
+    NewExperimentConfig:
+      type: object
+      required:
+        - blob
+      properties:
+        blob:
+          type: string
+        active:
+          type: boolean
+        parent:
+          type: string
+        name:
+          type: string
+        description:
           type: string
 
     ClientCredentialsRevokeTokenRequest:

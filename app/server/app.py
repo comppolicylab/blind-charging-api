@@ -9,8 +9,10 @@ from fastapi.staticfiles import StaticFiles
 from glowplug import DbDriver
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
+import alembic.util.exc
+
 from .config import RdbmsConfig, config
-from .db import init_db
+from .db import clear_invalid_revision
 from .features import init_gater
 from .generated.main import app as generated_app
 from .meta import meta_router
@@ -19,33 +21,58 @@ from .time import utcnow
 logger = logging.getLogger(__name__)
 
 
-async def ensure_db(store: RdbmsConfig, automigrate: bool = False) -> DbDriver:
+async def ensure_db(store: RdbmsConfig) -> DbDriver:
     """Check the database and apply migrations if possible.
 
     Args:
         store (RdbmsConfig): The database configuration.
-        automigrate (bool): Whether to automatically apply migrations.
 
     Returns:
         DbDriver: The database driver.
     """
     if await store.driver.is_blank_slate():
-        if not automigrate:
+        logger.error(
+            "Database is not initialized. "
+            "Please set up the database before running the app."
+        )
+        raise SystemExit(1)
+
+    logger.info("Applying any pending database migrations ...")
+    # Note that failures here are *not* fatal, so that the app can still try to run.
+    try:
+        store.driver.alembic.upgrade("head")
+    except alembic.util.exc.CommandError as e:
+        if "Can't locate revision" in str(e):
+            logger.info("Existing revision not found. Trying to auto-remediate.")
+            try:
+                clear_invalid_revision(store.driver)
+                store.driver.alembic.upgrade("head")
+                logger.info("Success! Database is now at the latest revision.")
+            except Exception as exc:
+                logger.error("Failed to apply database migrations: %s", exc)
+                logger.error(
+                    "The database migrations are in an invalid state. "
+                    "Please fix manually."
+                )
+    except Exception as e:
+        if store.driver.alembic.current() is None:
             logger.error(
-                "Database is not initialized. "
-                "Please set up the database before running the app."
+                "Database probably was not stamped properly. Assuming it's head "
+                "and retrying ..."
             )
-            raise SystemExit(1)
-        logger.info("Initializing database ...")
-        await init_db(store.driver, drop_first=False)
-        logger.info("Stamping database revision as current")
-        store.driver.alembic.stamp("head")
-    else:
-        if automigrate:
-            logger.info("Applying any pending database migrations ...")
-            store.driver.alembic.upgrade("head")
+            try:
+                store.driver.alembic.stamp("head")
+                store.driver.alembic.upgrade("head")
+                logger.info("Success! Database is now at the latest revision.")
+            except Exception as exc:
+                logger.error("Failed to apply database migrations: %s", exc)
+                logger.error(
+                    "The database migrations are in an invalid state. "
+                    "Please fix manually."
+                )
         else:
-            logger.warning("Skipping database migration check!")
+            logger.error("Failed to apply database migrations: %s", e)
+            logger.error("Trying to fix the underlying issue and retry.")
     return store.driver
 
 
@@ -57,9 +84,7 @@ async def lifespan(api: FastAPI):
     api.state.gater = gater
     api.state.startup_time = utcnow()
 
-    db = await ensure_db(
-        config.experiments.store, automigrate=config.experiments.automigrate
-    )
+    db = await ensure_db(config.experiments.store)
 
     async with config.queue.store.driver() as store, config.metrics.driver:
         api.state.queue_store = store

@@ -5,6 +5,7 @@ from typing import Any, Optional, Type, TypeVar, Union
 
 from glowplug import DbDriver, MsSqlSettings, SqliteSettings
 from sqlalchemy import Dialect, ForeignKey, delete, select
+from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
@@ -105,6 +106,20 @@ class Base(AsyncAttrs, DeclarativeBase):
         q = select(cls).filter(cls.id == id)
         result = await session.execute(q)
         return result.scalar_one_or_none()
+
+
+class Gater(Base):
+    __tablename__ = "gater"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    parent: Mapped[UUID] = mapped_column(ForeignKey("gater.id"), nullable=True)
+    name: Mapped[str_256] = mapped_column(nullable=True)
+    description: Mapped[text] = mapped_column(nullable=True)
+    blob: Mapped[text] = mapped_column()
+    author: Mapped[str_256] = mapped_column(nullable=True)
+    active: Mapped[bool] = mapped_column(default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
 class Assignment(Base):
@@ -266,3 +281,14 @@ async def init_db(driver: DbDriver, drop_first: bool = False) -> None:
     else:
         logger.info("Creating database tables")
     await driver.init(Base, drop_first=drop_first)
+
+
+def clear_invalid_revision(driver: DbDriver) -> None:
+    """Clear the invalid revision from the database.
+
+    Args:
+        driver (DbDriver): The database driver.
+    """
+    with driver.sync_session() as s:
+        s.execute(sql_text("DELETE FROM alembic_version"))
+        s.commit()

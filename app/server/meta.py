@@ -366,7 +366,62 @@ def _format_meta_html(content: str) -> str:
             header {{
                 padding-top: 2rem;
             }}
+            .with-sidebar {{
+                display: flex;
+                flex-direction: row;
+                padding: 0 2rem;
+            }}
+            .sidebar {{
+                flex: 1;
+                padding: 1rem;
+                width: 20%;
+                max-width: 25%;
+                flex-basis: 25%;
+            }}
+            .sidebar ul {{
+                list-style-type: none;
+                padding: 0;
+            }}
+            .sidebar li {{
+                cursor: pointer;
+                padding: 0.5rem;
+                border-bottom: 1px solid #ccc;
+                text-wrap: nowrap;
+                overflow-x: hidden;
+                text-overflow: ellipsis;
+            }}
+            .sidebar li:hover {{
+                background-color: #f8f9fa;
+            }}
+            .sidebar li:last-child {{
+                border-bottom: none;
+            }}
+            .sidebar li.active {{
+                background-color: #e5fc96;
+            }}
+            .sidebar li.current {{
+                background-color: #fc96e5;
+            }}
+            .mainbar {{
+                text-align: left;
+            }}
+            .dirty {{
+                border: 5px solid #f22;
+            }}
+            aside {{
+                font-size: 0.8rem;
+                color: #666;
+                padding: 2rem;
+                text-align: left;
+            }}
+            aside p {{
+                padding: 0.25rem 0;
+                margin: 0;
+            }}
             h2, h3 {{ margin: 1rem 0; }}
+            input, textarea, button {{
+                margin: 0.5rem 0;
+            }}
             p {{ margin-bottom: 2rem; }}
             a {{
                 color: #007BFF;
@@ -668,3 +723,201 @@ async def root():
                     rel="noopener noreferrer">status page</a>
                 will give you more details about the current API status.</li>
             </ul>""")
+
+
+@meta_router.get("/config", response_class=HTMLResponse)
+async def edit_config():
+    auth = """return "";"""
+    if config.authentication.method == "client_credentials":
+        auth = """
+            if (!window._client_id) {
+                window._client_id = window.prompt("Enter your client ID:");
+            }
+            if (!window._client_secret) {
+                window._client_secret = window.prompt("Enter your client secret:");
+            }
+            const res = await fetch("/api/v1/oauth2/token", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    grant_type: "client_credentials",
+                    client_id: window._client_id,
+                    client_secret: window._client_secret,
+                }),
+            });
+            const data = await res.json();
+            if (!data.access_token) {
+                throw new Error(JSON.stringify(data));
+            }
+            return data.access_token;
+        """
+    elif config.authentication.method == "preshared":
+        auth = """
+            if (!window._preshared) {
+                window._preshared = window.prompt("Enter your token:");
+            }
+            return window._preshared;
+        """
+    return _format_meta_html(f"""
+        <script type="text/javascript">
+            async function getToken() {{
+                {auth}
+            }}
+
+            async function callApi(route, method, data) {{
+                const token = await getToken();
+                const res = await fetch(route, {{
+                    method: method,
+                    headers: {{
+                        "Content-Type": data ? "application/json" : undefined,
+                        "Authorization": token ? `Bearer ${{token}}` : undefined,
+                    }},
+                    body: data ? JSON.stringify(data) : undefined,
+                }});
+                if (res.status >= 300) {{
+                    throw new Error(await res.text());
+                }}
+                return res.json();
+            }}
+
+            async function loadLatestConfig() {{
+                const config = await callApi("/api/v1/config", "GET");
+                if (!config.hasOwnProperty("blob")) {{
+                    document.getElementById("warn").innerText = JSON.stringify(config);
+                }} else {{
+                    document.getElementById("warn").innerText = "Current config:"
+                }}
+                document.getElementById("config").value = (config.blob || "");
+                document.getElementById("name").value = (config.name || "");
+                document.getElementById("created").innerText = (config.createdAt || "");
+                window._current = config;
+            }}
+
+            async function loadAllConfigs() {{
+                const {{configs}} = await callApi("/api/v1/configs", "GET");
+                if (!configs) {{
+                    throw new Error("No past configs found." + JSON.stringify(configs));
+                }}
+                const list = document.getElementById("past");
+                list.innerHTML = "";
+                for (const config of configs) {{
+                    const item = document.createElement("li");
+                    item.innerText = config.name || config.version;
+                    item.onclick = async function() {{
+                        if (window._dirty) {{
+                            if (!window.confirm(
+                            "You have unsaved changes. Discard?"
+                            )) {{
+                                return;
+                            }}
+                        }}
+                        const res = await callApi(
+                            "/api/v1/config/" + config.version,
+                            "GET");
+                        document.getElementById("config").value = res.blob;
+                        document.getElementById("name").value = res.name;
+                        document.getElementById("created").innerText = res.createdAt;
+                        const isActive = res.active ? "Active" : "Inactive";
+                        const label = isActive + " config " + config.version;
+                        document.getElementById("warn").innerText = label;
+                        document.querySelectorAll("li.current").forEach((li) => {{
+                            li.classList.remove("current");
+                        }});
+                        item.classList.add("current");
+                        window._current = res;
+                        clearDirty();
+                    }};
+                    if (config.active) {{
+                        item.classList.add("active");
+                        window._current = config;
+                        clearDirty();
+                        document.getElementById("config").value = config.blob;
+                        document.getElementById("name").value = config.name;
+                        document.getElementById("created").innerText = config.createdAt;
+                        const label = "Active config " + config.version;
+                        document.getElementById("warn").innerText = label;
+                    }}
+                    list.appendChild(item);
+                }}
+            }}
+
+            window.onload = async function() {{
+                try {{
+                    await loadAllConfigs();
+                }} catch (e) {{
+                    document.getElementById("warn").innerText = e.toString();
+                }}
+                document.getElementById("warn").innerText = "";
+            }};
+
+            async function saveConfig() {{
+                const config = document.getElementById("config").value;
+                try {{
+                    await callApi("/api/v1/config", "POST", {{
+                        blob: document.getElementById("config").value,
+                        parent: window._current ? window._current.version : undefined,
+                        active: true,
+                        name: document.getElementById("name").value || undefined,
+                    }})
+                    document.getElementById("warn").innerText = "Saved!";
+                    await loadAllConfigs();
+                }} catch (e) {{
+                    document.getElementById("warn").innerText = e.toString();
+                }}
+            }}
+
+            function markDirty() {{
+                window._dirty = true;
+                document.getElementById("warn").innerText = "Unsaved changes!";
+                document.getElementById("created").innerText = "";
+                document.getElementById("config").classList.add("dirty");
+            }}
+
+            function clearDirty() {{
+                window._dirty = false;
+                document.getElementById("config").classList.remove("dirty");
+            }}
+        </script>
+        <div class="with-sidebar">
+        <div class="sidebar">
+            <h3>Past Configs</h3>
+            <ul id="past"></ul>
+        </div>
+        <div class="mainbar">
+        <h3>Blind Review Selection Configuration</h3>
+        <div>
+            <aside>
+                <p>Enter the YAML config for randomization in the text area below,
+                then press "activate" to roll it out.</p>
+                <p>These configs are immutable. When you press "activate" we will
+                create a new revision with the above settings, and set it as the
+                currently active revision.</p>
+                <p>To roll back a config, select a previous version from the side
+                panel and press "activate." This will roll out a new copy of the
+                old version.</p>
+            </aside>
+        </div>
+        <form>
+            <div id="warn" style="color: red;"></div>
+            <div><label for="name">Name: </label>
+            <input type="text" id="name" name="name" /></div>
+            <div>Created: <span id="created"></span></div>
+            <div>
+                <textarea id="config" name="config" rows="30" cols="80"
+                    onkeypress="markDirty()"></textarea>
+            </div>
+            <div>
+                <button type="button" onclick="saveConfig()">Activate</button>
+            </div>
+        </form>
+        </div>
+        </div>
+        <script type="text/javascript">
+            document.getElementById("warn").innerText = "Loading...";
+            document.getElementById("config").value = "";
+            document.getElementById("name").value = "";
+            document.getElementById("created").innerText = "";
+        </script>
+    """)

@@ -1,13 +1,18 @@
 import json
 
+import alligater
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
+from sqlalchemy import desc, select, update
+from uuid_utils import UUID
 
 from ..config import config
 from ..db import (
+    Client,
     Decision,
     Disqualifier,
     Exposure,
+    Gater,
     Outcome,
     OutcomeDisqualifiers,
     ReviewType,
@@ -16,10 +21,13 @@ from ..generated.models import (
     BlindChargingDecision,
     BlindDecisionOutcome,
     BlindReviewDecision,
+    ConfigsGetResponse,
     DisqualifyingReason,
     DisqualifyOutcome,
+    ExperimentConfig,
     FinalChargingDecision,
     FinalReviewDecision,
+    NewExperimentConfig,
     Review,
     ReviewDecision,
     ReviewProtocol,
@@ -221,3 +229,114 @@ def format_review_decision(decision: ReviewDecision) -> OutcomeDecision:
         )
     else:
         raise ValueError(f"Unknown decision type: {type(decision)}")
+
+
+async def get_all_configs(request: Request) -> ConfigsGetResponse:
+    """List all the randomization configs."""
+    configs = await request.state.db.execute(
+        select(Gater).order_by(desc(Gater.created_at))
+    )
+    return ConfigsGetResponse(
+        configs=[
+            ExperimentConfig(
+                version=str(ck.id),
+                blob=ck.blob,
+                active=ck.active,
+                createdAt=ck.created_at,
+                updatedAt=ck.updated_at,
+                parent=str(ck.parent),
+                name=ck.name,
+                description=ck.description,
+                author=ck.author,
+            )
+            for ck in configs.scalars()
+        ]
+    )
+
+
+async def get_config(request: Request, version: str) -> ExperimentConfig:
+    """Get specific version of the randomization config."""
+    config = await Gater.get_by_id(request.state.db, UUID(version))
+    if config is None:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return ExperimentConfig(
+        version=str(config.id),
+        blob=config.blob,
+        active=config.active,
+        createdAt=config.created_at,
+        updatedAt=config.updated_at,
+        parent=str(config.parent),
+        name=config.name,
+        description=config.description,
+        author=config.author,
+    )
+
+
+async def get_active_config(request: Request) -> ExperimentConfig:
+    """Get the active randomizations configuration for the API deployment."""
+    result = await request.state.db.execute(select(Gater).where(Gater.active))
+    results = result.one_or_none()
+    if not results:
+        raise HTTPException(status_code=404, detail="No active config found")
+    ck = results[0]
+    return ExperimentConfig(
+        version=str(ck.id),
+        blob=ck.blob,
+        active=ck.active,
+        createdAt=ck.created_at,
+        updatedAt=ck.updated_at,
+        parent=str(ck.parent),
+        name=ck.name,
+        description=ck.description,
+        author=ck.author,
+    )
+
+
+async def update_config(request: Request, body: NewExperimentConfig) -> None:
+    """Update the randomization config."""
+
+    try:
+        alligater.parse.parse_yaml(body.blob)
+    except alligater.parse.InvalidConfigError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    # Deactivate all other configs if the new one is active
+    if body.active:
+        await request.state.db.execute(
+            update(Gater).where(Gater.active).values(active=False)
+        )
+
+    # Get author if available
+    author: str | None = None
+    try:
+        authn = request.state.authn_data
+        client_id = authn.get("sub")
+        client = await Client.get_by_id(request.state.db, UUID(client_id))
+        if client:
+            author = client.name
+    except Exception:
+        pass
+
+    new_config = Gater(
+        parent=UUID(body.parent) if body.parent else None,
+        blob=body.blob,
+        name=body.name,
+        description=body.description,
+        author=author,
+        active=body.active,
+    )
+    request.state.db.add(new_config)
+    return
+
+
+async def activate_config(request: Request, version: str) -> None:
+    """Activate a specific randomizations configuration for the API deployment."""
+    # Deactivate all other configs
+    await request.state.db.execute(
+        update(Gater).where(Gater.active).values(active=False)
+    )
+    # Activate the requested config
+    await request.state.db.execute(
+        update(Gater).where(Gater.id == UUID(version)).values(active=True)
+    )
+    return
