@@ -14,12 +14,12 @@ def human_name_to_str(human_name: HumanNameModel | HumanName) -> str:
     """
     if isinstance(human_name, HumanNameModel):
         hm = HumanName(
-            title=human_name.title,
-            first=human_name.firstName,
-            middle=human_name.middleName,
-            last=human_name.lastName,
-            suffix=human_name.suffix,
-            nickname=human_name.nickname,
+            title=human_name.root.title,
+            first=human_name.root.firstName,
+            middle=human_name.root.middleName,
+            last=human_name.root.lastName,
+            suffix=human_name.root.suffix,
+            nickname=human_name.root.nickname,
         )
     else:
         hm = human_name

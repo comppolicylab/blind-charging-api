@@ -12,6 +12,9 @@ from ..generated.models import (
     HumanName as HumanNameModel,
 )
 from ..generated.models import (
+    HumanName1 as HumanNameInner,
+)
+from ..generated.models import (
     MaskedSubject,
     OutputFormat,
     RedactionRequest,
@@ -160,12 +163,14 @@ def process_subject(subject: SubjectModel) -> list[HumanNameModel]:
             parsed_name = HumanName(alias)
             aliases.append(
                 HumanNameModel(
-                    firstName=parsed_name.first,
-                    middleName=parsed_name.middle,
-                    lastName=parsed_name.last,
-                    suffix=parsed_name.suffix,
-                    title=parsed_name.title,
-                    nickname=parsed_name.nickname,
+                    root=HumanNameInner(
+                        firstName=parsed_name.first,
+                        middleName=parsed_name.middle,
+                        lastName=parsed_name.last,
+                        suffix=parsed_name.suffix,
+                        title=parsed_name.title,
+                        nickname=parsed_name.nickname,
+                    )
                 )
             )
         else:

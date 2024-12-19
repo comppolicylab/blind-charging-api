@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.8.0
+  version: 0.8.1
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -777,10 +777,11 @@ components:
             $ref: "#/components/schemas/RedactionResult"
 
     HumanName:
-      description: A structured representation of someone's name.
+      description: A structured representation of someone's name. Either first or last name is required.
       type: object
-      required:
-        - firstName
+      anyOf:
+        - required: [firstName]
+        - required: [lastName]
       properties:
         title:
           type: string
