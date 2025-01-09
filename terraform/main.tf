@@ -32,7 +32,7 @@ provider "azurerm" {
 }
 
 provider "azapi" {
-  tenant_id       = data.azurerm_client_config.current.tenant_id
+  # tenant_id       = data.azurerm_client_config.current.tenant_id
   subscription_id = var.subscription_id
   environment     = var.azure_env
 }
