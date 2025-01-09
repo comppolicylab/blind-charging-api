@@ -32,6 +32,8 @@ provider "azurerm" {
 }
 
 provider "azapi" {
+  # NOTE(jnu): Azure fails on CloudShell if tenant is specified. Unclear why
+  # this started happening, and whether we need to specify this outside of CS.
   # tenant_id       = data.azurerm_client_config.current.tenant_id
   subscription_id = var.subscription_id
   environment     = var.azure_env
