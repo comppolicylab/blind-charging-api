@@ -133,7 +133,10 @@ def stamp_db(revision: str = "head") -> None:
 
 @_cli.command()
 def worker(
-    liveness_host: str = "127.0.0.1", liveness_port: int = 8001, monitor: bool = True
+    liveness_host: str = "127.0.0.1",
+    liveness_port: int = 8001,
+    monitor: bool = True,
+    concurrency: int | None = None,
 ) -> None:
     """Run the Celery worker.
 
@@ -141,11 +144,20 @@ def worker(
     """
     import socket
 
+    from app.server.config import config
     from app.server.tasks import get_liveness_app, queue
+
+    concurrency = concurrency or config.queue.concurrency
+
+    if concurrency < 1:
+        logger.error("Concurrency must be at least 1")
+        return
 
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
         name = f"w{liveness_port}@{socket.gethostname()}"
-        queue.Worker(task_events=monitor, hostname=name).start()
+        queue.Worker(
+            task_events=monitor, hostname=name, concurrency=concurrency
+        ).start()
 
 
 @_cli.command()

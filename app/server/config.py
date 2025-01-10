@@ -95,6 +95,7 @@ class QueueConfig(BaseModel):
     task: TaskConfig = TaskConfig()
     store: StoreConfig = RedisConfig()
     broker: BrokerConfig = RedisConfig()
+    concurrency: int = 10
 
 
 class ExperimentsConfig(BaseModel):

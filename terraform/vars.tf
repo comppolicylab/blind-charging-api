@@ -353,6 +353,14 @@ and the WAF is enabled.
 EOF
 }
 
+variable "worker_threads" {
+  type        = number
+  default     = 10
+  description = <<EOF
+Number of concurrent workers to use in a process for processing requests.
+EOF
+}
+
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
   description        = "Whether this configuration uses Azure Government Cloud."
