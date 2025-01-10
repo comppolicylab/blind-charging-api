@@ -107,6 +107,15 @@ resource "azurerm_subnet" "firewall" {
   default_outbound_access_enabled               = false
 }
 
+resource "azurerm_subnet" "monitor" {
+  name                                          = var.monitor_subnet_name
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = var.monitor_subnet_address_space
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
 resource "azurerm_private_dns_zone" "openai" {
   name                = "privatelink.openai.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
@@ -127,6 +136,12 @@ resource "azurerm_private_dns_zone" "mssql" {
 
 resource "azurerm_private_dns_zone" "redis" {
   name                = "privatelink.redis.cache.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone" "monitor" {
+  name                = "privatelink.monitor.azure.${local.is_gov_cloud ? "us" : "com"}"
   resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }
@@ -207,6 +222,14 @@ resource "azurerm_private_dns_zone_virtual_network_link" "fs" {
   name                  = format("%s-fs-dns-link", local.name_prefix)
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.fs[0].name
+  virtual_network_id    = azurerm_virtual_network.main.id
+  tags                  = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "monitor" {
+  name                  = format("%s-monitor-dns-link", local.name_prefix)
+  resource_group_name   = azurerm_resource_group.main.name
+  private_dns_zone_name = azurerm_private_dns_zone.monitor.name
   virtual_network_id    = azurerm_virtual_network.main.id
   tags                  = var.tags
 }

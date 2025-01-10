@@ -86,6 +86,12 @@ variable "application_insights_name" {
   description = "Name of the Application Insights resource."
 }
 
+variable "monitor_private_endpoint_name" {
+  type        = string
+  default     = ""
+  description = "Name of the Monitor Private Endpoint resource."
+}
+
 variable "virtual_network_name" {
   type        = string
   default     = ""
@@ -132,6 +138,12 @@ variable "gateway_subnet_name" {
   type        = string
   default     = "gateway"
   description = "Name of the gateway subnet."
+}
+
+variable "monitor_subnet_name" {
+  type        = string
+  default     = "monitor"
+  description = "Name of the monitor subnet."
 }
 
 variable "gateway_private_link_subnet_name" {
@@ -221,6 +233,7 @@ locals {
   private_link_configuration_name       = coalesce(var.app_gateway_private_link_configuration_name, lower(format("%s-app-gw-plc", local.name_prefix)))
   log_analytics_workspace_name          = coalesce(var.log_analytics_workspace_name, lower(format("%s-law", local.name_prefix)))
   application_insights_name             = coalesce(var.application_insights_name, lower(format("%s-mon-insights", local.name_prefix)))
+  monitor_private_endpoint_name         = coalesce(var.monitor_private_endpoint_name, lower(format("%s-mon-pe", local.name_prefix)))
   virtual_network_name                  = coalesce(var.virtual_network_name, lower(format("%s-vnet", local.name_prefix)))
   openai_account_name                   = coalesce(var.openai_account_name, lower(format("%s-cs-oai", local.name_prefix)))
   openai_llm_deployment_name            = coalesce(var.openai_llm_deployment_name, lower(format("%s-oai-llm", local.name_prefix)))

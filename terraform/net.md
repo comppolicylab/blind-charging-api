@@ -34,6 +34,7 @@ We currently reserve a minimum of 184 addresses, as described below.
 | `gateway-pl` | `10.0.7.0/24` | `/29` | App Gateway private link |
 | `fs` | `10.0.8.0/24` | `/27` | File service private endpoint (for research environment persistent storage) |
 | `AzureFirewallSubnet`* | `10.0.9.0/24` | `/26` | Firewall for outbound traffic |
+| `monitor` | `10.0.10.0/24` | `/29` | Azure Monitor private endpoint |
 
 `*` Note the name of the firewall subnet is required by Azure and is not configurable.
 
