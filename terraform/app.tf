@@ -1,13 +1,12 @@
 resource "azurerm_container_app_environment" "main" {
-  name                                        = local.container_app_env_name
-  resource_group_name                         = azurerm_resource_group.main.name
-  location                                    = azurerm_resource_group.main.location
-  log_analytics_workspace_id                  = azurerm_log_analytics_workspace.main.id
-  dapr_application_insights_connection_string = azurerm_application_insights.main.connection_string
-  tags                                        = var.tags
-  infrastructure_resource_group_name          = var.app_infra_resource_group_name
-  infrastructure_subnet_id                    = azurerm_subnet.app.id
-  internal_load_balancer_enabled              = true
+  name                               = local.container_app_env_name
+  resource_group_name                = azurerm_resource_group.main.name
+  location                           = azurerm_resource_group.main.location
+  log_analytics_workspace_id         = azurerm_log_analytics_workspace.main.id
+  tags                               = var.tags
+  infrastructure_resource_group_name = var.app_infra_resource_group_name
+  infrastructure_subnet_id           = azurerm_subnet.app.id
+  internal_load_balancer_enabled     = true
 
   workload_profile {
     # TODO(jnu): Dedicated workload profile does not seem to be supported,
