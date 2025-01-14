@@ -2,7 +2,7 @@ resource "azurerm_redis_cache" "main" {
   name                 = local.redis_cache_name
   resource_group_name  = azurerm_resource_group.main.name
   location             = azurerm_resource_group.main.location
-  capacity             = 3
+  capacity             = var.redis_capacity_sku
   family               = "C"
   sku_name             = "Standard"
   non_ssl_port_enabled = false

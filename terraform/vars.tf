@@ -361,6 +361,18 @@ Number of concurrent workers to use in a process for processing requests.
 EOF
 }
 
+variable "redis_capacity_sku" {
+  type        = number
+  default     = 4
+  description = <<EOF
+SKU of Azure Redis Cache Standard to use for deployment.
+
+We currently recommend C4 as a nice balance of memory and cost.
+
+https://azure.microsoft.com/en-us/pricing/details/cache/
+EOF
+}
+
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
   description        = "Whether this configuration uses Azure Government Cloud."
