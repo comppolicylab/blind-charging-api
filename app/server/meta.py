@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import platform
@@ -7,6 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TypedDict
 
+import kombu.utils.json as json
 import psutil
 import tomllib
 import yaml
