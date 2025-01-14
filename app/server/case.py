@@ -5,12 +5,16 @@ from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
 from celery.result import AsyncResult
 
+from .config import config
 from .enumerator import RoleEnumerator
 from .generated.models import HumanName, MaskedSubject, OutputDocument, RedactionTarget
 from .name import human_name_to_str
 from .store import SimpleMapping, StoreSession
 
 logger = logging.getLogger(__name__)
+
+
+_DEFAULT_TTL = int(config.queue.task.retention_time_seconds)
 
 
 SavedMask = NamedTuple("SavedMask", [("role", str), ("mask", str), ("name", str)])
@@ -91,10 +95,6 @@ class MaskInfo:
         return {k.decode(): v.name for k, v in self._masks.items()}
 
 
-FOUR_HOURS_S = 4 * 60 * 60
-"""Four hours in seconds."""
-
-
 F_sync = TypeVar("F_sync", bound=Callable[..., Any])
 F_async = TypeVar("F_async", bound=Callable[..., Coroutine[Any, Any, Any]])
 
@@ -147,7 +147,9 @@ class CaseStore:
         return bool(self.jurisdiction_id and self.case_id)
 
     @classmethod
-    async def save_key(cls, store: StoreSession, key: str, value: bytes) -> str:
+    async def save_key(
+        cls, store: StoreSession, key: str, value: bytes, ttl: int = _DEFAULT_TTL
+    ) -> str:
         """Save a key-value pair in the store.
 
         Args:
@@ -160,7 +162,7 @@ class CaseStore:
         """
         await store.set(key, value)
         t = await store.time()
-        await store.expire_at(key, t + FOUR_HOURS_S)
+        await store.expire_at(key, t + ttl)
         return key
 
     @classmethod
@@ -177,7 +179,9 @@ class CaseStore:
         return await store.get(key)
 
     @classmethod
-    async def save_blob(cls, store: StoreSession, blob: bytes) -> str:
+    async def save_blob(
+        cls, store: StoreSession, blob: bytes, ttl: int = _DEFAULT_TTL
+    ) -> str:
         """Save a blob of data in the store.
 
         Args:
@@ -188,17 +192,17 @@ class CaseStore:
             str: The key under which the data was saved.
         """
         key = hashlib.sha256(blob).hexdigest()
-        return await cls.save_key(store, key, blob)
+        return await cls.save_key(store, key, blob, ttl=ttl)
 
     async def init(
-        self, jurisdiction_id: str, case_id: str, ttl: int = FOUR_HOURS_S
+        self, jurisdiction_id: str, case_id: str, ttl: int = _DEFAULT_TTL
     ) -> None:
         """Initialize the case store.
 
         Args:
             jurisdiction_id (str): The jurisdiction ID.
             case_id (str): The case ID.
-            ttl (int, optional): The time-to-live in seconds. Defaults to 4 hours.
+            ttl (int, optional): The time-to-live in seconds.
 
         Returns:
             None
@@ -207,11 +211,11 @@ class CaseStore:
             return
         self.jurisdiction_id = jurisdiction_id
         self.case_id = case_id
-        self.expires_at = await self.set_expiration(ttl)
+        self.expires_at = await self._set_expiration(ttl)
         logger.debug("CaseStore initialized, will expire at %d", self.expires_at)
 
     @ensure_init
-    async def set_expiration(self, ttl: int) -> int:
+    async def _set_expiration(self, ttl: int) -> int:
         """Set the expiration time for the case.
 
         Returns:

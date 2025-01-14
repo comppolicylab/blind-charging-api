@@ -23,8 +23,12 @@ from .store import RedisConfig, RedisTestConfig
 logger = logging.getLogger(__name__)
 
 
+FOUR_HOURS_S = 4 * 60 * 60
+"""Four hours in seconds."""
+
+
 class TaskConfig(BaseModel):
-    retention_hours: float = 72.0
+    retention_time_seconds: int = FOUR_HOURS_S
     max_retries: int = 3
     retry_interval: float = 60.0
     callback_timeout_seconds: float = 30.0

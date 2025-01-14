@@ -373,6 +373,17 @@ https://azure.microsoft.com/en-us/pricing/details/cache/
 EOF
 }
 
+variable "queue_store_retention" {
+  type        = number
+  default     = 14400
+  description = <<EOF
+Number of seconds to retain data in the queue results store.
+
+Default is 4 hours.
+EOF
+}
+
+
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
   description        = "Whether this configuration uses Azure Government Cloud."

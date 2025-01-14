@@ -70,6 +70,9 @@ connection_string = "${azurerm_application_insights.main.connection_string}"
 
 concurrency = ${var.worker_threads}
 
+[queue.task]
+retention_time_seconds = ${var.queue_store_retention}
+
 [queue.store]
 engine = "redis"
 host = "${local.redis_fqdn}"
