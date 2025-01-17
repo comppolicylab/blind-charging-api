@@ -8,7 +8,6 @@ from celery.result import AsyncResult
 
 from .case import CaseStore
 from .config import config
-from .tasks.metrics import celery_counters
 
 
 def get_document_sync(file_storage_id: str | None) -> bytes:
@@ -58,14 +57,6 @@ def save_retry_state_sync(
     einfo: ExceptionInfo,
 ) -> None:
     """Store the retry state in the results store."""
-    exc_type = "UnknownException"
-
-    try:
-        exc_type = exc.__class__.__name__
-    except Exception:
-        pass
-
-    celery_counters.record_retry(self.name, exc_type, self.request.retries)
 
     async def _store():
         async with config.queue.store.driver() as store:

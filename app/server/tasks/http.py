@@ -4,8 +4,9 @@ import logging
 import re
 import socket
 from contextlib import asynccontextmanager
-from typing import Literal, TypedDict
+from typing import Literal, Tuple, TypedDict
 
+import psutil
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -59,6 +60,26 @@ def _human_size_to_bytes(human: str) -> int:
         raise ValueError(
             f"Could not parse {human} as bytes - unknown unit {unit_s}."
         ) from e
+
+
+def _get_open_file_count() -> Tuple[int, int]:
+    """Get the number of open files.
+
+    Returns:
+        Tuple[int, int]: The number of open files in current process, and for user.
+    """
+    cur_proc = psutil.Process()
+    cur_proc_open_files = len(cur_proc.open_files())
+    user_open_files = 0
+
+    for proc in psutil.process_iter():
+        try:
+            if proc.username() == cur_proc.username():
+                user_open_files += len(proc.open_files())
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    return (cur_proc_open_files, user_open_files)
 
 
 @app.get("/health")
@@ -120,6 +141,8 @@ def health(request: Request) -> JSONResponse:
             else:
                 unhealthy.append(worker)
 
+    proc_open_files, user_open_files = _get_open_file_count()
+
     data: HealthCheckData = {
         "host": local,
         "workers": {
@@ -137,6 +160,10 @@ def health(request: Request) -> JSONResponse:
             "total": processes_count,
             "idle": processes_count - active_count,
             "expected": expected_processes_count,
+        },
+        "fs": {
+            "proc_open_files": proc_open_files,
+            "user_open_files": user_open_files,
         },
         "memory_usage": total_mem_bytes,
         "status": "ok",

@@ -14,12 +14,19 @@ from celery.canvas import Signature
 from celery.utils.log import get_task_logger
 from pydantic import BaseModel
 
+from app.func import allf
+
 from ..case import CaseStore, MaskInfo
 from ..case_helper import get_document_sync, save_document_sync, save_retry_state_sync
 from ..config import config
 from ..generated.models import OutputFormat
 from .fetch import FetchTaskResult
-from .metrics import record_task_failure, record_task_start, record_task_success
+from .metrics import (
+    record_task_failure,
+    record_task_retry,
+    record_task_start,
+    record_task_success,
+)
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -57,7 +64,7 @@ register_type(RedactionTaskResult)
     max_retries=3,
     retry_backoff=True,
     default_retry_delay=30,
-    on_retry=save_retry_state_sync,
+    on_retry=allf(save_retry_state_sync, record_task_retry),
     on_failure=record_task_failure,
     on_success=record_task_success,
     before_start=record_task_start,

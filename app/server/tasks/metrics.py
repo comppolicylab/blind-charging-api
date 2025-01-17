@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 import tomllib
 from opentelemetry.metrics import get_meter
@@ -24,6 +24,11 @@ class ProcessesData(TypedDict):
     expected: int
 
 
+class FileSystemData(TypedDict):
+    proc_open_files: int
+    user_open_files: int
+
+
 class HealthCheckData(TypedDict):
     """Aggregated status of Celery workers.
 
@@ -37,6 +42,7 @@ class HealthCheckData(TypedDict):
     workers: WorkersData
     tasks: TasksData
     memory_usage: int
+    fs: FileSystemData
     processes: ProcessesData
 
 
@@ -96,6 +102,16 @@ class CeleryCustomHealthMetrics:
             "Memory usage of the worker processes",
             "bytes",
         )
+        self.proc_open_files = self.meter.create_gauge(
+            "celery.workers.files.proc",
+            "Number of open files in the process",
+            "files",
+        )
+        self.user_open_files = self.meter.create_gauge(
+            "celery.workers.files.user",
+            "Number of open files by the user",
+            "files",
+        )
 
     def report(self, data: HealthCheckData):
         self.active_tasks.set(data["tasks"]["active"])
@@ -107,6 +123,8 @@ class CeleryCustomHealthMetrics:
         self.idle_processes.set(data["processes"]["idle"])
         self.expected_processes.set(data["processes"]["expected"])
         self.memory_usage.set(data["memory_usage"])
+        self.proc_open_files.set(data["fs"]["proc_open_files"])
+        self.user_open_files.set(data["fs"]["user_open_files"])
 
 
 class CeleryCustomCounter:
@@ -161,13 +179,27 @@ class CeleryCustomCounter:
 celery_counters = CeleryCustomCounter()
 
 
-def record_task_failure(self, exc, *args, **kwargs):
+def _get_exc_type(exc: Any) -> str:
+    """Get the class name of an exception if possible.
+
+    Returns "UnknownException" if the class name cannot be determined.
+
+    Args:
+        exc (Any): The exception.
+
+    Returns:
+        str: The exception class name.
+    """
     exc_type = "UnknownException"
     try:
         exc_type = exc.__class__.__name__
     except Exception:
         pass
-    celery_counters.record_complete(self.name, False, exc_type)
+    return exc_type
+
+
+def record_task_failure(self, exc: Any, *args, **kwargs):
+    celery_counters.record_complete(self.name, False, _get_exc_type(exc))
 
 
 def record_task_start(self, *args, **kwargs):
@@ -176,3 +208,7 @@ def record_task_start(self, *args, **kwargs):
 
 def record_task_success(self, *args, **kwargs):
     celery_counters.record_complete(self.name, True)
+
+
+def record_task_retry(self, exc: Any, *args, **kwargs):
+    celery_counters.record_retry(self.name, _get_exc_type(exc), self.request.retries)

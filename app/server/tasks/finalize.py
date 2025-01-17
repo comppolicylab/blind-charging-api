@@ -6,6 +6,8 @@ from celery.canvas import Signature
 from celery.result import AsyncResult
 from pydantic import BaseModel
 
+from app.func import allf
+
 from ..case import CaseStore
 from ..case_helper import save_retry_state_sync, summarize_state
 from ..config import config
@@ -15,6 +17,7 @@ from .callback import CallbackTaskResult
 from .metrics import (
     celery_counters,
     record_task_failure,
+    record_task_retry,
     record_task_start,
     record_task_success,
 )
@@ -54,7 +57,7 @@ register_type(FinalizeTaskResult)
     retry_backoff=True,
     autoretry_for=(Exception,),
     default_retry_delay=30,
-    on_retry=save_retry_state_sync,
+    on_retry=allf(save_retry_state_sync, record_task_retry),
     on_failure=record_task_failure,
     on_success=record_task_success,
     before_start=record_task_start,
