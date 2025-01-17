@@ -17,6 +17,12 @@ from ..generated.models import (
     RedactionResultSuccess,
 )
 from .format import FormatTaskResult
+from .metrics import (
+    celery_counters,
+    record_task_failure,
+    record_task_start,
+    record_task_success,
+)
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -52,6 +58,9 @@ _callback_timeout = config.queue.task.callback_timeout_seconds
     autoretry_for=(Exception,),
     default_retry_delay=30,
     on_retry=save_retry_state_sync,
+    on_failure=record_task_failure,
+    on_success=record_task_success,
+    before_start=record_task_start,
 )
 def callback(
     format_result: FormatTaskResult, params: CallbackTask
@@ -109,7 +118,12 @@ def callback(
             params.callback_url,
             json=body.model_dump(mode="json"),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+            celery_counters.record_callback(True)
+        except Exception:
+            celery_counters.record_callback(False)
+            raise
 
         return CallbackTaskResult(
             status_code=response.status_code,

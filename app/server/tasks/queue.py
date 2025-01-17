@@ -23,8 +23,11 @@ def setup_tracing(*args, **kwargs):
 
     from opentelemetry.instrumentation.celery import CeleryInstrumentor
 
+    from .metrics import celery_counters
+
     logger = logging.getLogger(__name__)
     if config.metrics.driver:
+        celery_counters.init()
         CeleryInstrumentor().instrument()
         logger.info("Celery tracing initialized.")
 

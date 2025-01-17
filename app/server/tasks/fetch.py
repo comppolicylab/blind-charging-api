@@ -14,6 +14,7 @@ from ..generated.models import (
     DocumentText,
     InputDocument,
 )
+from .metrics import record_task_failure, record_task_start, record_task_success
 from .queue import ProcessingError, queue
 from .serializer import register_type
 
@@ -46,6 +47,9 @@ register_type(FetchTaskResult)
     retry_backoff=True,
     default_retry_delay=30,
     on_retry=save_retry_state_sync,
+    on_failure=record_task_failure,
+    on_success=record_task_success,
+    before_start=record_task_start,
 )
 def fetch(self, params: FetchTask) -> FetchTaskResult:
     """Fetch the content of a document.
