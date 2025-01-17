@@ -104,7 +104,6 @@ app = FastAPI(
     license={"name": "MIT License", "url": "https://opensource.org/license/mit/"},
 )
 
-FastAPIInstrumentor().instrument_app(app)
 # Share state between main app and generated app.
 generated_app.state = app.state
 
@@ -215,6 +214,12 @@ if config.debug:
         name="sample_data",
     )
 
+
+# Instrument the API with metrics.
+# The base `app` with health checks (etc.) is *not* instrumented!
+# This keeps the metrics focused on client-facing APIs.
+# (We will get other alerts if the health checks fail.)
+FastAPIInstrumentor().instrument_app(generated_app)
 
 app.include_router(meta_router)
 app.mount("/api/v1", generated_app)
