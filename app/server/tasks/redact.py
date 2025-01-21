@@ -1,8 +1,8 @@
 import asyncio
 import io
 
-from blind_charging_core import Pipeline, PipelineConfig
-from blind_charging_core.pipeline import (
+from bc2 import Pipeline, PipelineConfig
+from bc2.core.pipeline import (
     HtmlRenderConfig,
     JsonRenderConfig,
     PdfRenderConfig,

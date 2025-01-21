@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Union
 
 import tomllib
-from blind_charging_core.pipeline import (
+from bc2.core.pipeline import (
     ExtractConfig,
     ParseConfig,
     RedactConfig,
@@ -159,7 +159,7 @@ _loud_logger_names = [
     "pydantic",
     "celery",
     "alligater",
-    "blind_charging_core",
+    "bc2",
 ]
 for name in _logger_names:
     for loud_name in _loud_logger_names:

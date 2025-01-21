@@ -2,4 +2,4 @@
 This isa very simple document used for testing.
 
 -------------------------------------------------------
-The above passages were automatically extracted from referral documents and automatically redacted to hide race-related information. Occasionally, words or punctuation may be automatically added to fix typos. Please report any issues to blind_charging@hks.harvard.edu.
+The above passages were automatically extracted from referral documents and automatically redacted to hide race-related information. Occasionally, words or punctuation may be automatically added to fix typos. Please report any issues at https://bit.ly/report-rbc-bug.

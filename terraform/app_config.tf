@@ -52,6 +52,10 @@ api_version = "2024-06-01"
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 system = { prompt_id = "redact" }
+
+[processor.pipe.resolver]
+model = "${azurerm_cognitive_deployment.llm.name}"
+system = { prompt_id = "resolver" }
 EOF
 
   # Full application config file
