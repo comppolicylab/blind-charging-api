@@ -13,6 +13,7 @@ queue = Celery(
     broker=config.queue.broker.url,
     backend=config.queue.store.url,
     result_extended=True,
+    broker_connection_retry_on_startup=True,
 )
 
 

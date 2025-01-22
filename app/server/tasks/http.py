@@ -82,26 +82,8 @@ def _get_open_file_count() -> Tuple[int, int]:
     return (cur_proc_open_files, user_open_files)
 
 
-@app.get("/health")
-def health(request: Request) -> JSONResponse:
-    """Health check endpoint.
-
-    Returns the health status of the workers.
-
-    There ought to be at least one healthy worker on the local machine
-    if this server is running. So if this does not hold, we return a 500 error.
-
-    Note that as long as there is one healthy worker locally, the server is
-    considered healthy, even if there are some unhealthy ones.
-
-    The full result can be inspected for remediation if necessary.
-
-    If configured, this endpoint will also report metrics to the configured
-    metrics driver.
-
-    Returns:
-        JSONResponse: The `HealthCheckResponse` with a status of either 500 or 200.
-    """
+def get_full_health_report() -> HealthCheckData:
+    """Assemble all the relevant health info we can."""
     inspection = queue.control.inspect()
 
     # Count the number of tasks in each state.
@@ -143,7 +125,7 @@ def health(request: Request) -> JSONResponse:
 
     proc_open_files, user_open_files = _get_open_file_count()
 
-    data: HealthCheckData = {
+    return {
         "host": local,
         "workers": {
             "total": len(health),
@@ -166,18 +148,88 @@ def health(request: Request) -> JSONResponse:
             "user_open_files": user_open_files,
         },
         "memory_usage": total_mem_bytes,
-        "status": "ok",
-        "error": None,
+        "status": "ok" if healthy else "error",
+        "error": None if healthy else "No healthy workers found",
     }
 
+
+def report_full_health(app: FastAPI) -> None:
+    """Report full health status."""
+    data = get_full_health_report()
+    app.state.metrics.report(data)
+    logger.debug("Reported health metrics")
+
+
+@app.get("/health/full")
+def health_full(request: Request) -> JSONResponse:
+    """Full health report.
+
+    This is generally too much info to return for the basic infra health check.
+    It will time out and the health check will fail.
+
+    Intended for manual inspection of the workers.
+
+    If configured, this endpoint will also report metrics to the configured
+    metrics driver.
+
+    Returns:
+        JSONResponse: The `HealthCheckResponse` with a status of either 500 or 200.
+    """
+    data = get_full_health_report()
+
     request.app.state.metrics.report(data)
+    status_code = 200 if data["status"] == "ok" else 500
+    return JSONResponse(
+        status_code=status_code,
+        content=data,
+    )
+
+
+@app.get("/health")
+def health(request: Request) -> JSONResponse:
+    """Health check endpoint.
+
+    Returns the health status of the workers.
+
+    There ought to be at least one healthy worker on the local machine
+    if this server is running. So if this does not hold, we return a 500 error.
+
+    Note that as long as there is one healthy worker locally, the server is
+    considered healthy, even if there are some unhealthy ones.
+
+    If configured, this endpoint will also report metrics to the configured
+    metrics driver.
+
+    Returns:
+        JSONResponse: The `HealthCheckResponse` with a status of either 500 or 200.
+    """
+    data = {
+        "status": "ok",
+    }
+
+    # Check basic worker responsiveness
+    health = queue.control.ping()
+    local = socket.gethostname()
+    address = f"@{local}"
+    healthy: list[str] = []
+    unhealthy: list[str] = []
+    for workers in health:
+        for worker, response in workers.items():
+            if not worker.endswith(address):
+                continue
+            if response.get("ok") == "pong":
+                healthy.append(worker)
+            else:
+                unhealthy.append(worker)
 
     status_code = 200
 
     if not healthy:
         logger.error("No healthy workers found.")
         status_code = 500
-        data["error"] = "No healthy workers found"
+        data["error"] = (
+            f"No healthy workers found; {len(unhealthy)} unhealthy workers found."
+        )
         data["status"] = "error"
 
     return JSONResponse(
@@ -217,4 +269,6 @@ def root() -> None:
 def get_liveness_app(host: str = "127.0.0.1", port: int = 8001) -> BackgroundServer:
     """Get a background server instance for liveness checks."""
     cfg = uvicorn.Config(app, host=host, port=port)
-    return BackgroundServer(cfg)
+    srv = BackgroundServer(cfg)
+    srv.add_periodic_task(60, report_full_health)
+    return srv
