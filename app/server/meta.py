@@ -348,6 +348,8 @@ async def inspect_api(request: Request) -> ApiMeta:
 
 
 def _format_meta_html(content: str) -> str:
+    api_version = _get_api_version()
+    schema_version = _get_schema_version()
     return f"""
     <html>
         <head>
@@ -365,6 +367,9 @@ def _format_meta_html(content: str) -> str:
             }}
             header {{
                 padding-top: 2rem;
+            }}
+            header pre {{
+                margin-bottom: 0.5rem;
             }}
             .with-sidebar {{
                 display: flex;
@@ -501,6 +506,7 @@ def _format_meta_html(content: str) -> str:
         <body>
             <header>
             <pre>{api_logo}</pre>
+            <pre>API v{api_version}, Schema v{schema_version}</pre>
             </header>
             <main>{content}</main>
             <footer>
@@ -723,6 +729,11 @@ async def root():
                     rel="noopener noreferrer">status page</a>
                 will give you more details about the current API status.</li>
             </ul>""")
+
+
+@meta_router.get("/version", response_class=JSONResponse)
+async def version():
+    return {"api_version": _get_api_version(), "schema_version": _get_schema_version()}
 
 
 @meta_router.get("/config", response_class=HTMLResponse)
