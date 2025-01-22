@@ -91,6 +91,14 @@ resource "azurerm_container_app" "main" {
         name  = "CONFIG_PATH"
         value = "/secrets/app-config"
       }
+
+      dynamic "env" {
+        for_each = var.api_flags
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
     }
 
     container {
@@ -107,6 +115,15 @@ resource "azurerm_container_app" "main" {
         name  = "CONFIG_PATH"
         value = "/secrets/app-config"
       }
+
+      dynamic "env" {
+        for_each = var.api_flags
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
       liveness_probe {
         host             = "127.0.0.1"
         path             = "/api/v1/health"
@@ -131,6 +148,15 @@ resource "azurerm_container_app" "main" {
         name  = "CONFIG_PATH"
         value = "/secrets/app-config"
       }
+
+      dynamic "env" {
+        for_each = var.api_flags
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
       liveness_probe {
         host                    = "127.0.0.1"
         path                    = "/health"

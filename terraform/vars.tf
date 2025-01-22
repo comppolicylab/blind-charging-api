@@ -383,6 +383,14 @@ Default is 4 hours.
 EOF
 }
 
+variable "api_flags" {
+  type        = map(string)
+  default     = {}
+  description = <<EOF
+Environment variables to pass to the API and worker containers.
+EOF
+}
+
 
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
