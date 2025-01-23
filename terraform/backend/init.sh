@@ -79,6 +79,7 @@ CONTAINER_NAME="tfstate"
 # Key vault name is not configurable right now.
 KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkv'
 KV_STORAGE_KEY_NAME="terraform-backend-key"
+KV_ENCRYPTION_KEY_NAME=$_CLEAN_PARTNER'-rbc-tfstate-encryption-key'
 
 # Yellow
 tput setaf 3
@@ -95,37 +96,95 @@ az group show --name $tfstate_resource_group &> /dev/null || \
 UPN=$(az account show --query user.name -o tsv)
 # Create the key vault if it doesn't exist
 az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group &> /dev/null || \
-  az keyvault create --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --location $location --enabled-for-deployment true --enabled-for-template-deployment true --enabled-for-disk-encryption true --enabled-for-deployment true --enabled-for-template-deployment true --enabled-for-disk-encryption true
+  az keyvault create --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --location $location \
+  --enabled-for-deployment true \
+  --enabled-for-template-deployment true \
+  --enabled-for-disk-encryption true \
+  --enabled-for-deployment true \
+  --enabled-for-template-deployment true \
+  --enable-purge-protection true \
+  --retention-days 90 \
+  --enable-rbac-authorization false
 
-# Create a role assignment for the user to access the key vault if necessary
-ROLES=`az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)`
-# ROLES will be `[]` if the user doesn't have the role assignment.
-if [ "$ROLES" == "[]" ]; then
-  az role assignment create --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)
-fi
+# Ensure purge protection is enabled (for keyvaults created with older version of script)
+az keyvault update --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
+  --enable-purge-protection true \
+  --retention-days 90 \
+  --enable-rbac-authorization false
 
-# The role assignment takes time to propagate, so wait til it's ready.
-done=false
-while [ $done == false ]; do
-  ROLES=`az role assignment list --role "Key Vault Secrets Officer" --assignee "$UPN" --scope $(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)`
-  if [ "$ROLES" != "[]" ]; then
-    done=true
-    # Green
-    tput setaf 2
-    echo "Verified role assignment."
-    tput sgr0
-  else
-    # Cyan
-    tput setaf 6
-    echo "Waiting for role assignment to propagate..."
-    tput sgr0
-    sleep 2
-  fi
-done
+# Ensure current user has create key access to vault
+az keyvault set-policy --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
+  --upn $UPN \
+  --key-permissions create get list setrotationpolicy update delete \
+  --secret-permissions get list set delete
+
+
+tput setaf 3
+echo "Creating encryption key in the keyvault if necessary ..."
+tput sgr0
+
+
+# Create an encryption key in the key vault if it doesn't exist
+az keyvault key show --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAME &> /dev/null || \
+  az keyvault key create \
+    --name "$KV_ENCRYPTION_KEY_NAME" \
+    --vault-name $KEYVAULT_NAME \
+    --kty RSA \
+    --size 4096 \
+    --protection software \
+    --ops sign verify encrypt decrypt wrapKey unwrapKey \
+    --not-before $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+
+# Ensure the rotation policy is correct
+az keyvault key rotation-policy update --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAME --value @- <<EOF
+{
+  "lifetimeActions": [
+    {
+      "action": {
+        "type": "Rotate"
+      },
+      "trigger": {
+        "timeAfterCreate": "P90D",
+        "timeBeforeExpiry": null
+      }
+    },
+    {
+      "action": {
+        "type": "Notify"
+      },
+      "trigger": {
+        "timeBeforeExpiry": "P30D"
+      }
+    }
+  ],
+  "attributes": {
+    "expiryTime": "P2Y"
+  }
+}
+EOF
+
 
 # Create storage account if it doesn't exist already
 az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group &> /dev/null || \
-  az storage account create --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --location $location --sku Standard_LRS --encryption-services blob
+  az storage account create --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --location $location --sku Standard_LRS
+
+# Ensure the account uses a system-assigned identity
+az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --identity-type SystemAssigned
+
+# Ensure the access policy is set so that the storage account can access the key vault
+STORAGE_ACCOUNT_PRINCIPAL_ID=$(az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --query 'identity.principalId' -o tsv)
+az keyvault set-policy --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
+  --object-id $STORAGE_ACCOUNT_PRINCIPAL_ID \
+  --key-permissions get wrapKey unwrapKey
+
+# Ensure that encryption via user-managed key is configured on the account
+KEYVAULT_URI=$(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query properties.vaultUri -o tsv)
+az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group \
+  --encryption-key-name "$KV_ENCRYPTION_KEY_NAME" \
+  --encryption-key-source "Microsoft.Keyvault" \
+  --encryption-key-vault "$KEYVAULT_URI" \
+  --encryption-services blob queue table file \
+
 
 # Set the storage account key in the key vault if it doesn't exist
 az keyvault secret show --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --query value &> /dev/null || \
