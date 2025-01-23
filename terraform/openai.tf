@@ -25,17 +25,17 @@ resource "azapi_resource" "no_content_filter" {
       type           = "UserManaged"
       mode           = "Default"
       contentFilters = [
-        { name = "hate", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
-        { name = "sexual", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
         { name = "selfharm", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
-        { name = "violence", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
-        { name = "hate", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
-        { name = "sexual", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
         { name = "selfharm", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
-        { name = "violence", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
-        { name = "jailbreak", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
-        { name = "indirect_attack", blocking = false, enabled = false, source = "Completion" },
-        { name = "protected_material_text", blocking = false, enabled = false, source = "Completion" },
+        { name = "Hate", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
+        { name = "Sexual", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
+        { name = "Violence", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
+        { name = "Hate", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
+        { name = "Sexual", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
+        { name = "Violence", blocking = false, enabled = false, allowedContentLevel = "High", source = "Completion" },
+        { name = "Jailbreak", blocking = false, enabled = false, allowedContentLevel = "High", source = "Prompt" },
+        { name = "Indirect Attack", blocking = false, enabled = false, source = "Completion" },
+        { name = "Protected Material Text", blocking = false, enabled = false, source = "Completion" },
       ]
     }
   }
