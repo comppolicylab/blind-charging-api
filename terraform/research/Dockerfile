@@ -44,6 +44,7 @@ RUN install2.r --error --skipmissing --skipinstalled -n $(nproc --all) \
     grid \
     janitor \
     jsonlite \
+    odbc \
     parallel \
     png \
     purrr \
