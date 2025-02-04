@@ -189,25 +189,21 @@ tz = ["backports.zoneinfo"]
 
 [[package]]
 name = "alligater"
-version = "0.3.1"
+version = "0.3.2"
 description = "Randomization and gating library for Python."
 optional = false
-python-versions = "^3.11"
-files = []
-develop = false
+python-versions = "<4.0,>=3.11"
+files = [
+    {file = "alligater-0.3.2-py3-none-any.whl", hash = "sha256:b105094cc7d62cadc4cb118461d9d47b83d96e6d81279f474ddb98f73e24accf"},
+    {file = "alligater-0.3.2.tar.gz", hash = "sha256:078e499b88c26f4a04bbfdc779d5bc90f7a0dbf0c934ec6adc07ceb6f038471b"},
+]
 
 [package.dependencies]
 antlr4-python3-runtime = "4.10"
-mmh3 = "^4.1"
-pyyaml = "^6.0"
-requests = "^2.32"
-urllib3 = "^2.2"
-
-[package.source]
-type = "git"
-url = "git@github.com:stanford-policylab/alligater.git"
-reference = "HEAD"
-resolved_reference = "2ac2a888f8562bb91b6a1c07222b4ea7c76e6330"
+mmh3 = ">=4.1,<5.0"
+pyyaml = ">=6.0,<7.0"
+requests = ">=2.32,<3.0"
+urllib3 = ">=2.2,<3.0"
 
 [[package]]
 name = "amqp"
@@ -4372,4 +4368,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "1d48ddcba4b1fd1fa3294e3be573db6ee2e2eaed93c37629d18f5b431e4332f4"
+content-hash = "1a8451337aa8e4ecef07cd468d92ee14e4332a6363af15de109ec9d740c62952"
