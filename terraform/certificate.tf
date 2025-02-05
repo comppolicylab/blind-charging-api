@@ -70,3 +70,14 @@ resource "acme_certificate" "app_gateway" {
     } : var.ssl_dns_provider_config
   }
 }
+
+
+resource "azurerm_key_vault_certificate" "app_gateway" {
+  count        = local.has_cert ? 1 : 0
+  name         = "app-gateway-cert"
+  key_vault_id = azurerm_key_vault.main.id
+  certificate {
+    contents = local.use_self_signed_cert ? pkcs12_from_pem.app_gateway[0].result : local.use_lets_encrypt_cert ? acme_certificate.app_gateway[0].certificate_p12 : local.use_file_cert ? filebase64(var.ssl_p12_file) : null
+    password = var.ssl_cert_password
+  }
+}

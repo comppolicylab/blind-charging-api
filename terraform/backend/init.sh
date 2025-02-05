@@ -77,9 +77,10 @@ STORAGE_ACCOUNT=$_CLEAN_PARTNER'rbctfstate'
 # Container name is not configurable right now.
 CONTAINER_NAME="tfstate"
 # Key vault name is not configurable right now.
-KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkv'
+KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkvhw'
+OLD_KEYVAULT_NAME=$_CLEAN_PARTNER'rbctfkv'
 KV_STORAGE_KEY_NAME="terraform-backend-key"
-KV_ENCRYPTION_KEY_NAME=$_CLEAN_PARTNER'-rbc-tfstate-encryption-key'
+KV_ENCRYPTION_KEY_NAME=$_CLEAN_PARTNER'-rbc-tfstate-encryption-key-hsm'
 
 # Yellow
 tput setaf 3
@@ -104,7 +105,8 @@ az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group 
   --enabled-for-template-deployment true \
   --enable-purge-protection true \
   --retention-days 90 \
-  --enable-rbac-authorization false
+  --enable-rbac-authorization false \
+  --sku "premium"
 
 # Ensure purge protection is enabled (for keyvaults created with older version of script)
 az keyvault update --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
@@ -130,8 +132,8 @@ az keyvault key show --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAM
     --name "$KV_ENCRYPTION_KEY_NAME" \
     --vault-name $KEYVAULT_NAME \
     --kty RSA \
-    --size 4096 \
-    --protection software \
+    --size 2048 \
+    --protection hsm \
     --ops sign verify encrypt decrypt wrapKey unwrapKey \
     --not-before $(date -u '+%Y-%m-%dT%H:%M:%SZ')
 
@@ -189,6 +191,19 @@ az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_reso
 # Set the storage account key in the key vault if it doesn't exist
 az keyvault secret show --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --query value &> /dev/null || \
   az keyvault secret set --name $KV_STORAGE_KEY_NAME --vault-name $KEYVAULT_NAME --value $(az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --query '[0].value' -o tsv) > /dev/null
+
+
+# Try to delete the old keyvault if it exists. This keyvault worked for GovCloud, but it uses
+# the standard SKU which doesn't support HSM keys, which are required for deployment on
+# Azure Commercial cloud.
+if ( az keyvault show --name $OLD_KEYVAULT_NAME --resource-group $tfstate_resource_group &> /dev/null ); then
+  tput setaf 3
+  echo "Found an outdated keyvault, deleting it ..."
+  tput sgr0
+
+  az keyvault delete --name $OLD_KEYVAULT_NAME --resource-group $tfstate_resource_group
+fi
+
 
 # Create the container if it doesn't exist
 az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT &> /dev/null || \

@@ -79,3 +79,9 @@ variable "monitor_subnet_address_space" {
   default     = ["10.0.10.0/24"]
   description = "Monitor subnet address space."
 }
+
+variable "key_vault_subnet_address_space" {
+  type        = list(string)
+  default     = ["10.0.11.0/24"]
+  description = "Key Vault subnet address space."
+}

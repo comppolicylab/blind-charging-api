@@ -75,6 +75,13 @@ resource "azurerm_application_gateway" "public" {
 
   firewall_policy_id = var.waf ? azurerm_web_application_firewall_policy.gateway[0].id : null
 
+  identity {
+    type = "UserAssigned"
+    identity_ids = [
+      azurerm_user_assigned_identity.gateway.id,
+    ]
+  }
+
   gateway_ip_configuration {
     name      = format("%s-app-gw-ip", local.name_prefix)
     subnet_id = azurerm_subnet.gateway.id
@@ -179,9 +186,8 @@ resource "azurerm_application_gateway" "public" {
   dynamic "ssl_certificate" {
     for_each = local.has_cert ? [1] : []
     content {
-      name     = local.ssl_cert_name
-      data     = local.use_self_signed_cert ? pkcs12_from_pem.app_gateway[0].result : local.use_lets_encrypt_cert ? acme_certificate.app_gateway[0].certificate_p12 : local.use_file_cert ? filebase64(var.ssl_p12_file) : null
-      password = var.ssl_cert_password
+      name                = local.ssl_cert_name
+      key_vault_secret_id = azurerm_key_vault_certificate.app_gateway[0].versionless_secret_id
     }
   }
 

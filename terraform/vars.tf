@@ -398,6 +398,7 @@ locals {
   api_image_tag      = format("%s/%s:%s", var.api_image_registry, var.api_image, var.api_image_version)
   research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
   openai_location    = var.openai_location != null ? var.openai_location : var.location
+  needs_openai_kv    = local.openai_location != var.location
   uses_tf_backend    = var.tfstate_resource_group != null
   firewall_required_domains = [
     "blindchargingapi.eastus.data.azurecr.io",

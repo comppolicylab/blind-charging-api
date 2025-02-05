@@ -6,6 +6,16 @@ resource "azurerm_cognitive_account" "fr" {
   kind                  = "FormRecognizer"
   tags                  = var.tags
   custom_subdomain_name = local.form_recognizer_name
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
+  }
+
+  customer_managed_key {
+    key_vault_key_id   = azurerm_key_vault_key.encryption.id
+    identity_client_id = azurerm_user_assigned_identity.admin.client_id
+  }
 }
 
 resource "azurerm_private_endpoint" "fr" {

@@ -8,6 +8,16 @@ resource "azurerm_cognitive_account" "openai" {
   # NOTE: the subdomain is coerced to lowercase on their end, so we need to do it here
   # otherwise it'll recreate itself everytime terraform is run.
   custom_subdomain_name = lower(format("%s-cs-oai", local.name_prefix))
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
+  }
+
+  customer_managed_key {
+    key_vault_key_id   = local.needs_openai_kv ? azurerm_key_vault_key.oai[0].id : azurerm_key_vault_key.encryption.id
+    identity_client_id = azurerm_user_assigned_identity.admin.client_id
+  }
 }
 
 # TODO(jnu): azurerm does not support the content filter resource yet.

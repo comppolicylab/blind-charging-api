@@ -1,13 +1,29 @@
 resource "azurerm_mssql_server" "main" {
-  name                         = local.mssql_server_name
-  resource_group_name          = azurerm_resource_group.main.name
-  location                     = azurerm_resource_group.main.location
-  version                      = "12.0"
-  administrator_login          = var.db_user
-  administrator_login_password = var.db_password
-  tags                         = var.tags
+  name                = local.mssql_server_name
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  version             = "12.0"
+  tags                = var.tags
   # All access to the database must go through private endpoint.
   public_network_access_enabled = false
+
+  azuread_administrator {
+    login_username = azurerm_user_assigned_identity.admin.name
+    object_id      = azurerm_user_assigned_identity.admin.principal_id
+  }
+
+  # NOTE(jnu): eventually we should remove the password and only allow login via
+  # the managed identity. This is here for backwards compatibility.
+  administrator_login          = var.db_user
+  administrator_login_password = var.db_password
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.admin.id]
+  }
+
+  primary_user_assigned_identity_id            = azurerm_user_assigned_identity.admin.id
+  transparent_data_encryption_key_vault_key_id = azurerm_key_vault_key.encryption.id
 }
 
 resource "azurerm_mssql_database" "main" {

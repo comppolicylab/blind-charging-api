@@ -78,6 +78,15 @@ resource "azurerm_subnet" "gateway" {
   default_outbound_access_enabled               = false
 }
 
+resource "azurerm_subnet" "kv" {
+  name                                          = var.key_vault_subnet_name
+  resource_group_name                           = azurerm_resource_group.main.name
+  virtual_network_name                          = azurerm_virtual_network.main.name
+  address_prefixes                              = var.key_vault_subnet_address_space
+  private_link_service_network_policies_enabled = true
+  default_outbound_access_enabled               = false
+}
+
 resource "azurerm_subnet" "gateway-pl" {
   name                 = var.gateway_private_link_subnet_name
   resource_group_name  = azurerm_resource_group.main.name
@@ -149,6 +158,12 @@ resource "azurerm_private_dns_zone" "monitor" {
 resource "azurerm_private_dns_zone" "fs" {
   count               = var.enable_research_env ? 1 : 0
   name                = "privatelink.file.core.${local.is_gov_cloud ? "usgovcloudapi.net" : "windows.net"}"
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone" "kv" {
+  name                = "privatelink.vaultcore.${local.is_gov_cloud ? "usgovcloudapi.net" : "azure.net"}"
   resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }

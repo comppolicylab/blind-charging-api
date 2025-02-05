@@ -7,6 +7,12 @@ resource "azurerm_redis_cache" "main" {
   sku_name             = "Standard"
   non_ssl_port_enabled = false
   tags                 = var.tags
+
+  redis_configuration {
+    # Redis will operate purely in-memory. No persistent backups.
+    aof_backup_enabled = false
+    rdb_backup_enabled = false
+  }
 }
 
 resource "azurerm_private_endpoint" "redis" {
