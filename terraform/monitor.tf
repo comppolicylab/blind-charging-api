@@ -15,6 +15,14 @@ resource "azurerm_storage_account" "analytics" {
     key_vault_key_id          = azurerm_key_vault_key.encryption.versionless_id
     user_assigned_identity_id = azurerm_user_assigned_identity.admin.id
   }
+
+  infrastructure_encryption_enabled = true
+  public_network_access_enabled     = true
+  network_rules {
+    default_action             = "Deny"
+    bypass                     = ["AzureServices", "Logging", "Metrics"]
+    virtual_network_subnet_ids = [azurerm_subnet.monitor.id]
+  }
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
@@ -26,9 +34,10 @@ resource "azurerm_log_analytics_workspace" "main" {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.admin.id]
   }
-  sku               = "PerGB2018"
-  retention_in_days = 30
-  tags              = var.tags
+  sku                  = "PerGB2018"
+  retention_in_days    = 30
+  tags                 = var.tags
+  cmk_for_query_forced = true
 }
 
 resource "azurerm_log_analytics_linked_storage_account" "logs" {
@@ -80,6 +89,13 @@ resource "azurerm_monitor_private_link_scoped_service" "main" {
   resource_group_name = azurerm_resource_group.main.name
   scope_name          = azurerm_monitor_private_link_scope.main.name
   linked_resource_id  = azurerm_application_insights.main.id
+}
+
+resource "azurerm_monitor_private_link_scoped_service" "law" {
+  name                = lower(format("%s-amplsservice", local.log_analytics_workspace_name))
+  resource_group_name = azurerm_resource_group.main.name
+  scope_name          = azurerm_monitor_private_link_scope.main.name
+  linked_resource_id  = azurerm_log_analytics_workspace.main.id
 }
 
 resource "azurerm_private_endpoint" "monitor" {

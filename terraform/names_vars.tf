@@ -224,6 +224,12 @@ variable "analytics_storage_account_name" {
   description = "Name of the analytics storage account."
 }
 
+variable "analytics_store_private_endpoint_name" {
+  type        = string
+  default     = ""
+  description = "Name of the analytics store private endpoint."
+}
+
 variable "firewall_name" {
   type        = string
   default     = ""
@@ -274,6 +280,7 @@ locals {
   research_app_name                     = coalesce(var.research_app_name, lower(format("%s-research", local.name_prefix)))
   research_storage_account_name         = coalesce(var.research_storage_account_name, lower(replace(format("%sdata", local.name_prefix), "-", "")))
   analytics_storage_account_name        = coalesce(var.analytics_storage_account_name, lower(replace(format("%sadata", local.name_prefix), "-", "")))
+  analytics_store_private_endpoint_name = coalesce(var.analytics_store_private_endpoint_name, lower(format("%s-asa-pe", local.name_prefix)))
   firewall_name                         = coalesce(var.firewall_name, lower(format("%s-fw", local.name_prefix)))
   key_vault_name                        = coalesce(var.key_vault_name, lower(format("%s-kv", local.name_prefix)))
   user_assigned_admin_identity_name     = lower(format("%s-ua-admin", local.name_prefix))

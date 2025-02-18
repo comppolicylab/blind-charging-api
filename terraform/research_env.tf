@@ -21,10 +21,10 @@ resource "azurerm_storage_account" "research" {
 }
 
 resource "azurerm_storage_share" "research" {
-  count                = var.enable_research_env ? 1 : 0
-  name                 = var.research_storage_share_name
-  storage_account_name = azurerm_storage_account.research[0].name
-  quota                = 10 # Gigabytes
+  count              = var.enable_research_env ? 1 : 0
+  name               = var.research_storage_share_name
+  storage_account_id = azurerm_storage_account.research[0].id
+  quota              = 10 # Gigabytes
 }
 
 resource "azurerm_container_app_environment_storage" "research" {

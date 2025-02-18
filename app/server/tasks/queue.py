@@ -10,11 +10,18 @@ from ..config import config
 
 queue = Celery(
     "app.server.tasks",
-    broker=config.queue.broker.url,
-    backend=config.queue.store.url,
+    broker=config.queue.broker.celery_url,
+    backend=config.queue.store.celery_url,
     result_extended=True,
     broker_connection_retry_on_startup=True,
 )
+
+# NOTE(jnu): Celery doesn't provide a RedisCluster backend,
+# so we use a custom extension.
+queue.loader.override_backends = {
+    "rediscluster": "app.lib.backend.rediscluster:RedisClusterBackend",
+    "redisclusters": "app.lib.backend.rediscluster:RedisClusterBackend",
+}
 
 
 @worker_process_init.connect(weak=False)

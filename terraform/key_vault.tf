@@ -1,3 +1,6 @@
+locals {
+  key_vault_encryption_key_name = "encryption-key"
+}
 
 resource "azurerm_user_assigned_identity" "admin" {
   name                = local.user_assigned_admin_identity_name
@@ -49,6 +52,7 @@ resource "azurerm_key_vault" "main" {
     secret_permissions = ["Get", "Set", "Delete", "Purge", "Recover", "List"]
     key_permissions = [
       "Get",
+      "Update",
       "Create",
       "Delete",
       "List",
@@ -127,7 +131,7 @@ resource "azurerm_key_vault" "oai" {
 }
 
 resource "azurerm_key_vault_key" "encryption" {
-  name         = "encryption-key"
+  name         = local.key_vault_encryption_key_name
   key_vault_id = azurerm_key_vault.main.id
   key_type     = "RSA-HSM"
   key_size     = 2048

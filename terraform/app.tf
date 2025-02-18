@@ -2,7 +2,7 @@ resource "azurerm_container_app_environment" "main" {
   name                               = local.container_app_env_name
   resource_group_name                = azurerm_resource_group.main.name
   location                           = azurerm_resource_group.main.location
-  log_analytics_workspace_id         = azurerm_log_analytics_workspace.main.id
+  logs_destination                   = "azure-monitor"
   tags                               = var.tags
   infrastructure_resource_group_name = var.app_infra_resource_group_name
   infrastructure_subnet_id           = azurerm_subnet.app.id
@@ -16,6 +16,21 @@ resource "azurerm_container_app_environment" "main" {
     workload_profile_type = "Consumption"
     minimum_count         = 1
     maximum_count         = 2
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "container_app" {
+  name                       = "container-app"
+  target_resource_id         = azurerm_container_app_environment.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category_group = "allLogs"
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
   }
 }
 

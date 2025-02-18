@@ -361,6 +361,23 @@ Number of concurrent workers to use in a process for processing requests.
 EOF
 }
 
+variable "redis_sku_family" {
+  type        = string
+  default     = "C"
+  description = <<EOF
+Family of Azure Redis Cache SKU to use for deployment.
+
+C is the default, which refers to the "Standard" SKU.
+
+Use "E" to refer to the "Enterprise" SKU, and set the capacity sku accordingly.
+
+For example, the following will correspond to the `Enterprise_E5` SKU:
+  redis_sku_family = "E"
+  redis_capacity_sku = 5
+
+EOF
+}
+
 variable "redis_capacity_sku" {
   type        = number
   default     = 4
@@ -370,6 +387,20 @@ SKU of Azure Redis Cache Standard to use for deployment.
 We currently recommend C4 as a nice balance of memory and cost.
 
 https://azure.microsoft.com/en-us/pricing/details/cache/
+EOF
+}
+
+variable "redis_enterprise_vms" {
+  type        = number
+  default     = 2
+  description = <<EOF
+Number of VMs to run in the Redis Enterprise cluster.
+
+This *only* applies to the Enterprise SKU and will be ignored in other circumstances.
+
+This will ultimately determine how much RAM is available to the Redis cluster.
+
+The default is 2, which for Enterprise_E5 will provide 4GB of RAM.
 EOF
 }
 
