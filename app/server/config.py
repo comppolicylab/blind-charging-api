@@ -17,6 +17,7 @@ from pydantic_settings import BaseSettings
 from .authn import AuthnConfig, NoAuthnConfig
 from .db import RdbmsConfig
 from .lazy import LazyObjectProxy
+from .log_util import improve_uvicorn_access_logs
 from .metrics import AzureMonitorMetricsConfig, NoMetricsConfig
 from .store import RedisConfig, RedisTestConfig
 
@@ -168,3 +169,6 @@ for name in _logger_names:
             break
     else:
         logging.getLogger(name).setLevel(logging.WARNING)
+
+# Apply some custom filtering to uvicorn's logs.
+improve_uvicorn_access_logs()

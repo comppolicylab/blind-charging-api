@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -79,7 +78,7 @@ async def ensure_db(store: RdbmsConfig) -> DbDriver:
 @asynccontextmanager
 async def lifespan(api: FastAPI):
     """Setup and teardown logic for the server."""
-    logger.warning("Starting up ...")
+    logger.info("Starting up ...")
     gater = init_gater()
     api.state.gater = gater
     api.state.startup_time = utcnow()
@@ -91,7 +90,7 @@ async def lifespan(api: FastAPI):
         api.state.db = db
         yield
 
-    logger.warning("Shutting down ...")
+    logger.info("Shutting down ...")
     gater.stop()
     logger.info("Bye!")
 
@@ -179,22 +178,6 @@ async def begin_db_session(request: Request, call_next):
         except Exception as e:
             await session.rollback()
             raise e
-
-
-@generated_app.middleware("http")
-async def log_request(request: Request, call_next):
-    """Log the request."""
-    t0 = time.monotonic()
-    try:
-        return await call_next(request)
-    finally:
-        if config.debug:
-            client_host = request.client.host if request.client else "[unknown client]"
-            t1 = time.monotonic()
-            elapsed = t1 - t0
-            logger.debug(
-                f"{request.method} {request.url.path} " f"{client_host} {elapsed:.2f}s"
-            )
 
 
 if config.debug:
