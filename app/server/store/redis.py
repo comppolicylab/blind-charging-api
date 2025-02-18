@@ -145,7 +145,7 @@ class RedisClusterStoreSession(StoreSession):
 
     async def enqueue(self, key: str, value: str):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.lpush(k, value))  # type: ignore[attr-defined]
+        self.pipe.lpush(k, value)  # type: ignore[attr-defined]
 
     async def dequeue(self, key: str) -> bytes | None:
         k = self._key_func(key)
@@ -158,7 +158,7 @@ class RedisClusterStoreSession(StoreSession):
 
     async def sadd(self, key: str, *value):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.sadd(k, *value))  # type: ignore[attr-defined]
+        self.pipe.sadd(k, *value)  # type: ignore[attr-defined]
 
     async def expire_at(self, key: str, expire_at: int):
         k = self._key_func(key)
@@ -167,7 +167,7 @@ class RedisClusterStoreSession(StoreSession):
 
     async def hsetmapping(self, key: str, mapping: SimpleMapping):
         k = self._key_func(key)
-        await _maybe_wait(self.pipe.hset(k, mapping=dict(mapping)))  # type: ignore[attr-defined]
+        self.pipe.hset(k, mapping=dict(mapping))  # type: ignore[attr-defined]
 
 
 class BaseSimpleRedisStoreSession(StoreSession):
