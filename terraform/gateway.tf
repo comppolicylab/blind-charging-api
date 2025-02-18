@@ -282,6 +282,11 @@ resource "azurerm_application_gateway" "public" {
     interval                                  = 30
     timeout                                   = 30
     unhealthy_threshold                       = 3
+    match {
+      status_code = [
+        "200-399",
+      ]
+    }
   }
 
   // Set up the research environment routing if requested
@@ -317,6 +322,11 @@ resource "azurerm_application_gateway" "public" {
       interval                                  = 30
       timeout                                   = 30
       unhealthy_threshold                       = 3
+      match {
+        status_code = [
+          "200-399",
+        ]
+      }
     }
   }
 
