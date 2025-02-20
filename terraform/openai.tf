@@ -64,7 +64,7 @@ resource "azurerm_cognitive_deployment" "llm" {
     name     = "Standard"
     capacity = var.openai_capacity
   }
-  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Default"
+  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Microsoft.Default"
   version_upgrade_option = "NoAutoUpgrade"
 }
 
