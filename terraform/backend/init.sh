@@ -47,19 +47,32 @@ fi
 
 # Load the .tfvars file.
 # Strip out anything on a line that looks like a comment.
-# This means anything on the line after #, //, or /*.
-# NOTE That this is *not* perfect parsing! For example, if a line is
-# commented out with a multiline comment like this:
-# /*
-#   variable = "value"
-# */
-# Then the variable will still be loaded.
-VARS=$(cat $1 | sed 's/\/\/.*//;s/\/\*.*//;s/#.*//' | grep -E '^\s*(location|partner|subscription_id|tfstate_resource_group)\s*=' | sed 's/ *= */=/')
+# This means anything on the line after #, //, or /* ... */
+# (Note the last is multiline.)
+# Use perl to do this with a multiline pattern, then leave only valid lines in the var $CFG.
+CFG=$(perl -0777 -pe 's/\/\*.*?\*\///gs' $1 | perl -pe 's/(\/\/|#).*?$//mg')
+
+# Load a few specific inline variables from the config.
+# Eval them to set them as shell variables.
+VARS=$(echo "$CFG" | grep -E '^\s*(location|partner|subscription_id|tfstate_resource_group)\s*=' | sed 's/ *= */=/')
 eval "$VARS"
 # Green
 tput setaf 2
 echo "Loaded variables from $1"
 tput sgr0
+
+# The `tags` variable is defined as a hash like this:
+# tags = {
+#   "key1": "value1",
+#   "key2": "value2"
+# }
+# We need to convert this to a string like this:
+# key1=value1 key2=value2
+# This is because the Azure CLI expects tags in this format.
+
+# First, extract the tags hash from the .tfvars file.
+# We can use a quick Perl command to extract the tags hash.
+TAGS=$(echo $CFG | perl -0777 -ne 'print "$1" if /tags\s*=\s*({[^}]*})/s' | jq -r 'to_entries | map("\(.key)=\(.value)") | join(" ")')
 
 # Check if the `tfstate_resource_group` variable is set.
 if [ -z "$tfstate_resource_group" ]; then
@@ -106,7 +119,8 @@ az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group 
   --enable-purge-protection true \
   --retention-days 90 \
   --enable-rbac-authorization false \
-  --sku "premium"
+  --sku "premium" \
+  --tags "$TAGS"
 
 # Ensure purge protection is enabled (for keyvaults created with older version of script)
 az keyvault update --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
@@ -135,7 +149,8 @@ az keyvault key show --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAM
     --size 2048 \
     --protection hsm \
     --ops sign verify encrypt decrypt wrapKey unwrapKey \
-    --not-before $(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    --not-before $(date -u '+%Y-%m-%dT%H:%M:%SZ') \
+    --tags "$TAGS"
 
 # Ensure the rotation policy is correct
 az keyvault key rotation-policy update --name "$KV_ENCRYPTION_KEY_NAME" --vault-name $KEYVAULT_NAME --value @- <<EOF
@@ -168,7 +183,7 @@ EOF
 
 # Create storage account if it doesn't exist already
 az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group &> /dev/null || \
-  az storage account create --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --location $location --sku Standard_LRS
+  az storage account create --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --location $location --sku Standard_LRS --tags "$TAGS"
 
 # Ensure the account uses a system-assigned identity
 az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --identity-type SystemAssigned
@@ -207,7 +222,7 @@ fi
 
 # Create the container if it doesn't exist
 az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT &> /dev/null || \
-  az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT
+  az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT --tags "$TAGS"
 
 # Check what environment Azure is in (GovCloud, Commercial, etc.)
 AZURE_ENVIRONMENT=$(az cloud show --query name -o tsv)
