@@ -105,7 +105,7 @@ az account set --subscription $subscription_id
 
 # Create the resource group if it doesn't exist.
 az group show --name $tfstate_resource_group &> /dev/null || \
-  az group create --name $tfstate_resource_group --location $location
+  az group create --name $tfstate_resource_group --location $location --tags "$TAGS"
 
 UPN=$(az account show --query user.name -o tsv)
 # Create the key vault if it doesn't exist
