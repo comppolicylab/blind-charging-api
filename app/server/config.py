@@ -6,6 +6,7 @@ from typing import Annotated, Union
 import tomllib
 from bc2.core.pipeline import (
     ExtractConfig,
+    InspectConfig,
     ParseConfig,
     RedactConfig,
     RenderConfig,
@@ -44,7 +45,7 @@ MetricsConfig = Union[AzureMonitorMetricsConfig, NoMetricsConfig]
 
 
 AnyPipelineProcessingConfig = Union[
-    ExtractConfig, ParseConfig, RedactConfig, RenderConfig
+    ExtractConfig, ParseConfig, RedactConfig, RenderConfig, InspectConfig
 ]
 
 
@@ -110,6 +111,20 @@ class ExperimentsConfig(BaseModel):
     config_reload_interval: float = 30.0
 
 
+class RedactionParamsConfig(BaseModel):
+    """Configuration for redaction parameters."""
+
+    # Reject redactions based on the frequency of errors that appear to be
+    # hallucinations instead of valid redactions. We can't measure this
+    # perfectly, but it tends to be fairly obvious when the model goes off
+    # while trying to redact something.
+    #
+    # It's useful to keep this above 0 since the model can introduce some
+    # corrections to the underlying text that are reasonable, and we can let
+    # these slide.
+    max_redaction_error_rate: float = 0.005
+
+
 class Config(BaseSettings):
     debug: bool = False
     queue: QueueConfig = QueueConfig()
@@ -117,6 +132,7 @@ class Config(BaseSettings):
     metrics: MetricsConfig = NoMetricsConfig()
     authentication: AuthnConfig = NoAuthnConfig()
     processor: ProcessorConfig
+    params: RedactionParamsConfig = RedactionParamsConfig()
 
 
 def _load_config(path: str = os.getenv("CONFIG_PATH", "config.toml")) -> Config:

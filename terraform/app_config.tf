@@ -61,6 +61,10 @@ api_version = "2024-06-01"
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 system = { prompt_id = "redact" }
+
+[[processor.pipe]]
+# 4) Inspector for debugging
+engine = "inspect:quality"
 EOF
 
   # Full application config file

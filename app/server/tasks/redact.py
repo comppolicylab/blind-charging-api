@@ -2,6 +2,7 @@ import asyncio
 import io
 
 from bc2 import Pipeline, PipelineConfig
+from bc2.core.inspect.quality import QualityReport
 from bc2.core.pipeline import (
     HtmlRenderConfig,
     JsonRenderConfig,
@@ -119,6 +120,12 @@ def redact(
             }
         )
 
+        if ctx.quality:
+            p_valid = 1 - config.params.max_redaction_error_rate
+            check_quality(ctx.quality, p_valid=p_valid)
+        else:
+            logger.warning("No quality report available")
+
         # Inspect every annotation and merge it into the shared store.
         if ctx.annotations:
             save_annotations_sync(ctx.annotations)
@@ -159,6 +166,24 @@ def redact(
             logger.error("The exception that caused the failure was:")
             logger.exception(e)
             raise self.retry() from e
+
+
+class LowQualityError(Exception):
+    pass
+
+
+def check_quality(quality: QualityReport, p_valid: float = 0.995):
+    """Check the quality of the redaction results.
+
+    Args:
+        quality (QualityReport): The quality report.
+
+    Raises:
+        LowQualityError: If the quality is too low.
+    """
+    if quality.chars.p_valid < p_valid:
+        raise LowQualityError(f"Quality too low ({quality.chars.p_valid} < {p_valid})")
+    logger.debug(f"Quality check passed ({quality.chars.p_valid} >= {p_valid})")
 
 
 def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:

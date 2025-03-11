@@ -45,4 +45,5 @@ path = "test.db"
 pipe = [
     { engine = "extract:tesseract" },
     { engine = "redact:noop", delimiters = ["[", "]"] },
+    { engine = "inspect:quality" },
 ]
