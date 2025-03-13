@@ -115,7 +115,7 @@ def redact(
             {
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
-                "redact": {"aliases": mask_info.get_mask_name_map()},
+                "redact": {"aliases": mask_info.get_name_mask_map()},
                 "inspect": {"subjects": mask_info.get_id_name_map()},
             }
         )
