@@ -4,13 +4,8 @@ from pathlib import Path
 from typing import Annotated, Union
 
 import tomllib
-from bc2.core.pipeline import (
-    ExtractConfig,
-    InspectConfig,
-    ParseConfig,
-    RedactConfig,
-    RenderConfig,
-)
+from bc2 import AnyProcessingConfig
+from bc2.lib.embedding import EmbeddingConfig
 from glowplug import SqliteSettings
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -44,22 +39,17 @@ BrokerConfig = Union[RedisConfig, RedisTestConfig]
 MetricsConfig = Union[AzureMonitorMetricsConfig, NoMetricsConfig]
 
 
-AnyPipelineProcessingConfig = Union[
-    ExtractConfig, ParseConfig, RedactConfig, RenderConfig, InspectConfig
-]
-
-
 class InlineProcessorConfig(BaseModel):
     """Define the pipeline directly in the main file."""
 
-    pipe: list[AnyPipelineProcessingConfig]
+    pipe: list[AnyProcessingConfig]
 
 
 class ExternalProcessorConfig(BaseModel):
     """Load the pipeline from a file or an environment variable."""
 
     @property
-    def pipe(self) -> list[AnyPipelineProcessingConfig]:
+    def pipe(self) -> list[AnyProcessingConfig]:
         pipe_string = self._load_pipe_string()
         try:
             data = tomllib.loads(pipe_string)
@@ -109,6 +99,7 @@ class ExperimentsConfig(BaseModel):
     automigrate: Annotated[bool, Field(deprecated=True)] = True
     store: RdbmsConfig = SqliteSettings(engine="sqlite")
     config_reload_interval: float = 30.0
+    embedding: EmbeddingConfig | None = None
 
 
 class RedactionParamsConfig(BaseModel):

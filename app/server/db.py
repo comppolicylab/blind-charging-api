@@ -3,13 +3,23 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Type, TypeVar, Union
 
+from bc2.lib.embedding import Embedding
 from glowplug import DbDriver, MsSqlSettings, SqliteSettings
 from sqlalchemy import Dialect, ForeignKey, delete, select
 from sqlalchemy import text as sql_text
 from sqlalchemy.ext.asyncio import AsyncAttrs, AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.schema import UniqueConstraint
-from sqlalchemy.types import BINARY, NVARCHAR, DateTime, String, TypeDecorator
+from sqlalchemy.types import (
+    BINARY,
+    NVARCHAR,
+    VARBINARY,
+    DateTime,
+    LargeBinary,
+    String,
+    TypeDecorator,
+    TypeEngine,
+)
 from sqlalchemy.types import Enum as SQLEnum
 from typing_extensions import Annotated
 from uuid_utils import UUID, uuid7
@@ -40,6 +50,60 @@ Disqualifier = Enum(
     "assigned_to_unblind case_type_ineligible prior_knowledge_bias "
     "narrative_incomplete redaction_missing redaction_illegible other",
 )
+
+
+class EmbeddingType(TypeDecorator):
+    """Stores embeddings compactly in a binary format."""
+
+    MAX_SIZE = 4096
+    """Maximum dimensionality of an embedding."""
+
+    _MAX_SIZE_BITS = Embedding.calc_binary_size(MAX_SIZE)
+    """Number of bits needed to store largest embedding."""
+
+    impl = LargeBinary
+
+    _default_type = LargeBinary(_MAX_SIZE_BITS)
+
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[Any]:
+        # MSSQL can't hang with large binary sizes in the type def -- 8000 max.
+        # But, it can handle up to 2gb if we pass they keyword "MAX" instead.
+        if dialect.name == "mssql":
+            max_size_b = self._MAX_SIZE_BITS if self._MAX_SIZE_BITS < 8000 else None
+            return dialect.type_descriptor(VARBINARY(max_size_b))
+        else:
+            return dialect.type_descriptor(self._default_type)
+
+    def process_bind_param(self, value: Any | None, dialect: Dialect) -> bytes | None:
+        """Convert a list of floats to bytes."""
+        if value is None:
+            return None
+
+        # Coerce input to Embedding type.
+        embedding: Embedding | None = None
+        if isinstance(value, Embedding):
+            embedding = value
+        elif isinstance(value, (list, tuple)):
+            embedding = Embedding(value)
+        else:
+            raise ValueError("Embedding must be a list, tuple, or Embedding.")
+
+        # Check bounds
+        if embedding.dimensions > self.MAX_SIZE:
+            raise ValueError(f"{embedding} exceeds max size of {self.MAX_SIZE}")
+
+        return embedding.to_binary()
+
+    def process_result_value(
+        self, value: bytes | None, dialect: Dialect
+    ) -> list[float] | None:
+        """Convert bytes to a list of floats."""
+        if value is None:
+            return None
+
+        return Embedding.from_binary(value).to_list()
 
 
 class UUID7Type(TypeDecorator):
@@ -86,6 +150,7 @@ class Base(AsyncAttrs, DeclarativeBase):
     type_annotation_map = {
         UUID: UUID7Type,
         datetime: DateTime(timezone=True),
+        Embedding: EmbeddingType,
         str_256: String(255),
         str_4096: String(4095),
         ReviewType: SQLEnum(ReviewType),
@@ -199,6 +264,23 @@ class DocumentStatus(Base):
     document_id: Mapped[str_256] = mapped_column()
     status: Mapped[str_256] = mapped_column()
     error: Mapped[str_4096] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
+class DocumentEmbedding(Base):
+    __tablename__ = "document_embedding"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=primary_key)
+    jurisdiction_id: Mapped[str_256] = mapped_column()
+    case_id: Mapped[str_256] = mapped_column()
+    subject_id: Mapped[str_256] = mapped_column(nullable=True)
+    document_id: Mapped[str_256] = mapped_column()
+    embedding: Mapped[Embedding] = mapped_column()
+    dimensions: Mapped[int] = mapped_column()
+    model_vendor: Mapped[str_256] = mapped_column()
+    model_name: Mapped[str_256] = mapped_column()
+    model_version: Mapped[str_256] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 

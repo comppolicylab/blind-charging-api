@@ -176,6 +176,12 @@ variable "openai_llm_deployment_name" {
   description = "Name of the OpenAI LLM deployment."
 }
 
+variable "openai_embedding_deployment_name" {
+  type        = string
+  default     = ""
+  description = "Name of the OpenAI embedding deployment."
+}
+
 variable "openai_private_endpoint_name" {
   type        = string
   default     = ""
@@ -273,6 +279,7 @@ locals {
   virtual_network_name                  = coalesce(var.virtual_network_name, lower(format("%s-vnet", local.name_prefix)))
   openai_account_name                   = coalesce(var.openai_account_name, lower(format("%s-cs-oai", local.name_prefix)))
   openai_llm_deployment_name            = coalesce(var.openai_llm_deployment_name, lower(format("%s-oai-llm", local.name_prefix)))
+  openai_embedding_deployment_name      = coalesce(var.openai_embedding_deployment_name, lower(format("%s-oai-embed", local.name_prefix)))
   openai_private_endpoint_name          = coalesce(var.openai_private_endpoint_name, lower(format("%s-cs-oai-pe", local.name_prefix)))
   key_vault_private_endpoint_name       = coalesce(var.key_vault_private_endpoint_name, lower(format("%s-kv-pe", local.name_prefix)))
   redis_cache_name                      = coalesce(var.redis_cache_name, lower(format("%s-redis", local.name_prefix)))

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from glowplug import DbDriver
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from sqlalchemy.exc import SQLAlchemyError
 
 import alembic.util.exc
 
@@ -53,7 +54,14 @@ async def ensure_db(store: RdbmsConfig) -> DbDriver:
                     "The database migrations are in an invalid state. "
                     "Please fix manually."
                 )
+    except (NameError, ValueError, KeyError, RuntimeError, SQLAlchemyError):
+        logger.error(
+            "Failed to apply database migrations. "
+            "Seems like the migration is invalid."
+        )
+        raise
     except Exception as e:
+        logger.exception("Failed to apply database migrations: %s", e)
         if store.driver.alembic.current() is None:
             logger.error(
                 "Database probably was not stamped properly. Assuming it's head "

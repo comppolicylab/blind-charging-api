@@ -17,6 +17,17 @@ host = "${local.mssql_fqdn}"
 database = "${azurerm_mssql_database.main.name}"
 EOF
 
+  # Add an embedding configuration when the research environment is enabled.
+  embedding_config = !var.enable_research_env ? "" : <<EOF
+[experiments.embedding]
+[experiments.embedding.client]
+azure_endpoint = "${local.openai_endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+[experiments.embedding.generator]
+model = "${local.openai_embedding_deployment_name}"
+EOF
+
   # Processing pipeline configuration segment
   # Configure the processing pipeline. Just a no-op pipeline on the toy version.
   app_pipeline_toy_toml = <<EOF
@@ -46,6 +57,7 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "parse" }
 
 [[processor.pipe]]
@@ -60,6 +72,7 @@ api_version = "2024-06-01"
 [processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "redact" }
 
 [[processor.pipe]]
@@ -110,6 +123,8 @@ automigrate = false
 
 [experiments.store]
 ${local.db_config}
+
+${local.embedding_config}
 
 [processor]
 # Configure the processing pipeline.

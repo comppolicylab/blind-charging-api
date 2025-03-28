@@ -125,7 +125,9 @@ resource "azapi_resource" "redis_dbs" {
 // List the access keys.
 // TODO(jnu) phase out access key authentication so this is not necessary.
 resource "azapi_resource_action" "redis_keys" {
-  type        = local.redis_db_resource_type
+  // Note that for enterprise cache we use the database resource, while for
+  // managed cache we use the main redis resource for this operation.
+  type        = local.redis_needs_enterprise_cache ? local.redis_db_resource_type : local.redis_resource_type
   resource_id = local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].id : azapi_resource.redis.id
   action      = "listKeys"
   response_export_values = {

@@ -57,12 +57,28 @@ resource "azurerm_cognitive_deployment" "llm" {
   cognitive_account_id = azurerm_cognitive_account.openai.id
   model {
     format  = "OpenAI"
-    name    = "gpt-4o"
-    version = "2024-05-13"
+    name    = var.openai_llm_model
+    version = var.openai_llm_model_version
   }
   sku {
     name     = "Standard"
     capacity = var.openai_capacity
+  }
+  rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Microsoft.Default"
+  version_upgrade_option = "NoAutoUpgrade"
+}
+
+resource "azurerm_cognitive_deployment" "embedding" {
+  name                 = local.openai_embedding_deployment_name
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  model {
+    format  = "OpenAI"
+    name    = var.openai_embedding_model
+    version = var.openai_embedding_model_version
+  }
+  sku {
+    name     = "Standard"
+    capacity = var.openai_embedding_capacity
   }
   rai_policy_name        = var.disable_content_filter ? azapi_resource.no_content_filter[0].name : "Microsoft.Default"
   version_upgrade_option = "NoAutoUpgrade"
@@ -87,5 +103,6 @@ resource "azurerm_private_endpoint" "openai" {
 }
 
 locals {
-  openai_endpoint = azurerm_cognitive_account.openai.endpoint
+  openai_endpoint       = azurerm_cognitive_account.openai.endpoint
+  full_openai_llm_model = "${var.openai_llm_model}-${var.openai_llm_model_version}"
 }

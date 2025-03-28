@@ -258,9 +258,57 @@ for approval to disable filters. Once approved, re-deploy with this set to true.
 EOF
 }
 
+variable "openai_llm_model" {
+  type        = string
+  default     = "gpt-4o"
+  description = <<EOF
+The OpenAI model to use for the LLM cognitive service.
+
+This should be set to the model name in the OpenAI API, e.g., "gpt-4o" or "gpt-3.5-turbo".
+EOF
+}
+
+variable "openai_llm_model_version" {
+  type        = string
+  default     = "2024-05-13"
+  description = <<EOF
+The version of the OpenAI model to use for the LLM cognitive service.
+This should be set to the version in the OpenAI API, e.g., "2024-05-13".
+
+Ensure that the model version is available on GovCloud, as the models differ between
+GovCloud and Commercial cloud.
+EOF
+}
+
+variable "openai_embedding_model" {
+  type        = string
+  default     = "text-embedding-3-large"
+  description = <<EOF
+The OpenAI model to use for the embedding cognitive service.
+
+This should be set to the model name in the OpenAI API, e.g., "text-embedding-3-large".
+EOF
+}
+
+variable "openai_embedding_model_version" {
+  type        = string
+  default     = "1"
+  description = <<EOF
+The version of the OpenAI model to use for the embedding cognitive service.
+
+Typically these only have one version.
+EOF
+}
+
 variable "openai_capacity" {
   type        = number
   default     = 80
+  description = "In thousands of tokens per minute."
+}
+
+variable "openai_embedding_capacity" {
+  type        = number
+  default     = 120
   description = "In thousands of tokens per minute."
 }
 

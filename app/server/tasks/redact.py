@@ -2,14 +2,16 @@ import asyncio
 import io
 
 from bc2 import Pipeline, PipelineConfig
+from bc2.core.inspect.embed import EmbedInspectConfig
 from bc2.core.inspect.quality import QualityReport
-from bc2.core.pipeline import (
+from bc2.core.render import (
     HtmlRenderConfig,
     JsonRenderConfig,
     PdfRenderConfig,
     RenderConfig,
     TextRenderConfig,
 )
+from bc2.lib.embedding import Embedding
 from celery import Task
 from celery.canvas import Signature
 from celery.utils.log import get_task_logger
@@ -20,6 +22,7 @@ from app.func import allf
 from ..case import CaseStore, MaskInfo
 from ..case_helper import get_document_sync, save_document_sync, save_retry_state_sync
 from ..config import config
+from ..db import DocumentEmbedding, RdbmsConfig
 from ..generated.models import OutputFormat
 from .fetch import FetchTaskResult
 from .metrics import (
@@ -101,9 +104,17 @@ def redact(
         )
         # Splice in the pipeline from the config, and the rendered from the request.
         # We only fix the I/O engines.
-        pipeline_cfg.pipe[1:1] = config.processor.pipe + [
-            output_format_to_renderer(params.renderer)
-        ]
+        pipe_tail = [output_format_to_renderer(params.renderer)]
+
+        # If configured, generate an embedding before the redaction.
+        if config.experiments.enabled and config.experiments.embedding:
+            embedder = EmbedInspectConfig.model_validate(
+                config.experiments.embedding.model_dump()
+            )
+            pipe_tail.insert(0, embedder)
+
+        pipeline_cfg.pipe[1:1] = config.processor.pipe + pipe_tail
+
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))
         output_buffer = io.BytesIO()
@@ -135,6 +146,10 @@ def redact(
             # This is a new map from subjectId -> mask.
             # Join this with the existing data we have stored.
             save_aliases_sync(ctx.annotations)
+
+        if ctx.embedding:
+            # Save the embedding for the document.
+            save_embedding_sync(config.experiments.store, params, ctx.embedding)
 
         content = output_buffer.getvalue()
         content_storage_id = save_document_sync(content)
@@ -206,6 +221,31 @@ def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
             return JsonRenderConfig()
         case _:
             raise ValueError(f"Unsupported output format: {output_format}")
+
+
+def save_embedding_sync(
+    db_config: RdbmsConfig, task: RedactionTask, embedding: Embedding
+):
+    """Save the embedding for the document.
+
+    Args:
+        redaction_result (RedactionTaskResult): The redaction result.
+        embedding (Embedding): The embedding.
+    """
+    with db_config.driver.sync_session() as db:
+        db.add(
+            DocumentEmbedding(
+                document_id=task.document_id,
+                jurisdiction_id=task.jurisdiction_id,
+                case_id=task.case_id,
+                embedding=embedding,
+                dimensions=embedding.dimensions,
+                model_vendor=embedding.vendor,
+                model_name=embedding.model,
+                model_version=embedding.model_version,
+            )
+        )
+        db.commit()
 
 
 def get_mask_info_sync(jurisdiction_id: str, case_id: str) -> MaskInfo:
