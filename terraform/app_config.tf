@@ -47,14 +47,19 @@ api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
 extract_labeled_text = false
 
 [[processor.pipe]]
-# 2) Parse textual output into coherent narrative with OpenAI
+# 2) Parse textual output into coherent narrative with OpenAI.
+# Parsing will happen in multiple chunks if the text is too long.
+engine = "$chunk"
+max_iterations = ${var.parse_chunks_max_iterations}
+
+[processor.pipe.processor]
 engine = "parse:openai"
-[processor.pipe.client]
+[processor.pipe.processor.client]
 azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 
-[processor.pipe.generator]
+[processor.pipe.processor.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 openai_model = "${local.full_openai_llm_model}"
@@ -62,22 +67,57 @@ system = { prompt_id = "parse" }
 
 [[processor.pipe]]
 # 3) Redact racial information with OpenAI
+engine = "$chunk"
+max_iterations = ${var.redact_chunks_max_iterations}
+
+[processor.pipe.processor]
+engine = "$compose"
+
+[[processor.pipe.processor.pipe]]
+# 3a) Apply redaction with LLM
 engine = "redact:openai"
 delimiters = ["[", "]"]
-[processor.pipe.client]
+[processor.pipe.processor.pipe.client]
 azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 
-[processor.pipe.generator]
+[processor.pipe.processor.pipe.generator]
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "redact" }
 
+[[processor.pipe.processor.pipe]]
+# 3b) Inspect redaction to generate placeholder list
+engine = "inspect:placeholders"
+[processor.pipe.processor.pipe.client]
+azure_endpoint = "${local.openai_endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+[processor.pipe.processor.pipe.generator]
+model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
+
+
 [[processor.pipe]]
 # 4) Inspector for debugging
 engine = "inspect:quality"
+
+[[processor.pipe]]
+# 5) Generate map from Id to mask
+engine = "inspect:subject_masks"
+[processor.pipe.client]
+azure_endpoint = "${local.openai_endpoint}"
+api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
+api_version = "2024-06-01"
+[processor.pipe.generator]
+model = "${azurerm_cognitive_deployment.llm.name}"
+openai_model = "${local.full_openai_llm_model}"
+
+[[processor.pipe]]
+# 6) Generate list of annotations to store in context
+engine = "inspect:annotations"
 EOF
 
   # Full application config file

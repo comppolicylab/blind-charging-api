@@ -470,6 +470,26 @@ Environment variables to pass to the API and worker containers.
 EOF
 }
 
+variable "parse_chunks_max_iterations" {
+  type        = number
+  default     = 5
+  description = <<EOF
+Maximum number of iterations to run the parser.
+
+This may be necessary to work around output token limits for LLM parsing.
+EOF
+}
+
+variable "redact_chunks_max_iterations" {
+  type        = number
+  default     = 5
+  description = <<EOF
+Maximum number of iterations to run the redactor.
+
+This may be necessary to work around output token limits for LLM redaction.
+EOF
+}
+
 
 locals {
   is_gov_cloud       = var.azure_env == "usgovernment"
