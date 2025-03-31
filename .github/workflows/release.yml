@@ -14,7 +14,6 @@ jobs:
       api_release: ${{ steps.api.outputs.release }}
       api_version: ${{ steps.api.outputs.version }}
       api_release_channel: ${{ steps.api.outputs.channel }}
-      api_latest: ${{ steps.api.outputs.latest }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -40,13 +39,10 @@ jobs:
 
           # Choose between "unstable" and "stable" channels.
           # We choose "unstable" when the version contains a hyphen (e.g., 0.1.0-alpha).
-          # TODO(jnu): "latest" is an alias for "stable" right now.
-          # It's deprecated and should be replaced with "stable" in the future.
           if [[ $API_VERSION == *"-"* ]]; then
             echo "channel=unstable" >> "$GITHUB_OUTPUT"
           else
             echo "channel=stable" >> "$GITHUB_OUTPUT"
-            echo "latest=true" >> "$GITHUB_OUTPUT"
           fi
 
           if git rev-parse "api-$API_VERSION" >/dev/null 2>&1; then
@@ -138,10 +134,8 @@ jobs:
           context: ${{github.workspace}}
           file: ${{github.workspace}}/Dockerfile
           # Apply new version tag, as well as a tag based on release channel.
-          # TODO(jnu): "latest" is an alias for "stable" right now, but it's deprecated
-          # and will be removed in the future.
           push: true
-          tags: blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_release_channel }},blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}${{ needs.tag.outputs.api_latest == 'true' && ',blindchargingapi.azurecr.io/blind-charging-api:latest' || '' }}
+          tags: blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_release_channel }},blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}
 
   # Create GitHub release with notes
   release:
