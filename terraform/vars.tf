@@ -212,13 +212,13 @@ variable "api_image" {
 
 variable "api_image_version" {
   type        = string
-  default     = "latest"
+  default     = "stable"
   description = <<EOF
 The version of the Docker image used to run the API.
 
 This version must exist in the repo specified in `var.api_image`.
 
-**WARNING** If the tag is `latest` (the default!), the image version may upgrade
+**WARNING** If the tag is `stable` (the default!), the image version may upgrade
 unexpectedly when the app containers restart. This is usually fine, but it's
 recommended to lock the version and increment it manually in case a new image
 contains incompatible changes.
