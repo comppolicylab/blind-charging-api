@@ -289,9 +289,13 @@ def save_inferred_case_data_sync(jurisdiction_id: str, case_id: str, context: Co
 
                 if context.masked_subjects:
                     await cs.save_masked_names(context.masked_subjects)
+                else:
+                    logger.warning("No masked subjects found in context")
 
                 if context.placeholders:
                     await cs.save_placeholders(context.placeholders)
+                else:
+                    logger.warning("No placeholders found in context")
 
     if not context:
         logger.warning("No context available to save")

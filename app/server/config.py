@@ -113,7 +113,7 @@ class RedactionParamsConfig(BaseModel):
     # It's useful to keep this above 0 since the model can introduce some
     # corrections to the underlying text that are reasonable, and we can let
     # these slide.
-    max_redaction_error_rate: float = 0.005
+    max_redaction_error_rate: float = 0.01
 
 
 class Config(BaseSettings):

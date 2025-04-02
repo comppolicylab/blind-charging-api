@@ -54,6 +54,7 @@ max_iterations = ${var.parse_chunks_max_iterations}
 
 [processor.pipe.processor]
 engine = "parse:openai"
+
 [processor.pipe.processor.client]
 azure_endpoint = "${local.openai_endpoint}"
 api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
@@ -64,6 +65,7 @@ method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "parse" }
+
 
 [[processor.pipe]]
 # 3) Redact racial information with OpenAI
