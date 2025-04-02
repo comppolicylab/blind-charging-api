@@ -3,6 +3,7 @@ import hashlib
 import logging
 from typing import Any, Callable, Coroutine, NamedTuple, TypeVar, cast, overload
 
+from bc2.core.common.name_map import IdToMaskMap, IdToNameMap, NameToMaskMap
 from celery.result import AsyncResult
 
 from .config import config
@@ -24,13 +25,18 @@ SavedMask = NamedTuple("SavedMask", [("role", str), ("mask", str), ("name", str)
 class MaskInfo:
     """A collection of masks for a case."""
 
-    def __init__(self, initial: dict[bytes, SavedMask] | None = None):
+    def __init__(
+        self,
+        initial: dict[bytes, SavedMask] | None = None,
+        extra_placeholders: dict[str, str] | None = None,
+    ):
         """Initialize the store optionally with a dictionary of masks.
 
         Args:
             initial (dict[bytes, SavedMask], optional): The initial masks.
         """
         self._masks = initial or {}
+        self._extra_placeholders = extra_placeholders or {}
 
     def get(self, subject_id: bytes) -> SavedMask:
         """Get the mask info for a subject by ID.
@@ -52,7 +58,7 @@ class MaskInfo:
         """
         self._masks[subject_id] = mask_info
 
-    def get_name_mask_map(self) -> dict[str, str]:
+    def get_name_mask_map(self) -> NameToMaskMap:
         """Get the map from real names to masks.
 
         Example:
@@ -62,25 +68,15 @@ class MaskInfo:
             }
 
         Returns:
-            dict[str, str]: The map from real names to masks.
+            NameToMaskMap: The map from real names to masks.
         """
-        return {v.name: v.mask for v in self._masks.values()}
+        # Get all the placeholders that have IDs associated with them
+        placeholders = {v.name: v.mask for v in self._masks.values()}
+        # Merge with all the extra placeholders that we're not sure if we have IDs for.
+        placeholders.update(self._extra_placeholders)
+        return NameToMaskMap(placeholders)
 
-    def get_mask_name_map(self) -> dict[str, str]:
-        """Get the map from masks to real names.
-
-        Example:
-            {
-                "Victim 1": "John Doe",
-                "Witness 1": "Jane Doe",
-            }
-
-        Returns:
-            dict[str, str]: The map from masks to real names.
-        """
-        return {v.mask: v.name for v in self._masks.values()}
-
-    def get_id_name_map(self) -> dict[str, str]:
+    def get_id_name_map(self) -> IdToNameMap:
         """Get the map from subject IDs to real names.
 
         Example:
@@ -90,9 +86,9 @@ class MaskInfo:
             }
 
         Returns:
-            dict[str, str]: The map from subject IDs to real names.
+            IdToNameMap: The map from subject IDs to real names.
         """
-        return {k.decode(): v.name for k, v in self._masks.items()}
+        return IdToNameMap({k.decode(): v.name for k, v in self._masks.items()})
 
 
 F_sync = TypeVar("F_sync", bound=Callable[..., Any])
@@ -249,8 +245,40 @@ class CaseStore:
         Returns:
             None
         """
+        await self.save_masked_names({subject_id: mask})
+
+    @ensure_init
+    async def save_masked_names(self, masks: SimpleMapping | IdToMaskMap) -> None:
+        """Save a list of masked names for a case.
+
+        Args:
+            masks (SimpleMapping | IdToMaskMap): The masks to save.
+
+        Returns:
+            None
+        """
+        if not masks:
+            return
+        simple_masks = masks._map.copy() if isinstance(masks, IdToMaskMap) else masks
         mapping_key = self.key("mask")
-        await self.store.hsetmapping(mapping_key, {subject_id: mask})
+        await self.store.hsetmapping(mapping_key, simple_masks)
+        await self.store.expire_at(mapping_key, self.expires_at)
+
+    @ensure_init
+    async def save_placeholders(self, masks: SimpleMapping | NameToMaskMap) -> None:
+        """Save a list of placeholders for a case.
+
+        Args:
+            masks (SimpleMapping | NameToMaskMap): The masks to save.
+
+        Returns:
+            None
+        """
+        if not masks:
+            return
+        simple_masks = masks._map.copy() if isinstance(masks, NameToMaskMap) else masks
+        mapping_key = self.key("placeholders")
+        await self.store.hsetmapping(mapping_key, simple_masks)
         await self.store.expire_at(mapping_key, self.expires_at)
 
     @ensure_init
@@ -319,9 +347,19 @@ class CaseStore:
         # ---
         # A map from subject ID to an enumerated role used in the redacted text, e.g.:
         # {"1": "judge 1", "2": "attorney 1"}
-        id_to_role, id_to_mask = await asyncio.gather(
+        #
+        # name_to_mask
+        # ---
+        # A map from a real name to the mask used in the redacted text, e.g.:
+        # {"John Doe": "judge 1", "Jane Doe": "attorney 1"}
+        #
+        # NOTE: there is some overlap, especially between id_to_mask and name_to_mask.
+        # this is generally not an issue for the LLM, but can be confusing to sort
+        # out what this code is doing / what's stored where.
+        id_to_role, id_to_mask, name_to_mask = await asyncio.gather(
             self.store.hgetall(self.key("role")),
             self.store.hgetall(self.key("mask")),
+            self.store.hgetall(self.key("placeholders")),
         )
         # Every subject ID in the case that we are tracking, e.g.:
         # ["1", "2"]
@@ -346,6 +384,13 @@ class CaseStore:
         # The subject IDs that we know about roles but don't have masks for yet.
         ids_missing_masks = id_to_role.keys() - id_to_mask.keys()
 
+        # Decode extra placeholders
+        extra_placeholders = (
+            {k.decode(): v.decode() for k, v in name_to_mask.items() if k and v}
+            if name_to_mask
+            else {}
+        )
+
         # Start generating final metadata, e.g.:
         # MaskInfo({
         #   "j1": SavedMask(role="judge", mask="Judge 1", name="John Doe"),
@@ -362,7 +407,8 @@ class CaseStore:
                 )
                 for k in id_to_mask.keys()
                 if k in id_to_real_name
-            }
+            },
+            extra_placeholders=extra_placeholders,
         )
 
         # Next, create a RoleEnumerator so that we can generate masks for everyone else.

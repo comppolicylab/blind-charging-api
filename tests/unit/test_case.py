@@ -1,4 +1,5 @@
 import pytest
+from bc2.core.common.name_map import IdToNameMap, NameToMaskMap
 from fakeredis import FakeRedis
 
 from app.server.case import CaseStore
@@ -21,12 +22,16 @@ from app.server.generated.models import HumanName
                     "lastName": "doe",
                 },
             },
-            "expected_name_mask_map": {
-                "jack doe": "Accused 1",
-            },
-            "expected_id_name_map": {
-                "sub1": "jack doe",
-            },
+            "expected_name_mask_map": NameToMaskMap(
+                {
+                    "jack doe": "Accused 1",
+                }
+            ),
+            "expected_id_name_map": IdToNameMap(
+                {
+                    "sub1": "jack doe",
+                }
+            ),
         },
         # Simple case with one stored role and mask
         {
@@ -42,12 +47,16 @@ from app.server.generated.models import HumanName
                     "lastName": "doe",
                 },
             },
-            "expected_name_mask_map": {
-                "jack doe": "Accused 1",
-            },
-            "expected_id_name_map": {
-                "sub1": "jack doe",
-            },
+            "expected_name_mask_map": NameToMaskMap(
+                {
+                    "jack doe": "Accused 1",
+                }
+            ),
+            "expected_id_name_map": IdToNameMap(
+                {
+                    "sub1": "jack doe",
+                }
+            ),
         },
         # Combination of stored roles and masks
         {
@@ -80,18 +89,22 @@ from app.server.generated.models import HumanName
                     "lastName": "doe",
                 },
             },
-            "expected_name_mask_map": {
-                "jack doe": "Accused 1",
-                "jane doe": "Victim 1",
-                "james doe": "Accused 3",
-                "jill doe": "Accused 2",
-            },
-            "expected_id_name_map": {
-                "sub1": "jack doe",
-                "sub2": "jane doe",
-                "sub3": "james doe",
-                "sub4": "jill doe",
-            },
+            "expected_name_mask_map": NameToMaskMap(
+                {
+                    "jack doe": "Accused 1",
+                    "jane doe": "Victim 1",
+                    "james doe": "Accused 3",
+                    "jill doe": "Accused 2",
+                }
+            ),
+            "expected_id_name_map": IdToNameMap(
+                {
+                    "sub1": "jack doe",
+                    "sub2": "jane doe",
+                    "sub3": "james doe",
+                    "sub4": "jill doe",
+                }
+            ),
         },
         # Weird case, but if we have a stored mask with a high number,
         # we should just continue the enumeration from there.
@@ -113,14 +126,18 @@ from app.server.generated.models import HumanName
                     "lastName": "doe",
                 },
             },
-            "expected_name_mask_map": {
-                "jack doe": "Accused 100",
-                "jane doe": "Accused 101",
-            },
-            "expected_id_name_map": {
-                "sub1": "jack doe",
-                "sub2": "jane doe",
-            },
+            "expected_name_mask_map": NameToMaskMap(
+                {
+                    "jack doe": "Accused 100",
+                    "jane doe": "Accused 101",
+                }
+            ),
+            "expected_id_name_map": IdToNameMap(
+                {
+                    "sub1": "jack doe",
+                    "sub2": "jane doe",
+                }
+            ),
         },
     ],
 )
@@ -143,7 +160,4 @@ async def test_get_name_mask_map(fake_redis_store: FakeRedis, config: Config, sp
             await cs.init("jur1", "case1")
             mask_info = await cs.get_mask_info()
             assert mask_info.get_name_mask_map() == spec["expected_name_mask_map"]
-            assert mask_info.get_mask_name_map() == {
-                v: k for k, v in spec["expected_name_mask_map"].items()
-            }
             assert mask_info.get_id_name_map() == spec["expected_id_name_map"]

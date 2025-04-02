@@ -2,6 +2,7 @@ import asyncio
 import io
 
 from bc2 import Pipeline, PipelineConfig
+from bc2.core.common.context import Context
 from bc2.core.inspect.embed import EmbedInspectConfig
 from bc2.core.inspect.quality import QualityReport
 from bc2.core.render import (
@@ -121,34 +122,36 @@ def redact(
 
         # Fetch context about the case from the database.
         mask_info = get_mask_info_sync(params.jurisdiction_id, params.case_id)
+        placeholders = mask_info.get_name_mask_map()
+        subject_ids = mask_info.get_id_name_map()
         # Run the pipeline with memory I/O.
         ctx = pipeline.run(
             {
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
-                "redact": {"aliases": mask_info.get_name_mask_map()},
-                "inspect": {"subjects": mask_info.get_id_name_map()},
+                "redact": {"placeholders": placeholders},
+                "inspect": {
+                    "subjects": subject_ids,
+                    "placeholders": placeholders,
+                },
             }
         )
 
+        # Check quality metrics to see if we should reject this redaction.
         if ctx.quality:
             p_valid = 1 - config.params.max_redaction_error_rate
             check_quality(ctx.quality, p_valid=p_valid)
         else:
             logger.warning("No quality report available")
 
-        # Inspect every annotation and merge it into the shared store.
-        if ctx.annotations:
-            save_annotations_sync(ctx.annotations)
+        # Persist info that we've inferred about the case from this document.
+        # This is *ephemeral* data that will inform future redactions of
+        # documents within this case, but will *not* be saved for research purposes.
+        save_inferred_case_data_sync(params.jurisdiction_id, params.case_id, ctx)
 
-        # Inspect result to get new masks
-        if ctx.aliases:
-            # This is a new map from subjectId -> mask.
-            # Join this with the existing data we have stored.
-            save_aliases_sync(ctx.annotations)
-
+        # Save the embedding for the document, if one was generated. This is saved
+        # to the RDBMS for research purposes.
         if ctx.embedding:
-            # Save the embedding for the document.
             save_embedding_sync(config.experiments.store, params, ctx.embedding)
 
         content = output_buffer.getvalue()
@@ -269,27 +272,29 @@ def get_mask_info_sync(jurisdiction_id: str, case_id: str) -> MaskInfo:
     return asyncio.run(_fetch())
 
 
-def save_annotations_sync(annotations: list[dict]):
-    """Merge annotations into the other context we've saved for this case.
+def save_inferred_case_data_sync(jurisdiction_id: str, case_id: str, context: Context):
+    """Save ephemeral data inferred about the case from one document redaction.
 
     Args:
-        annotations (list[dict]): The annotations to save.
+        jurisdiction_id (str): The jurisdiction ID.
+        case_id (str): The case ID.
+        context (Context): The context from the pipeline run.
     """
-    # TODO - need to clarify which inferred annotations we want to keep, which not.
-    # The inferred annotations can range from names like `Officer 1` which we do
-    # certainly want to keep, to locations like `Street 1` which we probably want
-    # to keep, to generic descriptors for things like hair color or language, such
-    # as `Hair Color 1` which probably doesn't matter as much. The trade-off for
-    # keeping everything is that it could hurt prompt performance by including
-    # too much information; we'd rather have the important stuff right than
-    # many things confused.
 
+    async def _save():
+        async with config.queue.store.driver() as store:
+            async with store.tx() as tx:
+                cs = CaseStore(tx)
+                await cs.init(jurisdiction_id, case_id)
 
-def save_aliases_sync(aliases: list[dict[str, str]]):
-    """Merge alias map with existing aliases.
+                if context.masked_subjects:
+                    await cs.save_masked_names(context.masked_subjects)
 
-    Args:
-        aliases (list[dict[str, str]]): The aliases to save (subjectId -> mask).
-    """
-    # TODO - need to clarify how much this step is necessary; perhaps it will
-    # never provide more information than the input from the request body.
+                if context.placeholders:
+                    await cs.save_placeholders(context.placeholders)
+
+    if not context:
+        logger.warning("No context available to save")
+        return
+
+    return asyncio.run(_save())
