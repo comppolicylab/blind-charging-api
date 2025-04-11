@@ -28,10 +28,13 @@ resource "azurerm_monitor_diagnostic_setting" "container_app" {
     category_group = "allLogs"
   }
 
-  metric {
-    category = "AllMetrics"
-    enabled  = true
-  }
+  # TODO(jnu): appears to be an issue in some environments setting this up.
+  # Disabling for now pending investigation:
+  # https://github.com/Azure/terraform-azurerm-avm-res-network-networksecuritygroup/issues/39
+  # metric {
+  #  category = "AllMetrics"
+  #  enabled  = true
+  # }
 }
 
 locals {
