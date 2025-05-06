@@ -17,8 +17,8 @@ host = "${local.mssql_fqdn}"
 database = "${azurerm_mssql_database.main.name}"
 EOF
 
-  # Add an embedding configuration when the research environment is enabled.
-  embedding_config = !var.enable_research_env ? "" : <<EOF
+  # Config for embedding model
+  embedding_config = <<EOF
 [experiments.embedding]
 [experiments.embedding.client]
 azure_endpoint = "${local.openai_endpoint}"
