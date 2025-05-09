@@ -26,6 +26,7 @@ api_key = "${azurerm_cognitive_account.openai.primary_access_key}"
 api_version = "2024-06-01"
 [experiments.embedding.generator]
 model = "${local.openai_embedding_deployment_name}"
+openai_model = "${var.openai_embedding_model}"
 EOF
 
   # Processing pipeline configuration segment
