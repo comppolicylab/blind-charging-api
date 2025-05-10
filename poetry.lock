@@ -497,7 +497,7 @@ aio = ["azure-core[aio] (>=1.30.0)"]
 
 [[package]]
 name = "bc2"
-version = "0.7.1"
+version = "0.7.2"
 description = "Race-blind charging redaction libary."
 optional = false
 python-versions = "^3.10"
@@ -528,7 +528,7 @@ typer = "0.12.5"
 type = "git"
 url = "git@github.com:stanford-policylab/bc2.git"
 reference = "HEAD"
-resolved_reference = "0b3bf9126a6f1179a2d5740d90cb008c3b018979"
+resolved_reference = "20039f109fa06bcb087fc7f9f1ae99dc5ca2a0be"
 
 [[package]]
 name = "billiard"

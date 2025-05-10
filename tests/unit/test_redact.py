@@ -2,6 +2,7 @@ import pathlib
 import re
 from typing import cast
 
+from bc2.core.inspect.quality import QualityReport
 from fakeredis import FakeRedis
 
 from app.server.generated.models import OutputFormat
@@ -12,6 +13,7 @@ from app.server.tasks import (
     RedactionTaskResult,
     redact,
 )
+from app.server.tasks.redact import check_quality
 
 this_dir = pathlib.Path(__file__).parent
 sample_data_dir = this_dir.parent.parent / "app" / "server" / "sample_data"
@@ -111,3 +113,10 @@ def test_redact_new_errors(fake_redis_store: FakeRedis):
             renderer=OutputFormat.PDF,
         ).model_dump()
     )
+
+
+def test_check_quality_divide_by_zero():
+    # Test case where the denominator is zero.
+    # Don't raise an error!
+    qr = QualityReport()
+    assert check_quality(qr) is None

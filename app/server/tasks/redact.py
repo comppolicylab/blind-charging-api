@@ -142,17 +142,26 @@ def redact(
             p_valid = 1 - config.params.max_redaction_error_rate
             check_quality(ctx.quality, p_valid=p_valid)
         else:
-            logger.warning("No quality report available")
+            logger.debug("No quality report available")
+
+        for err in ctx.errors or []:
+            logger.warning(f"Suppressed pipeline error: {err}")
 
         # Persist info that we've inferred about the case from this document.
         # This is *ephemeral* data that will inform future redactions of
         # documents within this case, but will *not* be saved for research purposes.
-        save_inferred_case_data_sync(params.jurisdiction_id, params.case_id, ctx)
+        try:
+            save_inferred_case_data_sync(params.jurisdiction_id, params.case_id, ctx)
+        except Exception:
+            logger.exception("Failed to save inferred case data")
 
         # Save the embedding for the document, if one was generated. This is saved
         # to the RDBMS for research purposes.
         if ctx.embedding:
-            save_embedding_sync(config.experiments.store, params, ctx.embedding)
+            try:
+                save_embedding_sync(config.experiments.store, params, ctx.embedding)
+            except Exception:
+                logger.exception("Failed to save embedding")
 
         content = output_buffer.getvalue()
         content_storage_id = save_document_sync(content)
@@ -199,9 +208,17 @@ def check_quality(quality: QualityReport, p_valid: float = 0.995):
     Raises:
         LowQualityError: If the quality is too low.
     """
-    if quality.chars.p_valid < p_valid:
-        raise LowQualityError(f"Quality too low ({quality.chars.p_valid} < {p_valid})")
-    logger.debug(f"Quality check passed ({quality.chars.p_valid} >= {p_valid})")
+    try:
+        if quality.chars.p_valid < p_valid:
+            raise LowQualityError(
+                f"Quality too low ({quality.chars.p_valid} < {p_valid})"
+            )
+        logger.debug(f"Quality check passed ({quality.chars.p_valid} >= {p_valid})")
+    except ZeroDivisionError:
+        # This can happen if there are no characters in the document.
+        # The doc should fail for other reasons, don't fail it here.
+        logger.debug("Quality check impossible: no characters in document")
+        return
 
 
 def output_format_to_renderer(output_format: OutputFormat) -> RenderConfig:
