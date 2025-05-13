@@ -29,6 +29,8 @@ COPY poetry.lock pyproject.toml README.md /code/
 
 # Install dependencies
 RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
+# Pre-load encodings from tiktoken since download is not available in most environments
+RUN python -c 'import tiktoken; [tiktoken.get_encoding(enc) for enc in ["cl100k_base", "o200k_base"]]'
 
 # Copy app code
 COPY alembic.ini /code/
