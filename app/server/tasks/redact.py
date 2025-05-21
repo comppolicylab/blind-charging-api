@@ -3,6 +3,7 @@ import io
 
 from bc2 import Pipeline, PipelineConfig
 from bc2.core.common.context import Context
+from bc2.core.common.openai import FilteredContentError
 from bc2.core.inspect.embed import EmbedInspectConfig
 from bc2.core.inspect.quality import QualityReport
 from bc2.core.render import (
@@ -173,7 +174,10 @@ def redact(
             renderer=params.renderer,
         )
     except Exception as e:
-        if self.request.retries >= self.max_retries:
+        # Break out of processing when we hit max retries, or for certain errors.
+        if self.request.retries >= self.max_retries or isinstance(
+            e, FilteredContentError
+        ):
             logger.error(
                 f"Redaction failed for {params.document_id} "
                 f"after {self.max_retries} retries. Error: {e}"
