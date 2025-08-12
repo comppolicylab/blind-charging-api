@@ -199,7 +199,7 @@ def _get_api_version() -> str:
     with open(pyproject_toml, "r") as f:
         data = f.read()
         project = tomllib.loads(data)
-        return project["tool"]["poetry"]["version"]
+        return project["project"]["version"]
 
 
 def _get_schema_version() -> str:

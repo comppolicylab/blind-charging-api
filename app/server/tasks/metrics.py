@@ -50,7 +50,7 @@ def _get_version() -> str:
     """Get the current app version from pyprpoject.toml."""
     pyproject = Path(__file__).parent.parent.parent.parent / "pyproject.toml"
     toml = tomllib.loads(pyproject.read_text())
-    return toml["tool"]["poetry"]["version"]
+    return toml["project"]["version"]
 
 
 class CeleryCustomHealthMetrics:

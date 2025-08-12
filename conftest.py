@@ -115,7 +115,7 @@ def celery_broker_cluster(
 @pytest.fixture
 def default_worker_command() -> list[str]:
     return [
-        "poetry",
+        "uv",
         "run",
         "python",
         "-m",

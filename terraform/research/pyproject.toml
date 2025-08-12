@@ -1,16 +1,13 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Joe Nudell", email = "jnudell@hks.harvard.edu"},
+]
+requires-python = "<4.0,>=3.12"
+dependencies = [
+    "alligater @ git+ssh://git@github.com/stanford-policylab/alligater.git",
+    "bc2 @ git+ssh://git@github.com/stanford-policylab/bc2.git",
+]
 name = "research"
 version = "0.1.0"
 description = "Python research environment"
-authors = ["Joe Nudell <jnudell@hks.harvard.edu>"]
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-alligater = {git = "git@github.com:stanford-policylab/alligater.git"}
-bc2 = {git = "git@github.com:stanford-policylab/bc2.git"}
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

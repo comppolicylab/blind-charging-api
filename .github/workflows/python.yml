@@ -15,7 +15,7 @@ jobs:
       wd: ./
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           ref: ${{github.head_ref}}
           lfs: true
@@ -23,32 +23,29 @@ jobs:
       - name: Set up tesseract
         run: sudo apt-get install -y tesseract-ocr
 
-      - name: Set up poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Set up Python3.x
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.12.6
-          cache: "poetry"
+        uses: actions/setup-python@v5
         id: py
 
       - name: Get requirements
         working-directory: ${{env.wd}}
         run: |
           git config --global url."https://x-token-auth:${{ secrets.GH_PAT }}@github.com/".insteadOf "git@github.com:"
-          poetry install --with dev --no-interaction --no-ansi --no-root
+          uv sync --locked --all-extras --dev
 
       - name: Linting, formatting, and type checking
         working-directory: ${{env.wd}}
-        run: poetry run pre-commit run --show-diff-on-failure --all-files
+        run: uv run pre-commit run --show-diff-on-failure --all-files
 
       - name: Unit tests
         working-directory: ${{env.wd}}
-        run: poetry run pytest ./tests/unit -v
+        run: uv run pytest ./tests/unit -vx
 
       - name: Integration tests
         working-directory: ${{env.wd}}
         env:
           GH_PAT: ${{secrets.GH_PAT}}
-        run: poetry run pytest ./tests/integration -v
+        run: uv run pytest ./tests/integration -vx

@@ -4,7 +4,7 @@ Command line tools for the Blind Charging API
 ## `provision`
 
 ```
-poetry run python -m cli provision
+uv run python -m cli provision
 ```
 
 Simplifies generating `tfvars` files.
@@ -19,7 +19,7 @@ Otherwise the result will print to stdout.
 ## `create-client <name>`
 
 ```
-poetry run python -m cli create-client <name>
+uv run python -m cli create-client <name>
 ```
 
 Create an `OAuth2` client ID and client secret pair.

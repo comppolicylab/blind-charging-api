@@ -10,7 +10,7 @@ Note that until Pydantic2 support is merged into the main project,
 we need to use [Joe's fork of the repo](https://github.com/jnu/fastapi-code-generator).
 
 ```
-poetry run python -m fastapi_code_generator -i ../../stanford-policylab/blind-charging-api/app/schema/openapi.yaml -o ../../stanford-policylab/blind-charging-api/app/server/generated -r -t ../../stanford-policylab/blind-charging-api/app/schema/templates -d pydantic_v2.BaseModel -p 3.11
+uv run python -m fastapi_code_generator -i ../../stanford-policylab/blind-charging-api/app/schema/openapi.yaml -o ../../stanford-policylab/blind-charging-api/app/server/generated -r -t ../../stanford-policylab/blind-charging-api/app/schema/templates -d pydantic_v2.BaseModel -p 3.11
 ```
 
 ### Implementations

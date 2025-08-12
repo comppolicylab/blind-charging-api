@@ -1,4 +1,4 @@
-FROM python:3.12.7-slim-bookworm AS buildbox
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS buildbox
 
 RUN apt-get update && apt-get install -y apt-transport-https curl gnupg2 git
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
@@ -13,22 +13,15 @@ RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 ENV PYTHONFAULTHANDLER=1 \
       PYTHONUNBUFFERED=1 \
-      PYTHONHASHSEED=random \
-      PIP_NO_CACHE_DIR=off \
-      PIP_DISABLE_PIP_VERSION_CHECK=on \
-      PIP_DEFAULT_TIMEOUT=100 \
-      POETRY_VIRTUALENVS_CREATE=false
-
-# Set up poetry
-RUN pip install poetry==1.8.3
+      PYTHONHASHSEED=random
 
 WORKDIR /code
 
 # Copy dependency manifests
-COPY poetry.lock pyproject.toml README.md /code/
+COPY uv.lock pyproject.toml README.md /code/
 
 # Install dependencies
-RUN --mount=type=ssh poetry install --without dev --no-interaction --no-ansi
+RUN --mount=type=ssh uv sync --locked
 # Pre-load encodings from tiktoken since download is not available in most environments
 RUN python -c 'import tiktoken; [tiktoken.get_encoding(enc) for enc in ["cl100k_base", "o200k_base"]]'
 

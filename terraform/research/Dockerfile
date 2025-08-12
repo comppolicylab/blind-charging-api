@@ -68,18 +68,17 @@ session-default-new-project-dir=/data/projects
 EOF
 
 # Install Python stuff
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 ENV PYTHONFAULTHANDLER=1 \
       PYTHONUNBUFFERED=1 \
-      PYTHONHASHSEED=random \
-      PIP_NO_CACHE_DIR=off \
-      PIP_DISABLE_PIP_VERSION_CHECK=on \
-      PIP_DEFAULT_TIMEOUT=100 \
-      POETRY_VIRTUALENVS_CREATE=false
+      PYTHONHASHSEED=random
+
 RUN curl https://bootstrap.pypa.io/get-pip.py | python3
-RUN python3 -m pip install pyodbc poetry
-COPY poetry.lock pyproject.toml /home/rstudio
+RUN python3 -m pip install pyodbc
+COPY uv.lock pyproject.toml /home/rstudio
 RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-RUN --mount=type=ssh python3 -m poetry install --no-interaction --no-ansi --no-root
+RUN --mount=type=ssh uv sync --locked
 
 # Copy start script and run
 COPY start.sh /start
