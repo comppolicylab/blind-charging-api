@@ -378,7 +378,7 @@ class CaseStore:
         # {"1": "John Doe", "2": "Jane Doe"}
         id_to_real_name = {
             k: human_name_to_str(v)
-            for k, v in dict(zip(all_ids_list, all_names_list)).items()
+            for k, v in dict(zip(all_ids_list, all_names_list, strict=False)).items()
             if v
         }
         # The subject IDs that we know about roles but don't have masks for yet.

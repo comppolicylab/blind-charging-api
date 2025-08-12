@@ -1,7 +1,7 @@
+import tomllib
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
-import tomllib
 from opentelemetry.metrics import get_meter
 
 

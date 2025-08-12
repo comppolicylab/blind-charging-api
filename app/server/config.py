@@ -1,9 +1,9 @@
 import logging
 import os
+import tomllib
 from pathlib import Path
 from typing import Annotated, Union
 
-import tomllib
 from bc2 import AnyProcessingConfig
 from bc2.lib.embedding import EmbeddingConfig
 from glowplug import SqliteSettings
