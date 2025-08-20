@@ -270,10 +270,10 @@ EOF
 
 variable "openai_llm_model_version" {
   type        = string
-  default     = "2024-05-13"
+  default     = "2024-11-20"
   description = <<EOF
 The version of the OpenAI model to use for the LLM cognitive service.
-This should be set to the version in the OpenAI API, e.g., "2024-05-13".
+This should be set to the version in the OpenAI API, e.g., "2024-11-20".
 
 Ensure that the model version is available on GovCloud, as the models differ between
 GovCloud and Commercial cloud.
