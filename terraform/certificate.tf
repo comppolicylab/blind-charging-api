@@ -27,7 +27,8 @@ resource "tls_self_signed_cert" "app_gateway" {
     organization = format("%s Race Blind Charging", var.partner)
 
   }
-  validity_period_hours = 8760
+  validity_period_hours = 8760 # 1 year
+  early_renewal_hours = 336 # 2 weeks
   allowed_uses = [
     "key_encipherment",
     "digital_signature",
