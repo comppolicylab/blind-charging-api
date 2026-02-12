@@ -74,7 +74,7 @@ async def test_exposure_multi_subject(api: TestClient, exp_db: DbDriver):
         for i, exp in enumerate(exps):
             assert exp.jurisdiction_id == "jur1"
             assert exp.case_id == "case1"
-            assert exp.subject_id == f"sub{i+1}"
+            assert exp.subject_id == f"sub{i + 1}"
             assert exp.document_ids == '["doc1"]'
             assert exp.reviewer_id == "att1"
             assert exp.review_type == ReviewType.blind
@@ -412,7 +412,7 @@ async def test_outcome_multi_subject(api: TestClient, exp_db: DbDriver):
         for i, exp in enumerate(exps):
             assert exp.jurisdiction_id == "jur1"
             assert exp.case_id == "case1"
-            assert exp.subject_id == f"sub{i+1}"
+            assert exp.subject_id == f"sub{i + 1}"
             assert exp.document_ids == '["doc1"]'
             assert exp.reviewer_id == "att1"
             assert exp.review_type == ReviewType.final

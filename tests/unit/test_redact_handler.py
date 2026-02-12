@@ -232,8 +232,7 @@ async def test_redact_handler_no_callback(
                 "maskedSubjects": [],
                 "status": "QUEUED",
                 "statusDetail": (
-                    "Redaction request has been "
-                    "received and is queued for processing."
+                    "Redaction request has been received and is queued for processing."
                 ),
             },
         ],

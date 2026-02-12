@@ -28,7 +28,7 @@ resource "tls_self_signed_cert" "app_gateway" {
 
   }
   validity_period_hours = 8760 # 1 year
-  early_renewal_hours = 336 # 2 weeks
+  early_renewal_hours   = 336  # 2 weeks
   allowed_uses = [
     "key_encipherment",
     "digital_signature",

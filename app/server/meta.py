@@ -580,10 +580,10 @@ async def status(request: Request, format: str | None = None):
         content = _format_meta_html(f"""
             <h2>API Status</h2>
             <p>The service appears to be {
-                "<span class='yay'>healthy</span>"
-                if health.healthy() else
-                "<span class='nay'>unhealthy<span>"
-            }.</p>
+            "<span class='yay'>healthy</span>"
+            if health.healthy()
+            else "<span class='nay'>unhealthy<span>"
+        }.</p>
             {errors_content}
             {warnings_content}
             <hr class="divider" />

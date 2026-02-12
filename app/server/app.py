@@ -2,14 +2,13 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+import alembic.util.exc
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from glowplug import DbDriver
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from sqlalchemy.exc import SQLAlchemyError
-
-import alembic.util.exc
 
 from .config import RdbmsConfig, config
 from .db import clear_invalid_revision
@@ -56,8 +55,7 @@ async def ensure_db(store: RdbmsConfig) -> DbDriver:
                 )
     except (NameError, ValueError, KeyError, RuntimeError, SQLAlchemyError):
         logger.error(
-            "Failed to apply database migrations. "
-            "Seems like the migration is invalid."
+            "Failed to apply database migrations. Seems like the migration is invalid."
         )
         raise
     except Exception as e:
