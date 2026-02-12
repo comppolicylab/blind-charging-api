@@ -260,7 +260,7 @@ EOF
 
 variable "openai_llm_model" {
   type        = string
-  default     = "gpt-4o"
+  default     = "gpt-4.1"
   description = <<EOF
 The OpenAI model to use for the LLM cognitive service.
 
@@ -270,7 +270,7 @@ EOF
 
 variable "openai_llm_model_version" {
   type        = string
-  default     = "2024-11-20"
+  default     = "2025-04-14"
   description = <<EOF
 The version of the OpenAI model to use for the LLM cognitive service.
 This should be set to the version in the OpenAI API, e.g., "2024-11-20".
