@@ -23,7 +23,7 @@ COPY uv.lock pyproject.toml README.md /code/
 # Install dependencies
 RUN --mount=type=ssh uv sync --locked
 # Pre-load encodings from tiktoken since download is not available in most environments
-RUN python -c 'import tiktoken; [tiktoken.get_encoding(enc) for enc in ["cl100k_base", "o200k_base"]]'
+RUN uv run python -c 'import tiktoken; [tiktoken.get_encoding(enc) for enc in ["cl100k_base", "o200k_base"]]'
 
 # Copy app code
 COPY alembic.ini /code/
@@ -36,5 +36,5 @@ COPY terraform/ /code/terraform
 COPY config.toml /config/
 ENV CONFIG_PATH=/config/config.toml
 
-ENTRYPOINT [ "python", "-m", "cli" ]
+ENTRYPOINT [ "uv", "run", "python", "-m", "cli" ]
 CMD [ "api", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers" ]
