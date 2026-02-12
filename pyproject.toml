@@ -25,7 +25,7 @@ dependencies = [
     "redis<6.0.0,>=5.2.1",
     "azure-storage-blob<13.0.0,>=12.20.0",
     "urllib3==2.2.3",
-    "pytz==2024.2",
+    "pytz==2025.2",
     "flower<3.0.0,>=2.0.1",
     "argon2-cffi<24.0.0,>=23.1.0",
     "opentelemetry-sdk<2.0.0,>=1.27.0",
