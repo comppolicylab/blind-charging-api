@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import alembic.util.exc
 import typer
 from fastapi_cli.cli import dev as _dev
 from fastapi_cli.cli import run
 
-import alembic.util.exc
 from app.logo import cli_logo
 
 from .provision import init_provision_cli
