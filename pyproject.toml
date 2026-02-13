@@ -39,11 +39,11 @@ dependencies = [
     "alligater<1.0.0,>=0.3.2",
     "kombu @ git+https://github.com/jnu/kombu.git@bb38b12eec4b79dc95caf75bf4ccdd12a78216c1",
     "celery==5.4",
-    "bc2",
     "tiktoken>=0.12.0",
+    "bc2",
 ]
 name = "blind-charging-api"
-version = "0.12.7"
+version = "0.12.8"
 description = "Race-blind Charging API"
 readme = "README.md"
 
