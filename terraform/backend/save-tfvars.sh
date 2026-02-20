@@ -228,16 +228,40 @@ case $AZURE_ENVIRONMENT in
 esac
 
 
-# Now upload the .tfvars file to the storage account.
-az storage blob upload --account-name $STORAGE_ACCOUNT --container-name $CONTAINER_NAME --name terraform.tfvars --file $1
+# Get the name of the current workspace.
+# If the workspace is not default, we generate a suffix like `env:<workspace>`.
+WORKSPACE=$(terraform workspace show)
+if [ "$WORKSPACE" != "default" ]; then
+  WORKSPACE_SUFFIX="env:$WORKSPACE"
+else
+  WORKSPACE_SUFFIX=""
+fi
 
+# Now upload the .tfvars file to the storage account.
+FILE_NAME="terraform.tfvars$WORKSPACE_SUFFIX"
+
+# Check if the file already exists in the storage account.
+EXISTS=$(az storage blob exists --account-name $STORAGE_ACCOUNT --container-name $CONTAINER_NAME --name $FILE_NAME --query exists -o tsv)
+if [ "$EXISTS" == "true" ]; then
+  # Prompt the user to confirm that they want to overwrite the file.
+  # Yellow
+  tput setaf 3
+  read -p "The file $FILE_NAME already exists in the storage account. Do you want to overwrite it? (yes/no): " -r
+  tput sgr0
+  if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
+    az storage blob upload --account-name $STORAGE_ACCOUNT --container-name $CONTAINER_NAME --name $FILE_NAME --file $1 --overwrite
+  fi
+else
+  az storage blob upload --account-name $STORAGE_ACCOUNT --container-name $CONTAINER_NAME --name $FILE_NAME --file $1
+fi
 # Green
 tput setaf 2
-echo "The Terraform vars store has been initialized in Azure."
+echo "The Terraform vars store has been updated in Azure."
 tput sgr0
 echo
 # Cyan
 tput setaf 6
+echo "File name: $FILE_NAME"
 echo "Resource group: $tfvars_resource_group"
 echo "Storage account: $STORAGE_ACCOUNT"
 echo "Container name: $CONTAINER_NAME"

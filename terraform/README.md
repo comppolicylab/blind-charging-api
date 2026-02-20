@@ -2,9 +2,15 @@
 
 This directory contains the Terraform configuration to deploy the Blind Charging API on Azure.
 
-## Quick start
+## First time set up
 
-Follow these steps to deploy the Blind Charging API.
+The following steps should be run the very first time you're deploying Blind Charging and generally should not need to be done every time.
+
+> [!TIP]
+> The instructions can generally be run either locally or on cloud shell.
+> Cloud shell is nice because you will not need to authenticate or install any new software,
+> and can theoretically give access to multiple contributors more easily.
+> In either case, the following instructions assume you are using `bash` and not `PowerShell`.
 
 ### 1. Create Azure subscription
 
@@ -31,10 +37,25 @@ The Harvard team will need to provision some of these values.
 
 **NOTE** See [the CLI `provision` command](../cli/README.md) for help generating this file.
 
+### 4. Save the tfvars file to the cloud
+
+Run the following command, either locally or in cloud shell.
+If you're running on cloud shell, make sure your tfvars file is uploaded there.
+
+```bash
+./backend/save-tfvars.sh <my-new-env>.tfvars
+```
+
+This will set up a blob store if necessary and upload your tfvars file.
+
+> [!IMPORTANT]
+> Whenever you make changes to this file, you will want to save it back to the cloud store!
+> You can run this command multiple times, whenever you need to save things.
+
 
 ### 4. Initialize Terraform with Azure backend
 
-If you don't have the Terraform CLI installed yet, [set that up](https://developer.hashicorp.com/terraform/install).
+If running locally and you don't have the Terraform CLI installed yet, [set that up](https://developer.hashicorp.com/terraform/install).
 
 Terraform uses a file called `terraform.tfstate` to track the resources it manages.
 We use Azure as a backend to store this information, in a separate long-lived resource group from the other resources we create.
@@ -47,7 +68,7 @@ To provision this backend, run the following comand from this directory:
 
 This creates a file called `./backend/azure.hcl` which will point Terraform to the Azure backend.
 
-Now initialize Terraform:
+Say "yes" when prompted to initialize `terraform`, or run the following manually:
 
 ```zsh
 terraform init -backend-config="backend/azure.hcl"
@@ -60,14 +81,48 @@ First, try to re-run the `./backend/init.sh` command and see if the permissions 
 If that doesn't work, you can manually grant yourself permission on the key vault through the Azure Portal.
 Look for the newly created KeyVault in the new `tfstate` resource group, and give yourself Key Vault Administrator permissions on this resource. Then, re-run the `./backend/init.sh` command.
 
-### 5. Now deploy the application
 
-To initialize the Terraform environment. Then, to deploy the application, run:
+## Deploying / updating the application
 
-```zsh
-terraform plan -var-file="<my-new-env>.tfvars" -out="deploy.tfplan"
-terraform apply "deploy.tfplan"
+Run these steps whenever you want to deploy the environment, or update an existing deployment.
+
+### 1. Pull the latest changes from github
+
+We periodically update the terraform modules in this directory.
+We generally recommend pulling to fetch the latest changes, unless we instruct you otherwise.
+
+```bash
+git pull
 ```
+
+### 2. Make any changes to your tfvars file (optional)
+
+You might want to reconfigure the environment, such as by changing an image or model version.
+To do so, please follow the following steps:
+
+1. Fetch the tfvars from the store: `./backend/fetch-tfvars.sh`
+2. Edit the file, which will be called: `./terraform.tfvars`
+3. Save the edited file back to the store: `./backend/save-tfvars.sh terraform.tfvars`
+
+### 3. Fetch the latest tfvars file from the store
+
+```bash
+./backend/fetch-tfvars.sh
+```
+
+### 4. Apply your updates!
+
+The following command will now deploy your environment.
+
+```bash
+terraform apply
+```
+
+You will be prompted to review the proposed changes and confirm them.
+Please verify that everything looks as expected.
+If you have any questions or concerns about why certain pieces are changing,
+please reach out to our team.
+
 
 #### Common errors
 
