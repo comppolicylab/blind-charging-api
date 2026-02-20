@@ -245,6 +245,17 @@ If not provided, the state will be stored locally.
 EOF
 }
 
+variable "tfvars_resource_group" {
+  type        = string
+  nullable    = true
+  default     = null
+  description = <<EOF
+Resource group where the Terraform vars is stored.
+
+If not set, the vars are presumed to be stored locally.
+EOF
+}
+
 variable "disable_content_filter" {
   type        = bool
   default     = true
