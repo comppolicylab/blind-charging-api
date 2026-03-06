@@ -166,6 +166,9 @@ class RedisClusterStoreSession(StoreSession):
         self.pipe.expireat(k, expire_at)  # type: ignore[attr-defined]
 
     async def hsetmapping(self, key: str, mapping: SimpleMapping):
+        # The redis library fails if there's an empty mapping, so avoid this case.
+        if not mapping:
+            return
         k = self._key_func(key)
         self.pipe.hset(k, mapping=dict(mapping))  # type: ignore[attr-defined]
 
