@@ -224,6 +224,8 @@ class BaseSimpleRedisStoreSession(StoreSession):
         # NOTE: using a `dict` call here since our typings are a little
         # more broad than the redis library technically accepts. This should
         # really be a no-op in most cases.
+        if not mapping:
+            return
         await _maybe_wait(self.pipe.hset(key, mapping=dict(mapping)))
 
     async def expire_at(self, key: str, expire_at: int):
