@@ -195,3 +195,17 @@ Should return `200` with info about blind review for this case.
 #### 6. API Documentation
 
 If you are able to access the api via a web browser (e.g., over VPN inside a vnet or if the app is exposed) you may find it useful to read the Swagger API documentation at `<api_host>/api/v1/docs`.
+
+## Development
+
+### Setup
+
+Use `uv` for installing dependencies and running the application.
+
+### Testing
+
+Use `pytest` to run tests: `uv run pytest`.
+
+> [!NOTE]
+> In order to run the tests correctly you will need to pull test files with [`git-lfs`](https://git-lfs.com/).
+> Install `git-lfs` and then run `git lfs pull` in this directory to fetch the files.
