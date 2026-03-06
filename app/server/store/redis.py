@@ -154,11 +154,12 @@ class RedisClusterStoreSession(StoreSession):
 
     async def set(self, key: str, value: str | bytes):
         k = self._key_func(key)
-        self.pipe.set(k, value)  # type: ignore[attr-defined]
+        self.pipe.set(k, value or b"")  # type: ignore[attr-defined]
 
     async def sadd(self, key: str, *value):
         k = self._key_func(key)
-        self.pipe.sadd(k, *value)  # type: ignore[attr-defined]
+        clean_values = [v or b"" for v in value]
+        self.pipe.sadd(k, *clean_values)  # type: ignore[attr-defined]
 
     async def expire_at(self, key: str, expire_at: int):
         k = self._key_func(key)
@@ -166,8 +167,12 @@ class RedisClusterStoreSession(StoreSession):
         self.pipe.expireat(k, expire_at)  # type: ignore[attr-defined]
 
     async def hsetmapping(self, key: str, mapping: SimpleMapping):
+        # The redis library fails if there's an empty mapping, so avoid this case.
+        if not mapping:
+            return
         k = self._key_func(key)
-        self.pipe.hset(k, mapping=dict(mapping))  # type: ignore[attr-defined]
+        clean_mapping = {k: v or b"" for k, v in dict(mapping).items()}
+        self.pipe.hset(k, mapping=clean_mapping)  # type: ignore[attr-defined]
 
 
 class BaseSimpleRedisStoreSession(StoreSession):
@@ -194,7 +199,7 @@ class BaseSimpleRedisStoreSession(StoreSession):
         await self.client.aclose(close_connection_pool=False)
 
     async def set(self, key: str, value: str | bytes):
-        await self.pipe.set(key, value)
+        await self.pipe.set(key, value or b"")
 
     async def get(self, key: str) -> bytes | None:
         # TODO(jnu): We can't watch a key in the middle of a pipeline.
@@ -221,7 +226,10 @@ class BaseSimpleRedisStoreSession(StoreSession):
         # NOTE: using a `dict` call here since our typings are a little
         # more broad than the redis library technically accepts. This should
         # really be a no-op in most cases.
-        await _maybe_wait(self.pipe.hset(key, mapping=dict(mapping)))
+        if not mapping:
+            return
+        clean_mapping = {k: v or b"" for k, v in dict(mapping).items()}
+        await _maybe_wait(self.pipe.hset(key, mapping=clean_mapping))
 
     async def expire_at(self, key: str, expire_at: int):
         await self.pipe.expireat(key, expire_at)
@@ -230,7 +238,10 @@ class BaseSimpleRedisStoreSession(StoreSession):
         await _maybe_wait(self.pipe.lpush(key, value))
 
     async def sadd(self, key: str, *value):
-        await _maybe_wait(self.pipe.sadd(key, *value))
+        if not value:
+            return
+        clean_values = [v or b"" for v in value]
+        await _maybe_wait(self.pipe.sadd(key, *clean_values))
 
 
 class RedisStoreSession(BaseSimpleRedisStoreSession):
