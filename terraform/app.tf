@@ -182,12 +182,14 @@ resource "azurerm_container_app" "main" {
       }
 
       liveness_probe {
-        host             = "127.0.0.1"
-        path             = "/api/v1/health"
-        port             = 8000
-        transport        = "HTTP"
-        initial_delay    = 5
-        interval_seconds = 15
+        host                    = "127.0.0.1"
+        path                    = "/api/v1/health"
+        port                    = 8000
+        transport               = "HTTP"
+        initial_delay           = 5
+        interval_seconds        = 30
+        failure_count_threshold = 5
+        timeout                 = 3
       }
     }
 
