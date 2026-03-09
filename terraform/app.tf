@@ -163,7 +163,7 @@ resource "azurerm_container_app" "main" {
       image  = local.api_image_tag
       cpu    = 1.0
       memory = "2Gi"
-      args   = ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
+      args   = ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", tostring(var.api_workers), "--proxy-headers"]
       volume_mounts {
         name = "secrets"
         path = "/secrets"

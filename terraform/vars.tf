@@ -473,6 +473,14 @@ Default is 4 hours.
 EOF
 }
 
+variable "api_workers" {
+  type        = number
+  default     = 2
+  description = <<EOF
+Number of workers to run in the API container.
+EOF
+}
+
 variable "api_flags" {
   type        = map(string)
   default     = {}
