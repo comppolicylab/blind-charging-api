@@ -475,9 +475,11 @@ EOF
 
 variable "api_workers" {
   type        = number
-  default     = 2
+  default     = 3
   description = <<EOF
 Number of workers to run in the API container.
+
+Default is the recommend 2*n_cores + 1, assuming the API has one core.
 EOF
 }
 
