@@ -140,8 +140,8 @@ resource "azurerm_container_app" "main" {
       # Debugging container for when all else fails.
       name   = "rbc-debug"
       image  = local.api_image_tag
-      cpu    = 1.0
-      memory = "2Gi"
+      cpu    = 0.5
+      memory = "1Gi"
 
       command = ["/bin/bash"]
       args    = ["-c", "trap : TERM INT; sleep infinity & wait"]
@@ -162,7 +162,7 @@ resource "azurerm_container_app" "main" {
       name   = "rbc-api"
       image  = local.api_image_tag
       cpu    = var.api_cpu
-      memory = "2Gi"
+      memory = "3Gi"
       args   = ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", tostring(var.api_workers), "--proxy-headers"]
       volume_mounts {
         name = "secrets"
