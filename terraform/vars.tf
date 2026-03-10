@@ -475,7 +475,7 @@ EOF
 
 variable "api_cpu" {
   type        = number
-  default     = 1.0
+  default     = 1.5
   description = <<EOF
 CPU to allocate to the API container in cores.
 EOF
@@ -483,7 +483,7 @@ EOF
 
 variable "api_workers" {
   type        = number
-  default     = 3
+  default     = 4
   description = <<EOF
 Number of workers to run in the API container.
 
