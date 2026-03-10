@@ -473,6 +473,14 @@ Default is 4 hours.
 EOF
 }
 
+variable "api_cpu" {
+  type        = number
+  default     = 1.0
+  description = <<EOF
+CPU to allocate to the API container in cores.
+EOF
+}
+
 variable "api_workers" {
   type        = number
   default     = 3

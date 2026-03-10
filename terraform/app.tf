@@ -161,7 +161,7 @@ resource "azurerm_container_app" "main" {
     container {
       name   = "rbc-api"
       image  = local.api_image_tag
-      cpu    = 1.0
+      cpu    = var.api_cpu
       memory = "2Gi"
       args   = ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", tostring(var.api_workers), "--proxy-headers"]
       volume_mounts {
