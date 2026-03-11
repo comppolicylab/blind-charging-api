@@ -222,7 +222,7 @@ fi
 
 # Create the container if it doesn't exist
 az storage container show --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT &> /dev/null || \
-  az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT --tags "$TAGS"
+  az storage container create --name $CONTAINER_NAME --account-name $STORAGE_ACCOUNT --metadata "$TAGS"
 
 # Check what environment Azure is in (GovCloud, Commercial, etc.)
 AZURE_ENVIRONMENT=$(az cloud show --query name -o tsv)
