@@ -55,6 +55,18 @@ Some models are not available in all regions, so the default location can be ove
 EOF
 }
 
+variable "mssql_location" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = <<EOF
+Azure region to deploy the MS SQL database to.
+
+By default, this is the same as the main location.
+Set this if quota is not available in the main region.
+EOF
+}
+
 variable "azure_env" {
   type        = string
   default     = "usgovernment"
@@ -527,6 +539,7 @@ locals {
   research_image_tag = format("%s/%s:%s", var.research_image_registry, var.research_image, var.research_image_version)
   openai_location    = var.openai_location != null ? var.openai_location : var.location
   needs_openai_kv    = local.openai_location != var.location
+  mssql_location     = var.mssql_location != null ? var.mssql_location : var.location
   uses_tf_backend    = var.tfstate_resource_group != null
   firewall_required_domains = [
     "blindchargingapi.eastus.data.azurecr.io",

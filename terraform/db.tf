@@ -1,7 +1,7 @@
 resource "azurerm_mssql_server" "main" {
   name                = local.mssql_server_name
   resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  location            = local.mssql_location
   version             = "12.0"
   tags                = var.tags
   # All access to the database must go through private endpoint.
