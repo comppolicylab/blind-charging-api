@@ -161,3 +161,46 @@ async def test_get_name_mask_map(fake_redis_store: FakeRedis, config: Config, sp
             mask_info = await cs.get_mask_info()
             assert mask_info.get_name_mask_map() == spec["expected_name_mask_map"]
             assert mask_info.get_id_name_map() == spec["expected_id_name_map"]
+
+
+async def test_save_info(fake_redis_store: FakeRedis, config: Config):
+    async with config.queue.store.driver() as store:
+        async with store.tx() as tx:
+            cs = CaseStore(tx)
+            await cs.init("jur1", "case1")
+            await cs.save_roles({"sub1": "accused"})
+            await cs.save_masked_names({"sub1": "Accused 1"})
+            await cs.save_real_name(
+                "sub1", HumanName(firstName="jack", lastName="doe"), primary=True
+            )
+
+        async with store.tx() as tx:
+            cs = CaseStore(tx)
+            await cs.init("jur1", "case1")
+            mask_info = await cs.get_mask_info()
+            assert mask_info.get_name_mask_map() == NameToMaskMap(
+                {"jack doe": "Accused 1"}
+            )
+            assert mask_info.get_id_name_map() == IdToNameMap({"sub1": "jack doe"})
+
+
+async def test_save_placeholders(fake_redis_store: FakeRedis, config: Config):
+    async with config.queue.store.driver() as store:
+        async with store.tx() as tx:
+            cs = CaseStore(tx)
+            await cs.init("jur1", "case1")
+            await cs.save_placeholders({"jack doe": "Accused 99"})
+            await cs.save_roles({"sub1": "accused"})
+            await cs.save_masked_names({"sub1": "Accused 1"})
+            await cs.save_real_name(
+                "sub1", HumanName(firstName="jack", lastName="doe"), primary=True
+            )
+
+        async with store.tx() as tx:
+            cs = CaseStore(tx)
+            await cs.init("jur1", "case1")
+            mask_info = await cs.get_mask_info()
+            assert mask_info.get_name_mask_map() == NameToMaskMap(
+                {"jack doe": "Accused 99"}
+            )
+            assert mask_info.get_id_name_map() == IdToNameMap({"sub1": "jack doe"})
