@@ -108,7 +108,12 @@ def _load_config_from_db() -> str:
 
     with session.begin() as tx:
         try:
-            gater = tx.query(Gater).where(Gater.active).one()
+            gater = tx.query(Gater).where(Gater.active).one_or_none()
+            if not gater:
+                logger.debug(
+                    "No active alligater config found in database, using empty"
+                )
+                return ""
             return gater.blob
         except Exception as e:
             logger.error(f"Failed to fetch alligater config: {e}")
