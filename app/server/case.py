@@ -191,13 +191,16 @@ class CaseStore:
         return await cls.save_key(store, key, blob, ttl=ttl)
 
     async def init(
-        self, jurisdiction_id: str, case_id: str, ttl: int = _DEFAULT_TTL
+        self,
+        jurisdiction_id: str | bytes,
+        case_id: str | bytes,
+        ttl: int = _DEFAULT_TTL,
     ) -> None:
         """Initialize the case store.
 
         Args:
-            jurisdiction_id (str): The jurisdiction ID.
-            case_id (str): The case ID.
+            jurisdiction_id (str | bytes): The jurisdiction ID.
+            case_id (str | bytes): The case ID.
             ttl (int, optional): The time-to-live in seconds.
 
         Returns:
@@ -205,8 +208,14 @@ class CaseStore:
         """
         if self.inited:
             return
-        self.jurisdiction_id = jurisdiction_id
-        self.case_id = case_id
+        self.jurisdiction_id = (
+            jurisdiction_id.decode("utf-8")
+            if isinstance(jurisdiction_id, bytes)
+            else jurisdiction_id
+        )
+        self.case_id = (
+            case_id.decode("utf-8") if isinstance(case_id, bytes) else case_id
+        )
         self.expires_at = await self._set_expiration(ttl)
         logger.debug("CaseStore initialized, will expire at %d", self.expires_at)
 
@@ -245,6 +254,8 @@ class CaseStore:
         Returns:
             None
         """
+        if mask is None:
+            return
         await self.save_masked_names({subject_id: mask})
 
     @ensure_init
@@ -260,6 +271,10 @@ class CaseStore:
         if not masks:
             return
         simple_masks = masks._map.copy() if isinstance(masks, IdToMaskMap) else masks
+        # Guard against None values, which cause errors.
+        simple_masks = {k: v for k, v in simple_masks.items() if v is not None}
+        if not simple_masks:
+            return
         mapping_key = self.key("mask")
         await self.store.hsetmapping(mapping_key, simple_masks)
         await self.store.expire_at(mapping_key, self.expires_at)
@@ -277,33 +292,46 @@ class CaseStore:
         if not masks:
             return
         simple_masks = masks._map.copy() if isinstance(masks, NameToMaskMap) else masks
+
+        # Guard against None values, which cause errors.
+        simple_masks = {k: v for k, v in simple_masks.items() if v is not None}
+        if not simple_masks:
+            return
+
         mapping_key = self.key("placeholders")
         await self.store.hsetmapping(mapping_key, simple_masks)
         await self.store.expire_at(mapping_key, self.expires_at)
 
     @ensure_init
-    async def save_result_doc(self, doc_id: str, doc: OutputDocument) -> None:
+    async def save_result_doc(self, doc_id: str | bytes, doc: OutputDocument) -> None:
         """Save a result ID for a case.
 
         Args:
-            doc_id (str): The document ID.
+            doc_id (str | bytes): The document ID as a string.
             doc (OutputDocument): The document.
 
         Returns:
             None
         """
+        if isinstance(doc_id, bytes):
+            doc_id = doc_id.decode("utf-8")
         k = self.key("result:" + doc_id)
         serialized_doc = doc.model_dump_json()
         await self.store.set(k, serialized_doc)
         await self.store.expire_at(k, self.expires_at)
 
     @ensure_init
-    async def get_result_doc(self, doc_id: str) -> OutputDocument | None:
+    async def get_result_doc(self, doc_id: str | bytes) -> OutputDocument | None:
         """Get the result ID for a case.
+
+        Args:
+            doc_id (str | bytes): The document ID as a string.
 
         Returns:
             OutputDocument: The document.
         """
+        if isinstance(doc_id, bytes):
+            doc_id = doc_id.decode("utf-8")
         k = self.key("result:" + doc_id)
         serialized_doc = await self.store.get(k)
         if not serialized_doc:
@@ -327,6 +355,10 @@ class CaseStore:
         # even though it is fully compatible.
         # https://stackoverflow.com/a/72841649
         srm = cast(SimpleMapping, subject_role_mapping)
+        # Guard against None values, which cause errors.
+        srm = {k: v for k, v in srm.items() if v is not None}
+        if not srm:
+            return
         k = self.key("role")
         await self.store.hsetmapping(k, srm)
         await self.store.expire_at(k, self.expires_at)
@@ -444,16 +476,18 @@ class CaseStore:
         return {k.decode(): v.decode().split(",") for k, v in result.items()}
 
     @ensure_init
-    async def save_doc_task(self, doc_id: str, task: AsyncResult) -> None:
+    async def save_doc_task(self, doc_id: str | bytes, task: AsyncResult) -> None:
         """Save a document task ID.
 
         Args:
-            doc_id (str): The document ID.
+            doc_id (str | bytes): The document ID as a string.
             task (AsyncResult): The task result promise.
 
         Returns:
             None
         """
+        if isinstance(doc_id, bytes):
+            doc_id = doc_id.decode("utf-8")
         k = self.key("task")
         task_ids = list[str]()
         # Flatten the list of task IDs from the result chain
@@ -496,18 +530,23 @@ class CaseStore:
 
     @ensure_init
     async def save_real_name(
-        self, subject_id: str, alias: HumanName, primary: bool = False
+        self, subject_id: str | bytes, alias: HumanName, primary: bool = False
     ) -> None:
         """Save a real name for a subject.
 
         Args:
-            subject_id (str): The subject ID.
+            subject_id (str | bytes): The subject ID as a string.
             alias (HumanName): The alias.
             primary (bool, optional): Whether the alias is primary. Defaults to False.
 
         Returns:
             None
         """
+        # NOTE(jnu): we really prefer to have the interface deal exclusively with
+        # strings, not bytes, but since bytestrings are strewn about the codebase
+        # we need to support both, as a defensive measure.
+        if isinstance(subject_id, bytes):
+            subject_id = subject_id.decode("utf-8")
         subject_key = f"aliases:{subject_id}"
 
         if primary:
@@ -519,7 +558,7 @@ class CaseStore:
         await self.store.expire_at(self.key(subject_key), self.expires_at)
 
     @ensure_init
-    def key(self, category: str) -> str:
+    def key(self, category: str | bytes) -> str:
         """Generate a key for a redis value.
 
         Args:
@@ -528,4 +567,6 @@ class CaseStore:
         Returns:
             str: The key.
         """
+        if isinstance(category, bytes):
+            category = category.decode("utf-8")
         return f"{self.jurisdiction_id}:{self.case_id}:{category}"
