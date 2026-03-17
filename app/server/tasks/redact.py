@@ -6,6 +6,7 @@ from bc2.core.common.context import Context
 from bc2.core.common.openai import FilteredContentError
 from bc2.core.inspect.embed import EmbedInspectConfig
 from bc2.core.inspect.quality import QualityReport
+from bc2.core.redact.base import MissingNarrativeError
 from bc2.core.render import (
     HtmlRenderConfig,
     JsonRenderConfig,
@@ -175,8 +176,10 @@ def redact(
         )
     except Exception as e:
         # Break out of processing when we hit max retries, or for certain errors.
-        if self.request.retries >= self.max_retries or isinstance(
-            e, FilteredContentError
+        if (
+            self.request.retries >= self.max_retries
+            or isinstance(e, FilteredContentError)
+            or isinstance(e, MissingNarrativeError)
         ):
             logger.error(
                 f"Redaction failed for {params.document_id} "
