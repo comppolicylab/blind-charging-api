@@ -33,7 +33,7 @@ dependencies = [
     "python-hcl2<5.0.0,>=4.3.5",
     "alembic==1.13.3",
     "fakeredis==2.24.1",
-    "azure-monitor-opentelemetry<2.0.0,>=1.6.4",
+    "azure-monitor-opentelemetry<2.0.0,>=1.8.6",
     "opentelemetry-instrumentation-celery<1.0,>=0.49b1",
     "certifi<2025.0.0,>=2024.12.14",
     "alligater<1.0.0,>=0.3.2",

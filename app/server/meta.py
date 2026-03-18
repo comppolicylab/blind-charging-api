@@ -514,7 +514,7 @@ def _format_meta_html(content: str) -> str:
                 <a href="mailto:blind_charging@hks.harvard.edu">
                 blind_charging@hks.harvard.edu</a>.
                 </div>
-                <div>© 2024 Computational Policy Lab, Harvard Kennedy School</div>
+                <div>© 2026 Computational Policy Lab, Harvard Kennedy School</div>
                 <div><pre class="cpl">{cpl_logo}</pre></div>
             </footer>
         </body>
