@@ -89,7 +89,7 @@ api_version = "2024-06-01"
 method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 openai_model = "${local.full_openai_llm_model}"
-system = { prompt_id = "redact" }
+system = { prompt_id = "redact_20260228_2" }
 
 [[processor.pipe.processor.pipe]]
 # 3b) Inspect redaction to generate placeholder list
