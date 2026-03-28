@@ -19,6 +19,8 @@ tags:
     description: Operations related to reviewing documents.
   - name: experiments
     description: Operations related to research experiments.
+  - name: extraction
+    description: Operations related to document information extraction.
   - name: operations
     description: Operations related to the overall operation of the API.
 
@@ -381,6 +383,76 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /extract:
+    post:
+      summary: Extract information from documents
+      description: |
+        Submit one or more PDF documents for structured information extraction.
+        Extraction happens asynchronously and may take some time.
+
+        A token is returned in the response that can be used to poll for the status and
+        results of the extraction via the `GET /extract/{token}` endpoint.
+
+        If a callback URL is provided for a document, the result will be POSTed to that URL
+        when extraction is complete for that document. The callback will contain either
+        `ExtractionResultSuccess` or `ExtractionResultError`.
+      tags:
+        - extraction
+      operationId: extract-documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractionRequest"
+      responses:
+        "201":
+          description: "Accepted"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractionAccepted"
+      callbacks:
+        extractionComplete:
+          '{$request.body#/documents/0/callbackUrl}':
+            post:
+              summary: Extraction complete
+              description: |
+                This callback is made for each input document when extraction is finished.
+              requestBody:
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      $ref: "#/components/schemas/ExtractionResultCompleted"
+              responses:
+                "201":
+                  description: "Accepted"
+
+  /extract/{token}:
+    get:
+      summary: Get extraction results
+      description: |
+        Poll for the status and results of a document extraction request using the token
+        returned from `POST /extract`.
+      tags:
+        - extraction
+      operationId: get-extraction-status
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: The token returned from the extraction request.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "OK"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractionStatus"
 
 security:
   - preshared: []
@@ -1104,3 +1176,285 @@ components:
       properties:
         detail:
           type: string
+
+    # --- Extraction schemas ---
+
+    ExtractionInputDocument:
+      description: |
+        An input document for extraction. Only PDF documents are supported,
+        provided either as a URL or base64-encoded content.
+      oneOf:
+        - $ref: "#/components/schemas/DocumentLink"
+        - $ref: "#/components/schemas/DocumentContent"
+      discriminator:
+        propertyName: attachmentType
+        mapping:
+          LINK: "#/components/schemas/DocumentLink"
+          BASE64: "#/components/schemas/DocumentContent"
+
+    ExtractionTarget:
+      type: object
+      required:
+        - document
+      properties:
+        document:
+          $ref: "#/components/schemas/ExtractionInputDocument"
+        callbackUrl:
+          type: string
+          format: uri
+
+    ExtractionRequest:
+      type: object
+      required:
+        - documents
+      properties:
+        documents:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExtractionTarget"
+
+    ExtractionAccepted:
+      type: object
+      required:
+        - tokens
+      properties:
+        tokens:
+          description: |
+            A list of opaque tokens, one per input document in the same order
+            as the request. Each token can be used to poll for that document's
+            extraction results via `GET /extract/{token}`.
+          type: array
+          items:
+            type: string
+
+    ExtractionStatus:
+      description: |
+        The status of a single document's extraction, returned when polling via token.
+      type: object
+      required:
+        - token
+        - result
+      properties:
+        token:
+          type: string
+        result:
+          $ref: "#/components/schemas/ExtractionResult"
+
+    ExtractionResultSuccess:
+      type: object
+      required:
+        - extractedReport
+        - status
+      properties:
+        extractedReport:
+          $ref: "#/components/schemas/ExtractedReport"
+        status:
+          type: string
+          enum:
+            - COMPLETE
+
+    ExtractionResultError:
+      type: object
+      required:
+        - error
+        - status
+      properties:
+        error:
+          type: string
+        status:
+          type: string
+          enum:
+            - ERROR
+
+    ExtractionResultPending:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - QUEUED
+            - PROCESSING
+        statusDetail:
+          type: string
+
+    ExtractionResultCompleted:
+      description: |
+        A completed extraction job, used in callbacks. The result is either
+        a success with extracted data or an error.
+      oneOf:
+        - $ref: "#/components/schemas/ExtractionResultSuccess"
+        - $ref: "#/components/schemas/ExtractionResultError"
+      discriminator:
+        propertyName: status
+        mapping:
+          COMPLETE: "#/components/schemas/ExtractionResultSuccess"
+          ERROR: "#/components/schemas/ExtractionResultError"
+
+    ExtractionResult:
+      description: |
+        Information about an extraction job, including pending states.
+      oneOf:
+        - $ref: "#/components/schemas/ExtractionResultSuccess"
+        - $ref: "#/components/schemas/ExtractionResultError"
+        - $ref: "#/components/schemas/ExtractionResultPending"
+      discriminator:
+        propertyName: status
+        mapping:
+          COMPLETE: "#/components/schemas/ExtractionResultSuccess"
+          ERROR: "#/components/schemas/ExtractionResultError"
+          QUEUED: "#/components/schemas/ExtractionResultPending"
+          PROCESSING: "#/components/schemas/ExtractionResultPending"
+
+    # --- Extracted report data model ---
+
+    BoundingBox:
+      description: A bounding rectangle defined by its top-left and bottom-right corners.
+      type: object
+      required:
+        - x0
+        - y0
+        - x1
+        - y1
+      properties:
+        x0:
+          type: number
+        y0:
+          type: number
+        x1:
+          type: number
+        y1:
+          type: number
+
+    DocumentRegion:
+      description: A region within a specific page of a PDF document.
+      type: object
+      required:
+        - page
+        - bbox
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        bbox:
+          $ref: "#/components/schemas/BoundingBox"
+
+    CitedString:
+      description: |
+        A string value extracted from a document, paired with references to the
+        document regions where the information was found. The `referenceIds` are
+        indices into the top-level `references` array of the `ExtractedReport`.
+      type: object
+      required:
+        - referenceIds
+        - content
+      properties:
+        referenceIds:
+          type: array
+          items:
+            type: integer
+        content:
+          type: string
+
+    ExtractedCharge:
+      type: object
+      properties:
+        statute:
+          $ref: "#/components/schemas/CitedString"
+        description:
+          $ref: "#/components/schemas/CitedString"
+        severity:
+          $ref: "#/components/schemas/CitedString"
+        class:
+          $ref: "#/components/schemas/CitedString"
+
+    ExtractedDefendant:
+      type: object
+      required:
+        - charges
+      properties:
+        charges:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExtractedCharge"
+        name:
+          $ref: "#/components/schemas/CitedString"
+        gender:
+          $ref: "#/components/schemas/CitedString"
+        weight:
+          $ref: "#/components/schemas/CitedString"
+        height:
+          $ref: "#/components/schemas/CitedString"
+        eyeColor:
+          $ref: "#/components/schemas/CitedString"
+        race:
+          $ref: "#/components/schemas/CitedString"
+        phoneNumber:
+          $ref: "#/components/schemas/CitedString"
+        address:
+          $ref: "#/components/schemas/CitedString"
+
+    ExtractedOfficer:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/CitedString"
+        agency:
+          $ref: "#/components/schemas/CitedString"
+
+    ExtractedPerson:
+      type: object
+      properties:
+        name:
+          $ref: "#/components/schemas/CitedString"
+        status:
+          description: The person's relationship to the case (e.g. victim, witness).
+          $ref: "#/components/schemas/CitedString"
+
+    IncidentMetadata:
+      description: High-level metadata about the incident described in the report.
+      type: object
+      properties:
+        agencyName:
+          $ref: "#/components/schemas/CitedString"
+        incidentNumber:
+          $ref: "#/components/schemas/CitedString"
+        incidentDate:
+          $ref: "#/components/schemas/CitedString"
+
+    ExtractedReport:
+      description: |
+        Structured information extracted from a police report PDF. The `references`
+        array contains all document regions cited by the extracted fields. Each
+        `CitedString` field contains `referenceIds` that are indices into this array.
+      type: object
+      required:
+        - references
+        - defendants
+      properties:
+        references:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRegion"
+        incident:
+          $ref: "#/components/schemas/IncidentMetadata"
+        defendants:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ExtractedDefendant"
+        referringOfficers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtractedOfficer"
+        narratives:
+          type: array
+          items:
+            $ref: "#/components/schemas/CitedString"
+        otherPeople:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtractedPerson"
