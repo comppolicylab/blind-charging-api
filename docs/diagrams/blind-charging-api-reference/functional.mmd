@@ -1,0 +1,40 @@
+flowchart TB
+  %% blind-charging-api reference - functional flow
+
+  classDef actor fill:#fdf6e3,stroke:#8f6a00,color:#3b2b00;
+  classDef app fill:#dff3e3,stroke:#2f6b3b,color:#16371d;
+  classDef ui fill:#e1f0ff,stroke:#316896,color:#0f2f4f;
+  classDef ops fill:#fff1d6,stroke:#9a6a00,color:#4d3300;
+
+  subgraph MAIN[" "]
+    direction LR
+
+    caller["Partner system / user"]:::actor
+
+    submit["Submit redaction request<br/>case, subjects, documents, callback"]:::ui
+    validate["Validate request and callback rules"]:::app
+    fanout["Create one async job chain per document"]:::app
+    fetch["Fetch document content"]:::app
+    analyze["Extract, parse, redact, inspect"]:::app
+    format["Format output for PDF / text / HTML / JSON"]:::app
+    callback["Send callback result"]:::ui
+    finalize["Mark case status and persist completion"]:::app
+    poll["Optional status polling endpoint"]:::ui
+    experiments["Optional experiment endpoints<br/>exposure / outcome / blind review"]:::ui
+    ops["Operators monitor health, queue state, and failures"]:::ops
+
+    caller --> submit --> validate --> fanout --> fetch --> analyze --> format --> callback --> finalize
+    caller -. "optional" .-> poll
+    caller -. "optional research / evaluation" .-> experiments
+    finalize --> ops
+    analyze --> ops
+  end
+
+  subgraph LEGEND["Legend"]
+    direction TB
+    lactor["People / calling systems"]:::actor
+    lui["User-facing API actions"]:::ui
+    lapp["Background processing steps"]:::app
+    lops["Operational monitoring"]:::ops
+    lactor ~~~ lui ~~~ lapp ~~~ lops
+  end

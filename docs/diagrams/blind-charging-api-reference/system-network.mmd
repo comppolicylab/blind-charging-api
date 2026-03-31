@@ -1,0 +1,78 @@
+flowchart LR
+  %% blind-charging-api reference - system/network
+
+  classDef actor fill:#fdf6e3,stroke:#8f6a00,color:#3b2b00;
+  classDef net fill:#e8f4ff,stroke:#2d6f9d,color:#14334a;
+  classDef runtime fill:#dff3e3,stroke:#2f6b3b,color:#16371d;
+  classDef service fill:#f4e4ff,stroke:#6b4c8c,color:#331d4d;
+  classDef data fill:#fff1d6,stroke:#9a6a00,color:#4d3300;
+  classDef note fill:#f5f5f5,stroke:#7a7a7a,color:#333333,stroke-dasharray: 4 3;
+
+  subgraph LEGEND["Legend"]
+    direction LR
+    lactor["External parties / partner networks"]:::actor
+    lnet["Ingress, VNet, or firewall"]:::net
+    lruntime["Running application components"]:::runtime
+    lservice["Platform services"]:::service
+    ldata["Stateful backend services"]:::data
+    lnote["Notes / optional components"]:::note
+  end
+
+  client["Partner network / case system"]:::actor
+
+  subgraph AZ["Azure Government"]
+    gateway["Application Gateway<br/>public and/or private listener<br/>optional WAF"]:::net
+
+    subgraph VNET["Blind Charging VNet"]
+      subgraph APP["App subnet / Container Apps environment"]
+        api["API container"]:::runtime
+        worker["Worker container"]:::runtime
+        init["Init / admin tasks"]:::runtime
+      end
+
+      subgraph BACK["Private endpoints"]
+        sql["Azure SQL"]:::data
+        redis["Redis"]:::data
+        kv["Key Vault"]:::service
+        oai["Azure OpenAI"]:::service
+        di["Document Intelligence"]:::service
+        monitorpe["Azure Monitor private endpoint"]:::service
+      end
+
+      fw["Azure Firewall<br/>default outbound route"]:::net
+    end
+
+    mon["Application Insights / Log Analytics / Azure Monitor"]:::service
+    cert["Key Vault-backed certificates and secrets"]:::note
+    research["Optional research environment route"]:::note
+  end
+
+  client -->|"HTTPS API calls"| gateway
+  gateway --> api
+  api -->|"enqueue / manage jobs"| worker
+  api --> init
+
+  api --> sql
+  api --> redis
+  api --> kv
+  api --> oai
+  api --> di
+
+  worker --> sql
+  worker --> redis
+  worker --> kv
+  worker --> oai
+  worker --> di
+
+  api --> fw
+  worker --> fw
+
+  gateway --> mon
+  api --> mon
+  worker --> mon
+  monitorpe --> mon
+
+  kv -.-> cert
+  gateway -.-> research
+  client --- lactor
+  linkStyle 22 stroke:transparent,stroke-width:0px,fill:none,color:transparent;

@@ -1,0 +1,66 @@
+flowchart LR
+  %% blind-charging-api reference - data flow
+
+  classDef actor fill:#fdf6e3,stroke:#8f6a00,color:#3b2b00;
+  classDef app fill:#dff3e3,stroke:#2f6b3b,color:#16371d;
+  classDef service fill:#f4e4ff,stroke:#6b4c8c,color:#331d4d;
+  classDef data fill:#fff1d6,stroke:#9a6a00,color:#4d3300;
+  classDef note fill:#f5f5f5,stroke:#7a7a7a,color:#333333,stroke-dasharray: 4 3;
+
+  subgraph LEGEND["Legend"]
+    direction LR
+    lactor["External actors / clients"]:::actor
+    lapp["Core API / worker logic"]:::app
+    lservice["AI or auth services"]:::service
+    ldata["State or storage systems"]:::data
+    lnote["Notes / optional paths"]:::note
+    lactor ~~~ lapp ~~~ lservice ~~~ ldata ~~~ lnote
+  end
+
+  client["Partner system / operator"]:::actor
+  callback["Client callback endpoint<br/>or polling client"]:::actor
+
+  subgraph API["Blind Charging API deployment"]
+    ingress["Redaction API"]:::app
+    queue["Redis broker + transient document store"]:::data
+    worker["Background worker"]:::app
+    sql["Azure SQL<br/>case data, experiment data, embeddings"]:::data
+    format["Formatting / finalize steps"]:::app
+  end
+
+  subgraph AI["Processing services"]
+    di["Azure Document Intelligence<br/>OCR / extraction"]:::service
+    parse["Azure OpenAI<br/>parse narrative"]:::service
+    redact["Azure OpenAI<br/>redact + inspect"]:::service
+  end
+
+  auth["Optional OAuth2 / client credentials"]:::service
+  poll["GET status / result retrieval"]:::note
+  chain["Async pipeline:<br/>fetch -> redact -> format -> callback -> finalize"]:::note
+
+  client -->|"submit /api/v1/redact request<br/>document link, text, or base64"| ingress
+  client -->|"optional auth token flow"| auth
+  auth --> ingress
+
+  ingress -->|"save case state and experiment metadata"| sql
+  ingress -->|"enqueue per-document job"| queue
+  queue -->|"dispatch task"| worker
+
+  worker -->|"fetch input document"| queue
+  worker -->|"load case mask context"| sql
+  worker -->|"OCR / text extraction"| di
+  di -->|"extracted text"| worker
+  worker -->|"parse long narrative"| parse
+  parse -->|"structured narrative"| worker
+  worker -->|"redact, inspect, annotate, quality check"| redact
+  redact -->|"redacted result + placeholder insights"| worker
+
+  worker -->|"save output bytes"| queue
+  worker -->|"save embeddings / experiment info"| sql
+  worker --> format
+  format -.-> chain
+
+  format -->|"POST per-document result"| callback
+  format -->|"update case completion state"| sql
+  callback -.-> poll
+  client -. "optional GET status / result" .-> ingress
