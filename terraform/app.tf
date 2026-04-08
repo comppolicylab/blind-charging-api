@@ -187,9 +187,9 @@ resource "azurerm_container_app" "main" {
         port                    = 8000
         transport               = "HTTP"
         initial_delay           = 5
-        interval_seconds        = 30
+        interval_seconds        = 60
         failure_count_threshold = 5
-        timeout                 = 3
+        timeout                 = 15
       }
     }
 
@@ -222,9 +222,9 @@ resource "azurerm_container_app" "main" {
         port                    = 8001
         transport               = "HTTP"
         initial_delay           = 10
-        interval_seconds        = 15
-        failure_count_threshold = 3
-        timeout                 = 5
+        interval_seconds        = 60
+        failure_count_threshold = 5
+        timeout                 = 15
       }
       readiness_probe {
         host                    = "127.0.0.1"
