@@ -114,18 +114,19 @@ wheels = [
 
 [[package]]
 name = "alligater"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "antlr4-python3-runtime" },
     { name = "mmh3" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "signed-id" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/a3/e82805662fc77ab2de0453438b1c04292a023e1960f9d917f7add1589094/alligater-0.4.0.tar.gz", hash = "sha256:4073078ac85a73fb8bcc50ca2239907a1a31754e166d5d9f9af8038dfe89ef31", size = 57123, upload-time = "2025-02-07T17:12:57.326Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/08/7917f99c0571c490814220112e65d3568e7ecf950471403a2b60a22838e7/alligater-0.5.0.tar.gz", hash = "sha256:93d96b5fad39f96c71eed7af27dd16e1451320899c469ed69920ea3ea055c020", size = 57255, upload-time = "2025-10-09T19:08:19.198Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/42/5ec669fdfe1b8f9502ee0cf6ec57bdfc3c233d9581b4edae08319e9f854e/alligater-0.4.0-py3-none-any.whl", hash = "sha256:71625fedc4cb06ca380552437a25baf813b53071a7a7a50213aa11e7f9208354", size = 69425, upload-time = "2025-02-07T17:12:55.104Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/38/86626593ced0ad5d136d870d6258d8c2ed233d5a4274322f36fd2b9dd681/alligater-0.5.0-py3-none-any.whl", hash = "sha256:9204217cdea287ae79fca15d52406043bd3a62036ce9c3d6f7e6906f684df88e", size = 70031, upload-time = "2025-10-09T19:08:18.063Z" },
 ]
 
 [[package]]
@@ -450,7 +451,7 @@ requires-dist = [
     { name = "aioodbc", specifier = ">=0.5.0,<1.0.0" },
     { name = "aiosqlite", specifier = ">=0.20.0,<1.0.0" },
     { name = "alembic", specifier = "==1.13.3" },
-    { name = "alligater", specifier = ">=0.3.2,<1.0.0" },
+    { name = "alligater", specifier = ">=0.5.0,<1.0.0" },
     { name = "argon2-cffi", specifier = ">=23.1.0,<24.0.0" },
     { name = "azure-monitor-opentelemetry", specifier = ">=1.8.6,<2.0.0" },
     { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
@@ -2652,6 +2653,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
+name = "signed-id"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/38/b88a68a72e676eec074808d4c746e79da285ed384f399c85aa1e9be38406/signed_id-0.1.0.tar.gz", hash = "sha256:4fd2d2da901fc3c3d4312957fb050a037ea85f89549f6c92d3b4c1bee44d3ca9", size = 4076, upload-time = "2025-10-09T17:51:08.207Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/a9/60e8813633834135d603c219ed826d1d89c51bd13edb3cd9b1401a8b39de/signed_id-0.1.0-py3-none-any.whl", hash = "sha256:d3dfd6fdc123b96b5e7208fa6d4dafe5132647068f870883c52cadf10bf4ea0d", size = 5160, upload-time = "2025-10-09T17:51:07.507Z" },
 ]
 
 [[package]]
