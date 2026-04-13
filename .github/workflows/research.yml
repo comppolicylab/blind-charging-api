@@ -37,7 +37,7 @@ jobs:
       - name: Build and push research image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: terraform/research
           file: terraform/research/Dockerfile
           # Apply new version tag and replace any existing `latest` tag.
           push: true
