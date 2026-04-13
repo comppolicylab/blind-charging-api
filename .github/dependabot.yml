@@ -15,10 +15,20 @@ updates:
     cooldown:
       default-days: 7
 
-  # Enable version updates for Docker
+  # Enable version updates for Python (API)
   - package-ecosystem: "uv"
-    # Look for a `Dockerfile` in the `root` directory
+    # Look for a `pyproject.toml` in the `root` directory
     directory: "/"
+    # Check for updates once a week
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+
+  # Enable version updates for Python (research)
+  - package-ecosystem: "uv"
+    # Look for a `pyproject.toml` in the research directory
+    directory: "terraform/research"
     # Check for updates once a week
     schedule:
       interval: "weekly"
