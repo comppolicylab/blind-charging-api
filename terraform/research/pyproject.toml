@@ -5,7 +5,7 @@ authors = [
 requires-python = "<4.0,>=3.12"
 dependencies = [
     "alligater @ git+https://github.com/comppolicylab/alligater.git",
-    "bc2 @ git+https://github.com/comppolicylab/bc2.git",
+    "bc2 @ git+https://github.com/comppolicylab/bc2.git@ff6f2b4",
 ]
 name = "research"
 version = "0.1.0"
