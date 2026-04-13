@@ -12,7 +12,9 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "weekly"
-      
+    cooldown:
+      default-days: 7
+
   # Enable version updates for Docker
   - package-ecosystem: "uv"
     # Look for a `Dockerfile` in the `root` directory
@@ -20,3 +22,5 @@ updates:
     # Check for updates once a week
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
