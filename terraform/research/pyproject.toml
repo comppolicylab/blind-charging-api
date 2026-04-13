@@ -4,8 +4,8 @@ authors = [
 ]
 requires-python = "<4.0,>=3.12"
 dependencies = [
-    "alligater @ git+ssh://git@github.com/stanford-policylab/alligater.git",
-    "bc2 @ git+ssh://git@github.com/stanford-policylab/bc2.git",
+    "alligater @ git+https://github.com/comppolicylab/alligater.git",
+    "bc2 @ git+https://github.com/comppolicylab/bc2.git",
 ]
 name = "research"
 version = "0.1.0"
