@@ -407,7 +407,7 @@ paths:
             schema:
               $ref: "#/components/schemas/ExtractionRequest"
       responses:
-        "201":
+        "202":
           description: "Accepted"
           content:
             application/json:
@@ -1179,18 +1179,53 @@ components:
 
     # --- Extraction schemas ---
 
+    ExtractionDocumentLink:
+      type: object
+      description: |
+        PDF document supplied by URL for extraction. Unlike `DocumentLink`,
+        `documentId` is omitted because the document identifier is not known
+        until after extraction is accepted.
+      required:
+        - attachmentType
+        - url
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - LINK
+        url:
+          type: string
+          format: uri
+
+    ExtractionDocumentContent:
+      type: object
+      description: |
+        PDF document supplied as base64 for extraction. Unlike `DocumentContent`,
+        `documentId` is omitted because the document identifier is not known
+        until after extraction is accepted.
+      required:
+        - attachmentType
+        - content
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - BASE64
+        content:
+          type: string
+
     ExtractionInputDocument:
       description: |
         An input document for extraction. Only PDF documents are supported,
         provided either as a URL or base64-encoded content.
       oneOf:
-        - $ref: "#/components/schemas/DocumentLink"
-        - $ref: "#/components/schemas/DocumentContent"
+        - $ref: "#/components/schemas/ExtractionDocumentLink"
+        - $ref: "#/components/schemas/ExtractionDocumentContent"
       discriminator:
         propertyName: attachmentType
         mapping:
-          LINK: "#/components/schemas/DocumentLink"
-          BASE64: "#/components/schemas/DocumentContent"
+          LINK: "#/components/schemas/ExtractionDocumentLink"
+          BASE64: "#/components/schemas/ExtractionDocumentContent"
 
     ExtractionTarget:
       type: object
