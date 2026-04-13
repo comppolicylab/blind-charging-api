@@ -34,45 +34,11 @@ jobs:
           username: blindchargingapi
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
-            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-
-      # The webfactory/ssh-agent step generates a .gitconfig and .ssh/config
-      # that need to be 1) copied into the build context, and 2) injected into
-      # the Dockerfile so that the build can access private repositories.
-      - name: Patch git and ssh in Dockerfile
-        env:
-          DIR: ${{github.workspace}}
-        run: |
-          CONFIG_DIR=terraform/research/custom-config
-          mkdir -p $CONFIG_DIR
-          cp -r ~/.gitconfig ~/.ssh $CONFIG_DIR/
-          ed -s $DIR/terraform/research/Dockerfile <<EOF
-          /WORKDIR/
-          i
-          COPY custom-config/.gitconfig /root/.gitconfig
-          COPY custom-config/.ssh /root/.ssh
-          RUN sed 's|/home/runner|/root|g' -i.bak /root/.ssh/config
-          .
-          w
-          q
-          EOF
-          ls -l $CONFIG_DIR/.ssh
-          cat $CONFIG_DIR/.ssh/config
-          cat $CONFIG_DIR/.gitconfig
-
       - name: Build and push research image
         uses: docker/build-push-action@v6
         with:
-          # Use the configured ssh-agent in the build for private repos.
-          ssh: default=${{ env.SSH_AUTH_SOCK }}
-          # Override default context to use the checkout with Dockerfile modifications.
-          context: ${{github.workspace}}/terraform/research
-          file: ${{github.workspace}}/terraform/research/Dockerfile
+          context: terraform/research
+          file: terraform/research/Dockerfile
           # Apply new version tag and replace any existing `latest` tag.
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-research:latest

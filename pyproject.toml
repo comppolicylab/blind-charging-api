@@ -40,7 +40,7 @@ dependencies = [
     "kombu @ git+https://github.com/jnu/kombu.git@bb38b12eec4b79dc95caf75bf4ccdd12a78216c1",
     "celery==5.4",
     "tiktoken>=0.12.0",
-    "bc2",
+    "bc2 @ git+https://github.com/comppolicylab/bc2.git",
 ]
 name = "blind-charging-api"
 version = "0.12.9"
@@ -73,6 +73,3 @@ exclude = "^(alembic)"
 [[tool.mypy.overrides]]
 module = "app.server.generated.models"
 ignore_errors = true
-
-[tool.uv.sources]
-bc2 = { git = "ssh://git@github.com/comppolicylab/bc2.git" }

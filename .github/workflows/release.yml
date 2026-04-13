@@ -95,44 +95,9 @@ jobs:
           username: blindchargingapi
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_ALLIGATER_DEPLOY_PRIVATE_KEY }}
-            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-
-      # The webfactory/ssh-agent step generates a .gitconfig and .ssh/config
-      # that need to be 1) copied into the build context, and 2) injected into
-      # the Dockerfile so that the build can access private repositories.
-      - name: Patch git and ssh in Dockerfile
-        env:
-          DIR: ${{github.workspace}}
-        run: |
-          mkdir -p custom-config
-          cp -r ~/.gitconfig ~/.ssh custom-config/
-          ed -s $DIR/Dockerfile <<EOF
-          /WORKDIR/
-          i
-          COPY custom-config/.gitconfig /root/.gitconfig
-          COPY custom-config/.ssh /root/.ssh
-          RUN sed 's|/home/runner|/root|g' -i.bak /root/.ssh/config
-          .
-          w
-          q
-          EOF
-          ls -l custom-config/.ssh
-          cat custom-config/.ssh/config
-          cat custom-config/.gitconfig
-
       - name: Build and push API image
         uses: docker/build-push-action@v6
         with:
-          # Use the configured ssh-agent in the build for private repos.
-          ssh: default=${{ env.SSH_AUTH_SOCK }}
-          # Override default context to use the checkout with Dockerfile modifications.
-          context: ${{github.workspace}}
-          file: ${{github.workspace}}/Dockerfile
           # Apply new version tag, as well as a tag based on release channel.
           push: true
           tags: blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_release_channel }},blindchargingapi.azurecr.io/blind-charging-api:${{ needs.tag.outputs.api_version }}

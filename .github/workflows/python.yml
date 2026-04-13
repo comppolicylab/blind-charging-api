@@ -20,12 +20,6 @@ jobs:
           ref: ${{github.head_ref}}
           lfs: true
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_BC2_DEPLOY_PRIVATE_KEY }}
-
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -42,7 +36,6 @@ jobs:
       - name: Get requirements
         working-directory: ${{env.wd}}
         run: |
-          git config --global url."https://x-token-auth:${{ secrets.GH_PAT }}@github.com/".insteadOf "git@github.com:"
           uv sync --locked --all-extras --dev
 
       - name: Linting, formatting, and type checking
