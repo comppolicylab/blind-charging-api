@@ -12,7 +12,7 @@ dependencies = [
     "pyodbc<6.0.0,>=5.1.0",
     "aioodbc<1.0.0,>=0.5.0",
     "python-glowplug==0.3.10",
-    "typer<1.0.0,>=0.12.3",
+    "typer>=0.24.1,<1.0.0",
     "pydantic-settings<3.0.0,>=2.2.1",
     "uuid-utils==0.9.0",
     "greenlet==3.1.1",
