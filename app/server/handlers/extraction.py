@@ -1,6 +1,5 @@
-import secrets
-
 from fastapi import HTTPException, Request
+from uuid_utils import uuid7
 
 from ..config import config
 from ..generated.models import (
@@ -35,7 +34,7 @@ async def extract_documents(
         callback_url = str(doc.callbackUrl) if doc.callbackUrl else None
         validate_callback_url(callback_url)
 
-        token = secrets.token_urlsafe(24)
+        token = str(uuid7())
         task_chain = create_document_extraction_task(token, doc)
         task = task_chain.apply_async()
 
