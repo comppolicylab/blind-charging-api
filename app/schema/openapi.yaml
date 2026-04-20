@@ -702,7 +702,7 @@ components:
           TEXT: "#/components/schemas/DocumentText"
           BASE64: "#/components/schemas/DocumentContent"
 
-    AnonymousDocumentLink:
+    UnidentifiedDocumentLink:
       type: object
       description: |
         Link-based input without a caller-provided document ID.
@@ -718,7 +718,7 @@ components:
           type: string
           format: uri
 
-    AnonymousDocumentContent:
+    UnidentifiedDocumentContent:
       type: object
       description: |
         Base64 input without a caller-provided document ID.
@@ -733,17 +733,17 @@ components:
         content:
           type: string
 
-    AnonymousInputDocument:
+    UnidentifiedInputDocument:
       description: |
         Document input that omits `documentId`. Supports URL and base64 payloads.
       oneOf:
-        - $ref: "#/components/schemas/AnonymousDocumentLink"
-        - $ref: "#/components/schemas/AnonymousDocumentContent"
+        - $ref: "#/components/schemas/UnidentifiedDocumentLink"
+        - $ref: "#/components/schemas/UnidentifiedDocumentContent"
       discriminator:
         propertyName: attachmentType
         mapping:
-          LINK: "#/components/schemas/AnonymousDocumentLink"
-          BASE64: "#/components/schemas/AnonymousDocumentContent"
+          LINK: "#/components/schemas/UnidentifiedDocumentLink"
+          BASE64: "#/components/schemas/UnidentifiedDocumentContent"
 
     BlindReviewInfo:
       type: object
@@ -1231,7 +1231,7 @@ components:
           description: |
             Input document to extract from, without requiring a caller-supplied
             `documentId`.
-          $ref: "#/components/schemas/AnonymousInputDocument"
+          $ref: "#/components/schemas/UnidentifiedInputDocument"
         callbackUrl:
           type: string
           format: uri
