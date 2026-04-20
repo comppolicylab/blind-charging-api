@@ -84,7 +84,8 @@ def derive_extract_pipeline(pipe: list[dict]) -> list[dict]:  # noqa: C901
         if step["engine"] == "analyze:azuredi":
             required_configs.remove("analyze:azuredi")
             for key in analyze_config_shared_keys:
-                analyze_config[key] = step[key]
+                if key in step:
+                    analyze_config[key] = step[key]
         elif step["engine"] == "parse:openai":
             required_configs.remove("parse:openai")
             for key in generator_config_shared_keys:
