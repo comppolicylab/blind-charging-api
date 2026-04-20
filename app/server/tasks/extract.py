@@ -1,6 +1,6 @@
 import io
 
-from bc2 import Pipeline, PipelineConfig
+from bc2 import AnyProcessingConfig, Pipeline, PipelineConfig
 from bc2.core.common.openai import FilteredContentError
 from celery import Task
 from celery.canvas import Signature
@@ -43,7 +43,7 @@ register_type(ExtractionTask)
 register_type(ExtractionTaskResult)
 
 
-def derive_extract_pipeline(pipe: list[dict]) -> list[dict]:  # noqa: C901
+def derive_extract_pipeline(pipe: list[AnyProcessingConfig]) -> list[dict]:  # noqa: C901
     """Derive the extract pipeline from the redaction pipe.
 
     Args:
@@ -63,7 +63,7 @@ def derive_extract_pipeline(pipe: list[dict]) -> list[dict]:  # noqa: C901
     analyze_config: dict = {
         "engine": "analyze:azuredi",
         "kv": True,
-        "model": "prebuilt-layout",
+        "document_model": "prebuilt-layout",
     }
     analyze_config_shared_keys = {"endpoint", "api_key", "api_version", "locale"}
     ontology_client: dict = {}
@@ -80,20 +80,38 @@ def derive_extract_pipeline(pipe: list[dict]) -> list[dict]:  # noqa: C901
     generator_config_shared_keys = {"model", "openai_model", "max_tokens"}
     client_config_shared_keys = {"azure_endpoint", "api_key", "api_version"}
     required_configs = {"analyze:azuredi", "parse:openai"}
-    for step in pipe:
-        if step["engine"] == "analyze:azuredi":
+    steps = []
+
+    def _flatten_steps(pp: list[AnyProcessingConfig]):
+        for step in pp:
+            if step.engine == "$chunk":
+                if step.processor.engine == "$compose":
+                    _flatten_steps(step.processor.pipe)
+                    continue
+                else:
+                    steps.append(step.processor)
+            else:
+                steps.append(step)
+
+    _flatten_steps(pipe)
+
+    for step in steps:
+        if not required_configs:
+            break
+
+        if step.engine == "analyze:azuredi":
             required_configs.remove("analyze:azuredi")
             for key in analyze_config_shared_keys:
-                if key in step:
-                    analyze_config[key] = step[key]
-        elif step["engine"] == "parse:openai":
+                if hasattr(step, key):
+                    analyze_config[key] = getattr(step, key)
+        elif step.engine == "parse:openai":
             required_configs.remove("parse:openai")
             for key in generator_config_shared_keys:
-                if key in step.get("generator", {}):
-                    ontology_generator[key] = step["generator"][key]
+                if hasattr(getattr(step, "generator", None), key):
+                    ontology_generator[key] = getattr(step.generator, key)
             for key in client_config_shared_keys:
-                if key in step.get("client", {}):
-                    ontology_client[key] = step["client"][key]
+                if hasattr(getattr(step, "client", None), key):
+                    ontology_client[key] = getattr(step.client, key)
 
     if required_configs:
         raise RuntimeError(
@@ -139,6 +157,7 @@ def extract(
                 ]
             }
         )
+        print("PIPELINE CFG", pipeline_cfg)
 
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))
