@@ -1,17 +1,17 @@
 import io
-import json
 
 from bc2 import Pipeline, PipelineConfig
 from bc2.core.common.openai import FilteredContentError
 from celery import Task
 from celery.canvas import Signature
 from celery.utils.log import get_task_logger
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from app.func import allf
 
 from ..case_helper import get_document_sync, save_retry_state_sync
 from ..config import config
+from ..extracted_report import parse_extracted_report
 from ..generated.models import ExtractedReport
 from .fetch import FetchTaskResult
 from .metrics import (
@@ -172,15 +172,3 @@ def extract(
         logger.error("The exception that caused the failure was:")
         logger.exception(e)
         raise self.retry() from e
-
-
-def parse_extracted_report(raw_output: bytes) -> ExtractedReport:
-    """Parse extraction pipeline output into API model."""
-    loaded = json.loads(raw_output)
-    try:
-        return ExtractedReport.model_validate(loaded)
-    except ValidationError:
-        # Some engines wrap the report in an envelope.
-        if isinstance(loaded, dict) and "extractedReport" in loaded:
-            return ExtractedReport.model_validate(loaded["extractedReport"])
-        raise
