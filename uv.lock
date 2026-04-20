@@ -515,7 +515,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyodbc", specifier = ">=5.1.0,<6.0.0" },
     { name = "python-glowplug", specifier = "==0.3.10" },
-    { name = "python-hcl2", specifier = ">=4.3.5,<5.0.0" },
+    { name = "python-hcl2", specifier = ">=8.1.2,<9.0.0" },
     { name = "pytz", specifier = "==2026.1.post1" },
     { name = "redis", specifier = ">=5.2.1,<6.0.0" },
     { name = "sqlalchemy", specifier = "==2.0.49" },
@@ -2477,14 +2477,15 @@ wheels = [
 
 [[package]]
 name = "python-hcl2"
-version = "4.3.5"
+version = "8.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lark" },
+    { name = "regex" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/b8/6d82f3ac6b14493e524df946365670235570a2074cb2621ea67caa4e8952/python-hcl2-4.3.5.tar.gz", hash = "sha256:71fbe48ee9a13335828f04adff2b267e06045c44c99c737b13d940aa1468d101", size = 19350, upload-time = "2024-08-06T08:23:55.71Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/7b/6c9c973484a482f833a1b88ab69e078e05cc1f761af1839d5cbe7e7fad92/python_hcl2-8.1.2.tar.gz", hash = "sha256:ae809c7e6e39e8c3c3555e7b7f389082207929591fcba062c9f76afb1abe972d", size = 114685, upload-time = "2026-04-10T14:27:44.527Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/5c/9a1fb7ebbd9d070ae6a491e7051ac9b56f71c4c59f930fb42a8ef6c7f832/python_hcl2-4.3.5-py3-none-any.whl", hash = "sha256:e33795eed675ae59545e725d1de0a8d78b4166b30b6e0bc7699365bd06334068", size = 11301, upload-time = "2024-08-06T08:23:54.684Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/c7/10c7832ec3050a191c756f4a591c9033fbfb8e10688e979efb5c4ca4265c/python_hcl2-8.1.2-py3-none-any.whl", hash = "sha256:ac3d16dc6501d4f24db348b3a634afdfb5c10a6715b27cd105a5b77071b84ee3", size = 98951, upload-time = "2026-04-10T14:27:43.529Z" },
 ]
 
 [[package]]
