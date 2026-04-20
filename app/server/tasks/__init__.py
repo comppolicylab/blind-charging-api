@@ -7,11 +7,11 @@ from .extract_callback import (
     extraction_callback,
 )
 from .fetch import (
-    ExtractionFetchTask,
     FetchTask,
     FetchTaskResult,
+    UnidentifiedFetchTask,
     fetch,
-    fetch_extraction,
+    fetch_unidentified,
 )
 from .finalize import FinalizeTask, FinalizeTaskResult, finalize
 from .format import FormatTask, FormatTaskResult, format
@@ -24,9 +24,9 @@ __all__ = [
     "redact",
     "callback",
     "fetch",
-    "fetch_extraction",
+    "fetch_unidentified",
     "FetchTask",
-    "ExtractionFetchTask",
+    "UnidentifiedFetchTask",
     "FetchTaskResult",
     "CallbackTask",
     "CallbackTaskResult",

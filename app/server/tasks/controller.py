@@ -6,7 +6,7 @@ from ..generated.models import ExtractionTarget, OutputFormat, RedactionTarget
 from .callback import CallbackTask
 from .extract import ExtractionTask
 from .extract_callback import ExtractionCallbackTask
-from .fetch import ExtractionFetchTask, FetchTask
+from .fetch import FetchTask, UnidentifiedFetchTask
 from .finalize import FinalizeTask
 from .format import FormatTask
 from .redact import RedactionTask
@@ -64,7 +64,7 @@ def create_document_extraction_task(
 ) -> chain:
     """Create celery chain for extraction on one document."""
     return chain(
-        ExtractionFetchTask(
+        UnidentifiedFetchTask(
             document=object.document,
             document_id=token,
         ).s(),

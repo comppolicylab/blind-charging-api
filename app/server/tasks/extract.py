@@ -43,6 +43,69 @@ register_type(ExtractionTask)
 register_type(ExtractionTaskResult)
 
 
+def derive_extract_pipeline(pipe: list[dict]) -> list[dict]:  # noqa: C901
+    """Derive the extract pipeline from the redaction pipe.
+
+    Args:
+        pipe: The redaction pipe to derive the extract pipeline from.
+
+    Returns:
+        The extract pipeline, without I/O engines.
+
+    Raises:
+        RuntimeError: If the extract pipeline cannot be derived.
+    """
+    # NOTE(jnu): For an MVP implementation, to limit complexity in the config,
+    # we will inspect the redaction pipe to pull keys and urls for services,
+    # and format them into a viable extract pipeline.
+    #
+    # In the future we should define a completely separate config for this.
+    analyze_config: dict = {
+        "engine": "analyze:azuredi",
+        "kv": True,
+        "model": "prebuilt-layout",
+    }
+    analyze_config_shared_keys = {"endpoint", "api_key", "api_version", "locale"}
+    ontology_client: dict = {}
+    ontology_generator: dict = {
+        "method": "chat",
+        "temperature": 0.0,
+        "system": {"prompt_id": "ontology_20260415_1"},
+    }
+    ontology_config: dict = {
+        "engine": "ontology:openai",
+        "client": ontology_client,
+        "generator": ontology_generator,
+    }
+    generator_config_shared_keys = {"model", "openai_model", "max_tokens"}
+    client_config_shared_keys = {"azure_endpoint", "api_key", "api_version"}
+    required_configs = {"analyze:azuredi", "parse:openai"}
+    for step in pipe:
+        if step["engine"] == "analyze:azuredi":
+            required_configs.remove("analyze:azuredi")
+            for key in analyze_config_shared_keys:
+                if key in step.get("client", {}):
+                    analyze_config[key] = step[key]
+        elif step["engine"] == "parse:openai":
+            required_configs.remove("parse:openai")
+            for key in generator_config_shared_keys:
+                if key in step.get("generator", {}):
+                    ontology_generator[key] = step["generator"][key]
+            for key in client_config_shared_keys:
+                if key in step.get("client", {}):
+                    ontology_client[key] = step["client"][key]
+
+    if required_configs:
+        raise RuntimeError(
+            f"Unable to derive extract pipeline: {required_configs} missing from config"
+        )
+
+    return [
+        analyze_config,
+        ontology_config,
+    ]
+
+
 @queue.task(
     bind=True,
     task_track_started=True,
@@ -71,11 +134,11 @@ def extract(
             {
                 "pipe": [
                     {"engine": "in:memory"},
+                    *(derive_extract_pipeline(config.processor.pipe)),
                     {"engine": "out:memory"},
                 ]
             }
         )
-        pipeline_cfg.pipe[1:1] = config.processor.pipe
 
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))

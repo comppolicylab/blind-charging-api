@@ -38,12 +38,12 @@ class FetchTask(BaseModel):
         return fetch.s(self)
 
 
-class ExtractionFetchTask(BaseModel):
+class UnidentifiedFetchTask(BaseModel):
     document: UnidentifiedInputDocument
     document_id: str
 
     def s(self) -> Signature:
-        return fetch_extraction.s(self)
+        return fetch_unidentified.s(self)
 
 
 class FetchTaskResult(BaseModel):
@@ -53,7 +53,7 @@ class FetchTaskResult(BaseModel):
 
 
 register_type(FetchTask)
-register_type(ExtractionFetchTask)
+register_type(UnidentifiedFetchTask)
 register_type(FetchTaskResult)
 
 
@@ -79,24 +79,7 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
     Returns:
         FetchTaskResult: The task result.
     """
-    try:
-        content = fetch_document_content(params.document)
-
-        return FetchTaskResult(
-            document_id=params.document.root.documentId,
-            file_storage_id=save_document_sync(content),
-        )
-    except Exception as e:
-        if self.request.retries < self.max_retries:
-            logger.warning(f"Fetch task failed: {e}, will be retried.")
-            return self.retry(exc=e)
-        else:
-            logger.error(f"Fetch task failed for {params.document.root.documentId}")
-            logger.exception(e)
-            return FetchTaskResult(
-                document_id=params.document.root.documentId,
-                errors=[ProcessingError.from_exception("fetch", e)],
-            )
+    return _fetch_and_save(self, params.document.root.documentId, params.document)
 
 
 @queue.task(
@@ -112,25 +95,36 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
     on_success=record_task_success,
     before_start=record_task_start,
 )
-def fetch_extraction(self, params: ExtractionFetchTask) -> FetchTaskResult:
-    """Fetch the content of an extraction document."""
+def fetch_unidentified(self, params: UnidentifiedFetchTask) -> FetchTaskResult:
+    """Fetch the content of an unidentified input document."""
+    return _fetch_and_save(self, params.document_id, params.document)
+
+
+def _fetch_and_save(
+    task,
+    document_id: str,
+    document: InputDocument | UnidentifiedInputDocument,
+) -> FetchTaskResult:
+    """Fetch document bytes, persist them, and build a task result.
+
+    Shared implementation for the identified and unidentified fetch tasks.
+    """
     try:
-        content = fetch_document_content(params.document)
+        content = fetch_document_content(document)
         return FetchTaskResult(
-            document_id=params.document_id,
+            document_id=document_id,
             file_storage_id=save_document_sync(content),
         )
     except Exception as e:
-        if self.request.retries < self.max_retries:
-            logger.warning(f"Extraction fetch task failed: {e}, will be retried.")
-            return self.retry(exc=e)
-        else:
-            logger.error(f"Extraction fetch task failed for {params.document_id}")
-            logger.exception(e)
-            return FetchTaskResult(
-                document_id=params.document_id,
-                errors=[ProcessingError.from_exception("fetch", e)],
-            )
+        if task.request.retries < task.max_retries:
+            logger.warning(f"Fetch task failed: {e}, will be retried.")
+            return task.retry(exc=e)
+        logger.error(f"Fetch task failed for {document_id}")
+        logger.exception(e)
+        return FetchTaskResult(
+            document_id=document_id,
+            errors=[ProcessingError.from_exception("fetch", e)],
+        )
 
 
 def fetch_document_content(
