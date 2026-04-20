@@ -11,6 +11,9 @@ from app.func import allf
 from ..case_helper import save_document_sync, save_retry_state_sync
 from ..config import config
 from ..generated.models import (
+    AnonymousDocumentContent,
+    AnonymousDocumentLink,
+    AnonymousInputDocument,
     DocumentContent,
     DocumentLink,
     DocumentText,
@@ -36,7 +39,7 @@ class FetchTask(BaseModel):
 
 
 class ExtractionFetchTask(BaseModel):
-    document: InputDocument
+    document: AnonymousInputDocument
     document_id: str
 
     def s(self) -> Signature:
@@ -130,11 +133,14 @@ def fetch_extraction(self, params: ExtractionFetchTask) -> FetchTaskResult:
             )
 
 
-def fetch_document_content(document: InputDocument) -> bytes:
+def fetch_document_content(document: InputDocument | AnonymousInputDocument) -> bytes:
     """Fetch bytes from a supported input document type."""
     match document.root.attachmentType:
         case "LINK":
-            url = cast(DocumentLink, document.root).url
+            if isinstance(document, InputDocument):
+                url = cast(DocumentLink, document.root).url
+            else:
+                url = cast(AnonymousDocumentLink, document.root).url
             response = requests.get(
                 str(url),
                 timeout=config.queue.task.link_download_timeout_seconds,
@@ -142,9 +148,14 @@ def fetch_document_content(document: InputDocument) -> bytes:
             response.raise_for_status()
             return response.content
         case "TEXT":
+            if not isinstance(document, InputDocument):
+                raise ValueError("TEXT attachment is not supported for anonymous docs.")
             return cast(DocumentText, document.root).content.encode("utf-8")
         case "BASE64":
-            content = cast(DocumentContent, document.root).content
+            if isinstance(document, InputDocument):
+                content = cast(DocumentContent, document.root).content
+            else:
+                content = cast(AnonymousDocumentContent, document.root).content
             return base64.b64decode(content)
         case _:
             raise ValueError(
