@@ -388,7 +388,7 @@ wheels = [
 [[package]]
 name = "bc2"
 version = "0.8.0b1"
-source = { git = "ssh://git@github.com/comppolicylab/bc2.git#80c8c8c58bb9185d52e6c9e162e8ef3f2bac41e5" }
+source = { git = "https://github.com/comppolicylab/bc2.git#80c8c8c58bb9185d52e6c9e162e8ef3f2bac41e5" }
 dependencies = [
     { name = "azure-ai-documentintelligence" },
     { name = "azure-identity" },
@@ -485,7 +485,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1.0,<24.0.0" },
     { name = "azure-monitor-opentelemetry", specifier = ">=1.8.7,<2.0.0" },
     { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
-    { name = "bc2", git = "ssh://git@github.com/comppolicylab/bc2.git" },
+    { name = "bc2", git = "https://github.com/comppolicylab/bc2.git" },
     { name = "celery", specifier = "==5.4" },
     { name = "certifi", specifier = ">=2024.12.14,<2025.0.0" },
     { name = "fakeredis", specifier = "==2.24.1" },
