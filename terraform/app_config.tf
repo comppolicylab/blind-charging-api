@@ -41,11 +41,14 @@ EOF
   # This is the full pipeline on the production version.
   app_pipeline_prod_toml = <<EOF
 [[processor.pipe]]
-# 1) Extract / OCR with Azure DI
-engine = "extract:azuredi"
+# 1a) Analyze the document with Azure DI
+engine = "analyze:azuredi"
 endpoint = "${local.fr_endpoint}"
 api_key = "${azurerm_cognitive_account.fr.primary_access_key}"
-extract_labeled_text = false
+
+[[processor.pipe]]
+# 1b) Extract OCR'd text with Azure DI
+engine = "extract:azuredi"
 
 [[processor.pipe]]
 # 2) Parse textual output into coherent narrative with OpenAI.
@@ -66,7 +69,6 @@ method = "chat"
 model = "${azurerm_cognitive_deployment.llm.name}"
 openai_model = "${local.full_openai_llm_model}"
 system = { prompt_id = "parse" }
-
 
 [[processor.pipe]]
 # 3) Redact racial information with OpenAI
