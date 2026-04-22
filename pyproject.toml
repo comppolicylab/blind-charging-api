@@ -43,7 +43,7 @@ dependencies = [
     "bc2",
 ]
 name = "blind-charging-api"
-version = "0.13.0-beta.1"
+version = "0.13.0-beta.2"
 description = "Race-blind Charging API"
 readme = "README.md"
 
