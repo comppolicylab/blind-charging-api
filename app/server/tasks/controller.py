@@ -2,9 +2,11 @@ import logging
 
 from celery import chain
 
-from ..generated.models import OutputFormat, RedactionTarget
+from ..generated.models import ExtractionTarget, OutputFormat, RedactionTarget
 from .callback import CallbackTask
-from .fetch import FetchTask
+from .extract import ExtractionTask
+from .extract_callback import ExtractionCallbackTask
+from .fetch import FetchTask, UnidentifiedFetchTask
 from .finalize import FinalizeTask
 from .format import FormatTask
 from .redact import RedactionTask
@@ -52,5 +54,24 @@ def create_document_redaction_task(
             case_id=case_id,
             subject_ids=subject_ids,
             renderer=renderer,
+        ).s(),
+    )
+
+
+def create_document_extraction_task(
+    token: str,
+    object: ExtractionTarget,
+) -> chain:
+    """Create celery chain for extraction on one document."""
+    return chain(
+        UnidentifiedFetchTask(
+            document=object.document,
+            document_id=token,
+        ).s(),
+        ExtractionTask(
+            document_id=token,
+        ).s(),
+        ExtractionCallbackTask(
+            callback_url=str(object.callbackUrl) if object.callbackUrl else None
         ).s(),
     )

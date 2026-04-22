@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: 0.8.1
+  version: 0.9.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
@@ -702,6 +702,49 @@ components:
           TEXT: "#/components/schemas/DocumentText"
           BASE64: "#/components/schemas/DocumentContent"
 
+    UnidentifiedDocumentLink:
+      type: object
+      description: |
+        Link-based input without a caller-provided document ID.
+      required:
+        - attachmentType
+        - url
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - LINK
+        url:
+          type: string
+          format: uri
+
+    UnidentifiedDocumentContent:
+      type: object
+      description: |
+        Base64 input without a caller-provided document ID.
+      required:
+        - attachmentType
+        - content
+      properties:
+        attachmentType:
+          type: string
+          enum:
+            - BASE64
+        content:
+          type: string
+
+    UnidentifiedInputDocument:
+      description: |
+        Document input that omits `documentId`. Supports URL and base64 payloads.
+      oneOf:
+        - $ref: "#/components/schemas/UnidentifiedDocumentLink"
+        - $ref: "#/components/schemas/UnidentifiedDocumentContent"
+      discriminator:
+        propertyName: attachmentType
+        mapping:
+          LINK: "#/components/schemas/UnidentifiedDocumentLink"
+          BASE64: "#/components/schemas/UnidentifiedDocumentContent"
+
     BlindReviewInfo:
       type: object
       required:
@@ -1179,61 +1222,16 @@ components:
 
     # --- Extraction schemas ---
 
-    ExtractionDocumentLink:
-      type: object
-      description: |
-        PDF document supplied by URL for extraction. Unlike `DocumentLink`,
-        `documentId` is omitted because the document identifier is not known
-        until after extraction is accepted.
-      required:
-        - attachmentType
-        - url
-      properties:
-        attachmentType:
-          type: string
-          enum:
-            - LINK
-        url:
-          type: string
-          format: uri
-
-    ExtractionDocumentContent:
-      type: object
-      description: |
-        PDF document supplied as base64 for extraction. Unlike `DocumentContent`,
-        `documentId` is omitted because the document identifier is not known
-        until after extraction is accepted.
-      required:
-        - attachmentType
-        - content
-      properties:
-        attachmentType:
-          type: string
-          enum:
-            - BASE64
-        content:
-          type: string
-
-    ExtractionInputDocument:
-      description: |
-        An input document for extraction. Only PDF documents are supported,
-        provided either as a URL or base64-encoded content.
-      oneOf:
-        - $ref: "#/components/schemas/ExtractionDocumentLink"
-        - $ref: "#/components/schemas/ExtractionDocumentContent"
-      discriminator:
-        propertyName: attachmentType
-        mapping:
-          LINK: "#/components/schemas/ExtractionDocumentLink"
-          BASE64: "#/components/schemas/ExtractionDocumentContent"
-
     ExtractionTarget:
       type: object
       required:
         - document
       properties:
         document:
-          $ref: "#/components/schemas/ExtractionInputDocument"
+          description: |
+            Input document to extract from, without requiring a caller-supplied
+            `documentId`.
+          $ref: "#/components/schemas/UnidentifiedInputDocument"
         callbackUrl:
           type: string
           format: uri

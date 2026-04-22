@@ -7,15 +7,13 @@ All of the code in `./generated` is generated from code in `./schema`.
 
 To run code generation, make sure you have the `fastapi-codegen` repo cloned.
 
-**Note 1** [Joe's fork of the repo](https://github.com/jnu/fastapi-code-generator)
+**Note** [Joe's fork of the repo](https://github.com/jnu/fastapi-code-generator)
 still has a couple more useful features that haven't been merged into upstream branch.
-
-**Note 2** FastAPI code gen uses `poetry` for package management, so you will need to install that and use it to run the code generator.
 
 ```zsh
 # Set this to the path where this repo is checked out.
 BCAPI_ROOT=../../comppolicylab/blind-charging-api
-poetry run python -m fastapi_code_generator -i "$BCAPI_ROOT/app/schema/openapi.yaml" -o "$BCAPI_ROOT/app/server/generated" -r -t "$BCAPI_ROOT/app/schema/templates" -d pydantic_v2.BaseModel -p 3.13
+uv run python -m fastapi_code_generator -i "$BCAPI_ROOT/app/schema/openapi.yaml" -o "$BCAPI_ROOT/app/server/generated" -r -t "$BCAPI_ROOT/app/schema/templates" -d pydantic_v2.BaseModel -p 3.13
 ```
 
 ### Implementations
