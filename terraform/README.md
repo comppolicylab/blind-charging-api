@@ -95,6 +95,13 @@ We generally recommend pulling to fetch the latest changes, unless we instruct y
 git pull
 ```
 
+> [!IMPORTANT]
+> If you are deploying anything other than the latest version of the API image,
+> you need to make sure you run `git checkout` with the appropriate tag when deploying.
+>
+> For example, if you wish to deploy API version `0.12.9`, you should check out the
+> corresponding git tag with `git checkout api-0.12.9` before running `terraform apply`.
+
 ### 2. Make any changes to your tfvars file (optional)
 
 You might want to reconfigure the environment, such as by changing an image or model version.
