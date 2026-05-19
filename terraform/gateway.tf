@@ -265,12 +265,18 @@ resource "azurerm_application_gateway" "public" {
   }
 
   backend_http_settings {
-    name                                = local.backend_http_settings_name
-    probe_name                          = local.probe_name
-    cookie_based_affinity               = "Disabled"
-    port                                = 443
-    protocol                            = "Https"
-    request_timeout                     = 20
+    name                  = local.backend_http_settings_name
+    probe_name            = local.probe_name
+    cookie_based_affinity = "Disabled"
+    port                  = 443
+    protocol              = "Https"
+    # Clients may upload base64-encoded PDFs up to ~30 MB (≈40 MB on the wire)
+    # over the public internet, and the request handler performs synchronous
+    # Pydantic validation and Redis writes before returning 201. The default
+    # 20s here was being exceeded for large or multi-document payloads,
+    # producing 502/504s at the gateway. 300s gives plenty of headroom while
+    # still bounding worst-case stuck requests.
+    request_timeout                     = 300
     pick_host_name_from_backend_address = true
   }
 
@@ -299,7 +305,7 @@ resource "azurerm_application_gateway" "public" {
       cookie_based_affinity               = "Disabled"
       port                                = 443
       protocol                            = "Https"
-      request_timeout                     = 20
+      request_timeout                     = 300
       pick_host_name_from_backend_address = true
     }
   }
