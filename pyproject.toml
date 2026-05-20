@@ -14,7 +14,7 @@ dependencies = [
     "python-glowplug==0.3.10",
     "typer>=0.24.1,<1.0.0",
     "pydantic-settings<3.0.0,>=2.2.1",
-    "uuid-utils==0.9.0",
+    "uuid-utils==0.15.0",
     "greenlet==3.1.1",
     "gunicorn==25.3.0",
     "uvicorn==0.44.0",
