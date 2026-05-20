@@ -130,7 +130,9 @@ def summarize_state(task_results: list[AsyncResult]) -> StateSummary:
     max_significance = -1
     dominant_task_name = "<unknown>"
     result = None
-    for tr in task_results:
+    # All else being equal, we should return the most recent result.
+    # So iterate over the tasks in reverse order.
+    for tr in reversed(task_results):
         significance = _inspect_celery_state(tr)
         if significance > max_significance:
             max_significance = significance
