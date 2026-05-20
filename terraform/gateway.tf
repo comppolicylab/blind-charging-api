@@ -270,7 +270,7 @@ resource "azurerm_application_gateway" "public" {
     cookie_based_affinity               = "Disabled"
     port                                = 443
     protocol                            = "Https"
-    request_timeout                     = 20
+    request_timeout                     = 230
     pick_host_name_from_backend_address = true
   }
 
@@ -299,7 +299,7 @@ resource "azurerm_application_gateway" "public" {
       cookie_based_affinity               = "Disabled"
       port                                = 443
       protocol                            = "Https"
-      request_timeout                     = 20
+      request_timeout                     = 230
       pick_host_name_from_backend_address = true
     }
   }
