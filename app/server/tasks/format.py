@@ -47,6 +47,15 @@ class FormatTaskResult(BaseModel):
     errors: list[ProcessingError] = []
 
 
+class ResultStoreWriteError(Exception):
+    """Raised when persisting the formatted result to the result store fails.
+
+    Wraps the underlying exception so the format task can distinguish a
+    failure to *write* the result from other format-time failures and surface
+    a more specific ProcessingError after retries are exhausted.
+    """
+
+
 register_type(FormatTask)
 register_type(FormatTaskResult)
 
@@ -98,18 +107,59 @@ def format(
         else:
             document = format_document(params, redact_result)
 
-        save_result_sync(
-            redact_result.jurisdiction_id,
-            redact_result.case_id,
-            redact_result.document_id,
-            document,
-        )
+        try:
+            save_result_sync(
+                redact_result.jurisdiction_id,
+                redact_result.case_id,
+                redact_result.document_id,
+                document,
+            )
+        except Exception as save_exc:
+            # Persisting the formatted result to the result store is the step
+            # that determines whether downstream consumers can actually find
+            # the document, so we tag this failure separately. Wrapping the
+            # original exception keeps the traceback intact while making the
+            # final ProcessingError unambiguous.
+            raise ResultStoreWriteError(
+                "Failed to persist redacted document to the result store"
+            ) from save_exc
 
         return FormatTaskResult(
             jurisdiction_id=redact_result.jurisdiction_id,
             case_id=redact_result.case_id,
             document_id=redact_result.document_id,
             errors=redact_result.errors,
+        )
+    except ResultStoreWriteError as e:
+        # Transient Redis hiccups are common, so we still retry. After
+        # exhausting retries, surface a ProcessingError tagged with the
+        # specific subsystem that failed (rather than a generic "format"
+        # error) so operators can tell write failures apart from
+        # rendering/encoding bugs.
+        cause = e.__cause__
+        # `__cause__` is typed as ``BaseException | None``; in practice the
+        # ``raise ... from save_exc`` site always chains an ``Exception``,
+        # but narrow defensively so mypy and ``ProcessingError.from_exception``
+        # agree, and fall back to ``e`` if anything ever chains a
+        # ``BaseException`` (e.g. ``SystemExit``).
+        underlying: Exception = cause if isinstance(cause, Exception) else e
+        if format.request.retries < format.max_retries:
+            logger.warning(
+                f"Failed to save format result: {underlying}, will be retried."
+            )
+            raise format.retry(exc=underlying) from e
+        logger.error(
+            f"Exhausted retries saving format result for {redact_result.document_id}"
+        )
+        logger.exception(underlying)
+        return FormatTaskResult(
+            jurisdiction_id=redact_result.jurisdiction_id,
+            case_id=redact_result.case_id,
+            document_id=redact_result.document_id,
+            errors=[
+                *redact_result.errors,
+                ProcessingError.from_exception("format.save_result", underlying),
+            ],
         )
     except Exception as e:
         if format.request.retries < format.max_retries:

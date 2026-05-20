@@ -54,6 +54,25 @@ pipe = [
 """
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _init_celery_counters() -> None:
+    """Initialize the Celery custom metrics counters for the test session.
+
+    In production these counters are wired up by the ``worker_process_init``
+    signal handler in ``app.server.tasks.queue`` when a Celery worker
+    process boots. Tests execute tasks eagerly via ``task.s(...).apply()``
+    and never start a real worker process, so that signal never fires --
+    which leaves ``celery_counters`` with no ``task_complete_counter``
+    attribute and causes any task that triggers ``on_failure`` /
+    ``on_success`` to blow up with ``AttributeError`` deep inside Celery's
+    tracer. Initialize the counters once here so every test sees a
+    consistent, fully-wired metrics surface.
+    """
+    from app.server.tasks.metrics import celery_counters
+
+    celery_counters.init()
+
+
 @pytest.fixture
 def logger() -> logging.Logger:
     """Logging for tests."""

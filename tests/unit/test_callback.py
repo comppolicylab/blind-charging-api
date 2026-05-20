@@ -13,7 +13,6 @@ from app.server.tasks import (
     ProcessingError,
     callback,
 )
-from app.server.tasks.metrics import celery_counters
 
 
 def test_callback_no_callback_no_error():
@@ -31,7 +30,6 @@ def test_callback_no_callback_no_error():
         ),
     )
 
-    celery_counters.init()
     cb = CallbackTask(callback_url=None)
 
     result = callback.s(fmt_result, cb).apply()
@@ -53,7 +51,6 @@ def test_callback_no_callback_with_error():
         document=None,
     )
 
-    celery_counters.init()
     cb = CallbackTask(callback_url=None)
 
     result = callback.s(fmt_result, cb).apply()
@@ -107,7 +104,6 @@ def test_callback_with_callback_no_error(fake_redis_store: FakeRedis):
         ],
     )
 
-    celery_counters.init()
     cb = CallbackTask(callback_url="http://callback.test.local")
 
     result = callback.s(fmt_result, cb).apply()
@@ -156,7 +152,6 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
         ],
     )
 
-    celery_counters.init()
     cb = CallbackTask(callback_url="http://callback.test.local")
 
     result = callback.s(fmt_result, cb).apply()
