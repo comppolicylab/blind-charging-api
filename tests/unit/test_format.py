@@ -216,3 +216,67 @@ def test_format_errors():
             )
         ],
     )
+
+
+def test_format_save_result_failure_tagged_distinctly(
+    monkeypatch, fake_redis_store: FakeRedis
+):
+    """A failure in `save_result_sync` should surface as a ProcessingError
+    tagged with ``task="format.save_result"`` (not the generic ``"format"``)
+    so operators can distinguish a result-store write failure from a
+    rendering/encoding bug.
+    """
+    fake_redis_store.set("abc123", b"content")
+
+    # Prevent retries from running so the failure is reported immediately.
+    monkeypatch.setattr(format, "max_retries", 0)
+
+    redact_result = RedactionTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        file_storage_id="abc123",
+        errors=[],
+        renderer=OutputFormat.PDF,
+    )
+
+    with patch(
+        "app.server.tasks.format.save_result_sync",
+        side_effect=RuntimeError("redis unreachable"),
+    ):
+        result = format.s(redact_result, FormatTask()).apply()
+
+    final = cast(FormatTaskResult, result.get())
+    assert len(final.errors) == 1
+    err = final.errors[0]
+    assert err.task == "format.save_result"
+    assert err.exception == "RuntimeError"
+    assert "redis unreachable" in err.message
+
+
+def test_format_render_failure_keeps_generic_format_tag(
+    monkeypatch, fake_redis_store: FakeRedis
+):
+    """A non-save failure inside ``format`` should still be tagged with the
+    generic ``"format"`` task name, leaving ``"format.save_result"``
+    reserved for result-store write failures.
+    """
+    monkeypatch.setattr(format, "max_retries", 0)
+
+    # No content saved under the file_storage_id -> format_document raises
+    # ValueError("No redacted content") inside the outer try, which is
+    # *not* a ResultStoreWriteError.
+    redact_result = RedactionTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        file_storage_id="missing",
+        errors=[],
+        renderer=OutputFormat.PDF,
+    )
+
+    result = format.s(redact_result, FormatTask()).apply()
+    final = cast(FormatTaskResult, result.get())
+    assert len(final.errors) == 1
+    assert final.errors[0].task == "format"
+    assert final.errors[0].exception == "ValueError"
