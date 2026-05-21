@@ -305,9 +305,17 @@ async def _get_doc_result(
             doc = await store.get_result_doc(doc_id)
             if not doc:
                 errors = getattr(final_task_result, "errors", [])
+                # If we get here without any recorded errors, the pipeline
+                # finished cleanly but the result key is no longer present
+                # in Redis -- almost always because it expired or was
+                # evicted between completion and this poll. Make that
+                # explicit so the caller knows to resubmit rather than
+                # treat this as a silent pipeline bug.
                 error_message = (
-                    "Redaction job completed but document "
-                    "is missing and no specific errors were recorded."
+                    "Redaction completed, but the redacted document is no "
+                    "longer available in the result store. The result has "
+                    "likely expired or been evicted from cache; please "
+                    "resubmit the redaction request."
                 )
                 if errors:
                     error_message = str(errors)

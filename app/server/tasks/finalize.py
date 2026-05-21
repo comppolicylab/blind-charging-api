@@ -13,7 +13,7 @@ from ..case_helper import save_retry_state_sync, summarize_state
 from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import OutputFormat, RedactionTarget
-from .callback import CallbackTaskResult
+from .callback import CallbackTaskResult, get_result_sync
 from .metrics import (
     celery_counters,
     record_task_failure,
@@ -68,7 +68,45 @@ def finalize(
     """Finalize the redaction process."""
     format_result = callback_result.formatted
 
-    celery_counters.record_job(bool(format_result.errors))
+    # Start from whatever the upstream pipeline reported.
+    final_errors: list[ProcessingError] = list(format_result.errors)
+
+    # If the pipeline thinks it succeeded, verify that the redacted document
+    # is actually retrievable from the result store. The chain can be
+    # "successful" while the result doc is absent (e.g. a Redis write that
+    # silently failed earlier, or the key was evicted under memory pressure
+    # before finalize ran). Surfacing this here keeps the experiments DB and
+    # the poll API in agreement: both will report ERROR with a clear cause
+    # instead of disagreeing about whether the document exists.
+    if not final_errors:
+        try:
+            doc = get_result_sync(
+                format_result.jurisdiction_id,
+                format_result.case_id,
+                format_result.document_id,
+            )
+        except Exception as e:
+            logger.exception("Failed to verify presence of redaction result in store")
+            final_errors.append(
+                ProcessingError.from_exception("finalize.verify_result", e)
+            )
+        else:
+            if doc is None:
+                final_errors.append(
+                    ProcessingError(
+                        message=(
+                            "Redaction pipeline reported success but the "
+                            "redacted document was not found in the result "
+                            "store. The result may have failed to persist "
+                            "or has been evicted/expired from cache before "
+                            "finalize ran."
+                        ),
+                        task="finalize.verify_result",
+                        exception="MissingResultDocument",
+                    )
+                )
+
+    celery_counters.record_job(bool(final_errors))
 
     if config.experiments.enabled:
         with config.experiments.store.driver.sync_session() as session:
@@ -76,8 +114,8 @@ def finalize(
                 jurisdiction_id=format_result.jurisdiction_id,
                 case_id=format_result.case_id,
                 document_id=format_result.document_id,
-                status="ERROR" if format_result.errors else "COMPLETE",
-                error=format_errors(format_result.errors),
+                status="ERROR" if final_errors else "COMPLETE",
+                error=format_errors(final_errors),
             )
             session.add(status)
             session.commit()
@@ -116,7 +154,7 @@ def finalize(
         jurisdiction_id=format_result.jurisdiction_id,
         case_id=format_result.case_id,
         document_id=format_result.document_id,
-        errors=format_result.errors,
+        errors=final_errors,
         next_task_id=str(next_task) if next_task else None,
     )
 
