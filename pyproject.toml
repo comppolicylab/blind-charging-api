@@ -27,7 +27,7 @@ dependencies = [
     "urllib3==2.7.0",
     "pytz==2026.1.post1",
     "flower<3.0.0,>=2.0.1",
-    "argon2-cffi<24.0.0,>=23.1.0",
+    "argon2-cffi>=25.1.0,<26.0.0",
     "opentelemetry-sdk<2.0.0,>=1.27.0",
     "opentelemetry-api<2.0.0,>=1.27.0",
     "python-hcl2>=8.1.2,<9.0.0",
