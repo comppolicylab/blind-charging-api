@@ -46,12 +46,26 @@ def _ensure_number(v: float | int | str) -> float:
 
 
 _DATA_TYPES: list[DataType[Any, Any]] = [
-    DataType("${string}", str, str),
-    DataType("${bool}", bool, bool, _ensure_bool),
-    DataType("${map(string)}", dict[str, str], str, json.loads),
-    DataType("${number}", float, float, _ensure_number),
-    DataType("${list(string)}", list[str], str, json.loads),
+    DataType("string", str, str),
+    DataType("bool", bool, bool, _ensure_bool),
+    DataType("map(string)", dict[str, str], str, json.loads),
+    DataType("number", float, float, _ensure_number),
+    DataType("list(string)", list[str], str, json.loads),
 ]
+
+
+def _normalize_tf_type(raw_type: str) -> str:
+    """Normalize a Terraform type expression to a bare type name.
+
+    Older versions of ``python-hcl2`` wrapped every type expression in an
+    interpolation (e.g. ``${string}``). Newer versions (>=4) return simple
+    types bare (``string``) while still wrapping function-call types such as
+    ``${list(string)}``. Strip the interpolation wrapper so both forms map to
+    the same key.
+    """
+    if raw_type.startswith("${") and raw_type.endswith("}"):
+        return raw_type[2:-1]
+    return raw_type
 
 
 _TYPE_MAP: dict[str, DataType] = {dt.tf_type: dt for dt in _DATA_TYPES}
@@ -75,10 +89,13 @@ def _parse_var(raw_var: dict) -> Variable:
     if len(keys) != 1:
         raise ValueError(f"Invalid variable: {raw_var}")
 
-    name = keys[0]
-    var_def = raw_var[name]
+    raw_name = keys[0]
+    var_def = raw_var[raw_name]
+    # python-hcl2 >=4 returns block labels with their surrounding quotes
+    # (e.g. '"debug"'); strip them to recover the bare variable name.
+    name = raw_name.strip('"')
 
-    raw_type = var_def["type"]
+    raw_type = _normalize_tf_type(var_def["type"])
     if raw_type not in _TYPE_MAP:
         raise ValueError(f"Invalid type: {raw_type}")
     type_ = _TYPE_MAP[raw_type]
