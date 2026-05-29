@@ -18,7 +18,7 @@ from pytest_celery import (
 )
 from pytest_celery.vendors.worker.container import CeleryWorkerContainer
 from pytest_celery.vendors.worker.defaults import DEFAULT_WORKER_CONTAINER_TIMEOUT
-from pytest_docker_tools import build, container, fxtr
+from pytest_docker_tools import container, fxtr
 
 if TYPE_CHECKING:
     from app.server.config import Config
@@ -133,12 +133,9 @@ def celery_broker_cluster(
 
 @pytest.fixture
 def default_worker_command() -> list[str]:
+    # These are appended to the image ENTRYPOINT (`uv run python -m cli`),
+    # so this is just the CLI subcommand and its arguments.
     return [
-        "uv",
-        "run",
-        "python",
-        "-m",
-        "app.server",
         "worker",
         "--liveness-port",
         "10001",
@@ -147,18 +144,45 @@ def default_worker_command() -> list[str]:
     ]
 
 
-buildargs = CeleryWorkerContainer.buildargs()
-buildargs["GH_PAT"] = os.environ.get("GH_PAT", "")
-bc_celery_worker = build(
-    path=".",
-    dockerfile="Dockerfile",
-    tag="integration-test-celery-worker:latest",
-    buildargs=buildargs,
-    pull=True,
-    platform="linux/amd64",
-    container_limits={"memory": "1g"},
-    network_mode="host",
-)
+INTEGRATION_WORKER_IMAGE = "integration-test-celery-worker:latest"
+
+
+@pytest.fixture(scope="session")
+def bc_celery_worker_image() -> str:
+    """Build the Celery worker image used by the integration tests.
+
+    We shell out to the docker CLI rather than using ``pytest_docker_tools.build``
+    because ``pytest_docker_tools`` builds via the docker-py SDK, which only
+    supports the legacy builder. That fails on any BuildKit-only Dockerfile
+    syntax (e.g. ``RUN --mount=...``) with "the --mount option requires
+    BuildKit". Building through the CLI lets us enable BuildKit, cross-build for
+    ``linux/amd64``, and forward the SSH agent for any private git dependencies.
+    """
+    import subprocess
+
+    cmd = [
+        "docker",
+        "build",
+        "--platform",
+        "linux/amd64",
+        "--tag",
+        INTEGRATION_WORKER_IMAGE,
+        "--file",
+        "Dockerfile",
+    ]
+    # Forward the SSH agent when one is available (e.g. local dev) so any
+    # private git dependencies behind an SSH mount can be fetched. In CI there
+    # is no agent and the dependencies are public, so the build works without it.
+    if os.environ.get("SSH_AUTH_SOCK"):
+        cmd.extend(["--ssh", "default"])
+    cmd.append(".")
+
+    subprocess.run(
+        cmd,
+        check=True,
+        env={**os.environ, "DOCKER_BUILDKIT": "1"},
+    )
+    return INTEGRATION_WORKER_IMAGE
 
 
 class BcWorkerContainer(CeleryWorkerContainer):
@@ -168,9 +192,14 @@ class BcWorkerContainer(CeleryWorkerContainer):
 
 
 default_worker_container = container(
-    image="{bc_celery_worker.id}",
+    image="{bc_celery_worker_image}",
+    platform="linux/amd64",
     environment=fxtr("default_worker_env"),
     network="{default_pytest_celery_network.name}",
+    # Allow the worker container to reach the callback server running on the
+    # host via `host.docker.internal`. On Docker Desktop this resolves
+    # automatically, but on Linux (CI) it must be mapped to the host gateway.
+    extra_hosts={"host.docker.internal": "host-gateway"},
     working_dir="/code",
     ports={
         "10001/tcp": 10001,
@@ -416,8 +445,23 @@ def api(config: "Config", exp_db, now, request) -> Generator[TestClient, None, N
 
 
 @pytest.fixture
-def real_queue(celery_setup):
-    """Fixture to provide a real Celery queue for testing."""
+def real_queue(celery_setup, config):
+    """Fixture to provide a real Celery queue for testing.
+
+    The module-level ``queue`` Celery app reads its broker and result backend
+    URLs from the config *at import time*, long before this test's config has
+    been rendered. Point the app at the per-test Redis containers (reachable
+    from the host on their mapped ports) and clear the cached backend so the
+    new URLs take effect.
+    """
+    from app.server.tasks import queue
+
+    queue.conf.broker_url = config.queue.broker.celery_url
+    queue.conf.result_backend = config.queue.store.celery_url
+    # ``Celery.backend`` is a cached property stored on the instance; drop it so
+    # it is rebuilt from the updated ``result_backend`` URL.
+    queue.__dict__.pop("backend", None)
+
     return celery_setup
 
 

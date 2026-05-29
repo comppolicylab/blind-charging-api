@@ -48,6 +48,28 @@ class ExpectedRequest:
         return self.__repr__()
 
 
+def _json_subset(expected, observed) -> bool:
+    """Return True if ``expected`` is a (recursive) subset of ``observed``.
+
+    Dictionaries match when every key in ``expected`` is present in
+    ``observed`` with a matching (subset) value; other values must be equal.
+    This lets callers assert on stable fields while ignoring volatile content
+    such as OCR output that varies by environment.
+    """
+    if isinstance(expected, dict):
+        if not isinstance(observed, dict):
+            return False
+        return all(
+            key in observed and _json_subset(value, observed[key])
+            for key, value in expected.items()
+        )
+    if isinstance(expected, list):
+        if not isinstance(observed, list) or len(expected) != len(observed):
+            return False
+        return all(_json_subset(e, o) for e, o in zip(expected, observed, strict=True))
+    return expected == observed
+
+
 class ObservedRequest:
     def __init__(self, path: str, *, method: str, headers: dict, body: bytes):
         self.path = path
@@ -72,7 +94,7 @@ class ObservedRequest:
                     return False
 
         if expected.json_body:
-            if json.loads(self.body) != expected.json_body:
+            if not _json_subset(expected.json_body, json.loads(self.body)):
                 return False
         elif expected.body:
             if self.body != expected.body:
@@ -108,7 +130,11 @@ class MockCallbackServer(BackgroundServer):
 
         self._port = self._find_free_port()
         self._host = "127.0.0.1"
-        cfg = uvicorn.Config(app, host=self._host, port=self._port)
+        # Bind to all interfaces so the worker container can reach this server
+        # via `host.docker.internal` (which maps to the docker bridge gateway IP
+        # on Linux CI, not the host loopback). Host-side callers still use
+        # `base_url` on 127.0.0.1.
+        cfg = uvicorn.Config(app, host="0.0.0.0", port=self._port)
         super().__init__(cfg)
 
     def _find_free_port(self, above: int = 10_000) -> int:
@@ -200,11 +226,13 @@ class MockCallbackServer(BackgroundServer):
 
                     raise TimeoutError("Request not received")
                 self._condition.wait(timeout=timeout)
-            self._remove_observed_request(expectation)
+            return self._remove_observed_request(expectation)
 
-    def _remove_observed_request(self, expectation: ExpectedRequest):
+    def _remove_observed_request(
+        self, expectation: ExpectedRequest
+    ) -> "ObservedRequest | None":
         with self._condition:
             for i, req in enumerate(self._requests):
                 if req == expectation:
-                    self._requests.pop(i)
-                    return
+                    return self._requests.pop(i)
+        return None

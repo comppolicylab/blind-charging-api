@@ -21,7 +21,7 @@ WORKDIR /code
 COPY uv.lock pyproject.toml README.md /code/
 
 # Install dependencies
-RUN --mount=type=ssh uv sync --locked
+RUN uv sync --locked
 # Pre-load encodings from tiktoken since download is not available in most environments
 RUN uv run python -c 'import tiktoken; [tiktoken.get_encoding(enc) for enc in ["cl100k_base", "o200k_base"]]'
 
