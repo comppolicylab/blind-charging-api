@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS buildbox
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS buildbox
 
 RUN apt-get update && apt-get install -y apt-transport-https curl gnupg2 git gcc
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -

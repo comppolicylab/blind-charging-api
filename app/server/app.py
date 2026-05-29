@@ -53,7 +53,7 @@ async def ensure_db(store: RdbmsConfig) -> DbDriver:
                     "The database migrations are in an invalid state. "
                     "Please fix manually."
                 )
-    except (NameError, ValueError, KeyError, RuntimeError, SQLAlchemyError):
+    except NameError, ValueError, KeyError, RuntimeError, SQLAlchemyError:
         logger.error(
             "Failed to apply database migrations. Seems like the migration is invalid."
         )

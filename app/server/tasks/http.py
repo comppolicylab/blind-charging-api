@@ -76,7 +76,7 @@ def _get_open_file_count() -> Tuple[int, int]:
         try:
             if proc.username() == cur_proc.username():
                 user_open_files += len(proc.open_files())
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except psutil.NoSuchProcess, psutil.AccessDenied:
             continue
 
     return (cur_proc_open_files, user_open_files)
