@@ -130,7 +130,11 @@ class MockCallbackServer(BackgroundServer):
 
         self._port = self._find_free_port()
         self._host = "127.0.0.1"
-        cfg = uvicorn.Config(app, host=self._host, port=self._port)
+        # Bind to all interfaces so the worker container can reach this server
+        # via `host.docker.internal` (which maps to the docker bridge gateway IP
+        # on Linux CI, not the host loopback). Host-side callers still use
+        # `base_url` on 127.0.0.1.
+        cfg = uvicorn.Config(app, host="0.0.0.0", port=self._port)
         super().__init__(cfg)
 
     def _find_free_port(self, above: int = 10_000) -> int:
