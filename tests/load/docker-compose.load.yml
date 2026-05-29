@@ -1,9 +1,6 @@
 # Load-testing stack for the Blind Charging API.
 #
-# Brings up a *real* deployment-shaped stack -- Redis (broker + result store),
-# the API server, and a Celery worker -- so we can reproduce the OOM / memory
-# issues users have reported when redacting large documents via the BASE64
-# attachment type.
+# Brings up realistic containers for investigating OOM limits and issues.
 #
 # Memory limits are intentionally configurable (and default to fairly small
 # values) so that OOM is reproducible on a developer laptop. Swap is pinned to
@@ -14,11 +11,12 @@
 # Usage:
 #   cd tests/load
 #   docker compose -f docker-compose.load.yml up --build -d
-#   BC_LOAD_DOCS_DIR=/path/to/big/pdfs uv run python tests/load/run_load.py
+#   uv run python run_load.py [docs_dir] --concurrency 5 --num-requests 10 --label baseline
 #   docker compose -f docker-compose.load.yml down -v
 #
-# Tunables (env vars, with defaults):
-#   BC_API_MEM             API container memory limit          (default 768m)
+# Parameters by default should mimic the Terraform configuration.
+# They can be tuned with the following variables:
+#   BC_API_MEM             API container memory limit          (default 3g)
 #   BC_WORKER_MEM          Worker container memory limit       (default 4g)
 #   BC_REDIS_MEM           Redis container memory limit        (default 1g)
 #   BC_WORKER_CONCURRENCY  Celery worker concurrency           (default 4)
@@ -65,8 +63,8 @@ services:
     command: ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", "${BC_API_WORKERS:-1}"]
     expose: [8000]
     ports: ["8000:8000"]
-    mem_limit: ${BC_API_MEM:-768m}
-    memswap_limit: ${BC_API_MEM:-768m}
+    mem_limit: ${BC_API_MEM:-3g}
+    memswap_limit: ${BC_API_MEM:-3g}
     # Make the OOM-killer the only relief valve, and don't restart on crash so
     # the failure stays visible for inspection.
     restart: "no"
