@@ -28,6 +28,7 @@ services:
 
   redis:
     image: redis:7.2.5
+    platform: linux/amd64
     container_name: bc-load-redis
     expose: [6379]
     ports: ["6380:6379"]
@@ -44,9 +45,7 @@ services:
   # before the API/worker come up.
   init:
     image: bc-load-api:latest
-    build:
-      context: ../../
-      dockerfile: Dockerfile
+    platform: linux/amd64
     container_name: bc-load-init
     command: ["create-db", "--wipe"]
     volumes:
@@ -58,6 +57,7 @@ services:
 
   api:
     image: bc-load-api:latest
+    platform: linux/amd64
     build:
       context: ../../
       dockerfile: Dockerfile
@@ -89,6 +89,7 @@ services:
 
   worker:
     image: bc-load-api:latest
+    platform: linux/amd64
     build:
       context: ../../
       dockerfile: Dockerfile
