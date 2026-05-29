@@ -15,22 +15,22 @@ jobs:
       wd: ./
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{github.head_ref}}
           lfs: true
 
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Set up tesseract
         run: sudo apt-get install -y tesseract-ocr
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Set up Python3.x
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         id: py
 
       - name: Get requirements
