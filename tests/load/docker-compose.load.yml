@@ -19,7 +19,7 @@
 #
 # Tunables (env vars, with defaults):
 #   BC_API_MEM             API container memory limit          (default 768m)
-#   BC_WORKER_MEM          Worker container memory limit       (default 1g)
+#   BC_WORKER_MEM          Worker container memory limit       (default 4g)
 #   BC_REDIS_MEM           Redis container memory limit        (default 1g)
 #   BC_WORKER_CONCURRENCY  Celery worker concurrency           (default 4)
 #   BC_API_WORKERS         Uvicorn workers in the API          (default 1)
@@ -94,11 +94,11 @@ services:
       context: ../../
       dockerfile: Dockerfile
     container_name: bc-load-worker
-    command: ["worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001", "--concurrency", "${BC_WORKER_CONCURRENCY:-4}"]
+    command: ["worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
     expose: [8001]
     ports: ["8001:8001"]
-    mem_limit: ${BC_WORKER_MEM:-1g}
-    memswap_limit: ${BC_WORKER_MEM:-1g}
+    mem_limit: ${BC_WORKER_MEM:-4g}
+    memswap_limit: ${BC_WORKER_MEM:-4g}
     restart: "no"
     volumes:
       - ./config.load.toml:/config/config.toml:ro

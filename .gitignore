@@ -17,3 +17,4 @@ test.db
 *.tfplan
 *.tfstate
 .infracost/
+tests/load/results/

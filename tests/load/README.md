@@ -20,20 +20,43 @@ worker -- several full-size copies of an already-inflated (~1.33x) payload, with
 up to `concurrency` of them in flight at once. That amplification is the prime
 suspect for the OOM reports, and this harness exercises exactly that path.
 
+## Comparing BASE64 vs LINK
+
+To test the theory that the `LINK` path is far more scalable, pass
+`--attachment-type link`. In that mode the driver spins up a temporary local
+HTTP file server over the docs directory and hands the worker a
+`host.docker.internal` URL to pull each document from -- so only a URL (not the
+document bytes) travels through the API/Redis/Celery message path. Run the same
+load with both attachment types and `--compare` the resulting worker memory:
+
+```bash
+uv run python tests/load/run_load.py /path/to/big/pdfs \
+  --concurrency 8 --num-requests 16 --label base64
+uv run python tests/load/run_load.py /path/to/big/pdfs \
+  --concurrency 8 --num-requests 16 --attachment-type link --label link
+uv run python tests/load/run_load.py --compare
+```
+
+The local doc server is reachable from the worker container the same way the
+callback server is (via `host.docker.internal`), so no compose changes are
+needed.
+
 ## What's here
 
 | File | Purpose |
 | --- | --- |
 | `docker-compose.load.yml` | Real `redis` + `api` + `worker` (+ one-shot `init`) with **configurable, hard memory limits** so OOM is reproducible on a laptop. |
 | `config.load.toml` | Offline app config (tesseract OCR + `redact:noop`, no auth, no API keys). |
-| `run_load.py` | Driver: sends concurrent BASE64 redaction requests, receives callbacks, samples container memory, detects OOM kills, prints a report. |
+| `run_load.py` | Driver: sends concurrent redaction requests (BASE64 inline or LINK via a local file server), receives callbacks, samples container memory over time, detects OOM kills, prints a report, and writes per-run artifacts (CSV + JSON + memory graph). |
+| `results/` | Per-run artifacts, one timestamped subdirectory per run (git-ignored). |
 
 ## Sample documents
 
 The harness needs large sample PDFs, which we **cannot** check into the repo.
 Put them in a directory on your machine and pass that directory as the first
 (positional) argument to the driver. Every matching file in that directory
-(default: `*.pdf`) is sent as a `BASE64` redaction request.
+(default: `*.pdf`) is sent as a redaction request (as a `BASE64` inline
+attachment by default, or via a `LINK` URL with `--attachment-type link`).
 
 ## Prerequisites
 
@@ -97,10 +120,54 @@ The remaining options also read from an env var:
 | `--concurrency` | `BC_LOAD_CONCURRENCY` | `4` |
 | `--num-requests` | `BC_LOAD_NUM_REQUESTS` | `0` (one per doc) |
 | `--output-format` | `BC_LOAD_OUTPUT_FORMAT` | `PDF` (most memory-intensive) |
+| `--attachment-type` | `BC_LOAD_ATTACHMENT_TYPE` | `base64` (or `link`) |
+| `--doc-server-host` | `BC_LOAD_DOC_SERVER_HOST` | `0.0.0.0` (link mode only) |
+| `--doc-server-port` | `BC_LOAD_DOC_SERVER_PORT` | `9998` (link mode only) |
 | `--completion-timeout` | `BC_LOAD_COMPLETION_TIMEOUT` | `600` (seconds) |
 | `--extensions` | `BC_LOAD_EXTENSIONS` | `.pdf` |
 | `--callback-port` | `BC_LOAD_CALLBACK_PORT` | `9999` |
 | `--callback-url-host` | `BC_LOAD_CALLBACK_URL_HOST` | `host.docker.internal` |
+| `--results-dir` | `BC_LOAD_RESULTS_DIR` | `tests/load/results` |
+| `--label` | `BC_LOAD_LABEL` | `` (empty) |
+| `--no-graph` | `BC_LOAD_NO_GRAPH` | off (graph is written) |
+
+## Per-run artifacts & comparing runs
+
+Every run writes a timestamped directory under `--results-dir` (default
+`tests/load/results/<timestamp>-<label>/`) so you can keep a tangible record of
+each run and diff them as you make improvements:
+
+| File | Contents |
+| --- | --- |
+| `memory.csv` | Raw per-container memory (MB) and CPU (%) time series, one row per `docker stats` sample. |
+| `summary.json` | Run config, per-container peak/limit memory, OOM status, and request/callback counts. |
+| `memory.svg` | Memory-over-time graph: one line per container, with dashed **memory-limit** reference lines and OOM called out in the subtitle. |
+
+Give each run a `--label` so its directory and graph title are easy to identify:
+
+```bash
+# Baseline run
+uv run python tests/load/run_load.py /path/to/big/pdfs \
+  --concurrency 8 --num-requests 16 --label baseline
+
+# ...apply a fix, then re-run with a new label
+uv run python tests/load/run_load.py /path/to/big/pdfs \
+  --concurrency 8 --num-requests 16 --label streaming-fix
+```
+
+To see the effect of a change, overlay one container's memory across **all**
+recorded runs into a single graph (no load test is run in this mode):
+
+```bash
+# Default overlays the worker; pass --container to pick another
+uv run python tests/load/run_load.py --compare
+uv run python tests/load/run_load.py --compare --container bc-load-api
+```
+
+This writes `compare-<container>-<timestamp>.svg` into the results dir, with one
+line per run (labeled with each run's peak memory) so regressions/improvements
+are immediately visible. The graphs are self-contained SVGs (no extra Python
+dependencies) — open them in any browser or preview them in your editor.
 
 ## Reading the report
 

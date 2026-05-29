@@ -92,6 +92,14 @@ class QueueConfig(BaseModel):
     store: StoreConfig = RedisConfig()
     broker: BrokerConfig = RedisConfig()
     concurrency: int = 10
+    max_memory_per_child: int = 1024 * 300
+    """The maximum memory per child in KiB.
+    By default we have a high limit of 300MiB, which should be reasonable
+    on the default configuration of the worker: 10 concurrent tasks,
+    on a VM with 4GB of RAM. But it can be overridden with an env
+    variable if it is necessary in a specific deployment.
+    Value is given in KiB.
+    """
 
 
 class ExperimentsConfig(BaseModel):

@@ -156,7 +156,11 @@ def worker(
     with get_liveness_app(host=liveness_host, port=liveness_port).run_in_thread():
         name = f"w{liveness_port}@{socket.gethostname()}"
         queue.Worker(
-            task_events=monitor, hostname=name, concurrency=concurrency
+            task_events=monitor,
+            hostname=name,
+            concurrency=concurrency,
+            pool="prefork",
+            max_memory_per_child=config.queue.max_memory_per_child,
         ).start()
 
 

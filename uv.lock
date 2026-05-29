@@ -497,7 +497,7 @@ requires-dist = [
     { name = "greenlet", specifier = ">=3.5.0,<4.0.0" },
     { name = "gunicorn", specifier = ">=26.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
-    { name = "kombu", git = "https://github.com/jnu/kombu.git?rev=a37798c43c740ac7bc8253915588f675e45bd04b" },
+    { name = "kombu", git = "https://github.com/jnu/kombu?rev=a37798c43c740ac7bc8253915588f675e45bd04b" },
     { name = "nameparser", specifier = ">=1.1.3,<2.0.0" },
     { name = "openai", specifier = ">=2.17" },
     { name = "opentelemetry-api", specifier = ">=1.27.0,<2.0.0" },
@@ -1145,7 +1145,7 @@ wheels = [
 [[package]]
 name = "kombu"
 version = "5.6.2"
-source = { git = "https://github.com/jnu/kombu.git?rev=a37798c43c740ac7bc8253915588f675e45bd04b#a37798c43c740ac7bc8253915588f675e45bd04b" }
+source = { git = "https://github.com/jnu/kombu?rev=a37798c43c740ac7bc8253915588f675e45bd04b#a37798c43c740ac7bc8253915588f675e45bd04b" }
 dependencies = [
     { name = "amqp" },
     { name = "tzdata" },
