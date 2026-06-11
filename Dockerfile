@@ -1,8 +1,10 @@
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS buildbox
 
 RUN apt-get update && apt-get install -y apt-transport-https curl gnupg2 git gcc
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-RUN curl https://packages.microsoft.com/config/ubuntu/18.04/prod.list > /etc/apt/sources.list.d/mssql-release.list
+RUN curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+RUN curl -sSL https://packages.microsoft.com/config/debian/12/prod.list \
+    | sed 's|deb \[|deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg |' \
+    > /etc/apt/sources.list.d/mssql-release.list
 RUN apt-get update \
     && apt-get install -y -V openssh-client \
     && apt-get install -y -V tesseract-ocr \
