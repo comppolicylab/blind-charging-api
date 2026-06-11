@@ -6,7 +6,20 @@ from app.server.generated.models import (
     DocumentText,
     InputDocument,
 )
-from app.server.tasks import FetchTask, FetchTaskResult, fetch
+from app.server.tasks import FetchTask, FetchTaskResult, fetch, public_link_schemes
+
+
+def test_public_link_schemes_excludes_private():
+    """Public input schemes cover the http(s) resolvers but not bcstore.
+
+    Input document urls are validated against this set, so the internal
+    ``bcstore`` scheme (registered as private) must be withheld to prevent
+    clients from submitting internal blob-store links.
+    """
+    schemes = public_link_schemes()
+    assert "http" in schemes
+    assert "https" in schemes
+    assert "bcstore" not in schemes
 
 
 @responses.activate
@@ -33,6 +46,34 @@ def test_fetch_link():
     assert result.get() == FetchTaskResult(
         document_id="doc1",
         file_storage_id="b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+    )
+
+
+@responses.activate
+def test_fetch_bcstore_link_short_circuits():
+    """A bcstore link passes its storage id through without loading bytes.
+
+    No HTTP resolver is registered for the bcstore scheme, so if the fetch task
+    tried to *download* it (rather than short-circuit), this would error. The
+    storage id should come straight back as the result.
+    """
+    storage_id = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+
+    params = FetchTask(
+        document=InputDocument(
+            root=DocumentLink(
+                documentId="doc1",
+                attachmentType="LINK",
+                url=f"bcstore://{storage_id}",
+            )
+        )
+    )
+
+    result = fetch.s(params).apply()
+
+    assert result.get() == FetchTaskResult(
+        document_id="doc1",
+        file_storage_id=storage_id,
     )
 
 

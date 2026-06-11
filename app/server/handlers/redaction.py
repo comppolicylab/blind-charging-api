@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request
 from nameparser import HumanName
 
 from ..case import CaseStore
-from ..case_helper import get_retry_state, summarize_state
+from ..case_helper import get_retry_state, save_document, summarize_state
 from ..config import config
 from ..generated.models import (
     HumanName as HumanNameModel,
@@ -27,7 +27,12 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..tasks import create_document_redaction_task, get_result
+from ..tasks import (
+    create_document_redaction_task,
+    get_result,
+    inline_document_bytes,
+    public_link_schemes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +40,10 @@ logger = logging.getLogger(__name__)
 # Only allow HTTP callbacks in debug mode
 _callback_schemes = {"http", "https"} if config.debug else {"https"}
 _disallowed_callback_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
+# Document links are validated against the schemes of the registered fetch
+# resolvers (excluding private ones), not the callback scheme set. localhost
+# (etc.) is still rejected outside debug to guard against SSRF.
+_disallowed_document_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
 
 
 def validate_callback_url(url: str | None) -> None:
@@ -61,6 +70,39 @@ def validate_callback_url(url: str | None) -> None:
         raise HTTPException(status_code=400, detail="Invalid callback URL host")
 
 
+def validate_document_url(url: str | None) -> None:
+    """Validate an inbound document LINK url.
+
+    The url scheme must match one of the publicly registered fetch resolvers
+    (see :func:`app.server.tasks.public_link_schemes`). Private resolver schemes
+    are deliberately excluded: this is what prevents a client from submitting an
+    internal ``bcstore://`` link (which would let them read arbitrary staged
+    blobs by id), since such links are minted only internally and never accepted
+    from a request.
+
+    Args:
+        url (str): The url to validate.
+
+    Raises:
+        HTTPException: If the url is invalid.
+    """
+    if not url:
+        return
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        raise HTTPException(status_code=400, detail="Invalid document URL")
+    allowed_schemes = public_link_schemes()
+    if parsed.scheme.lower() not in allowed_schemes:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid document URL scheme (must use {sorted(allowed_schemes)})"
+            ),
+        )
+    if parsed.hostname in _disallowed_document_hosts:
+        raise HTTPException(status_code=400, detail="Invalid document URL host")
+
+
 def validate_redaction_request(body: RedactionRequest) -> None:
     """Validate a redaction request.
 
@@ -79,6 +121,8 @@ def validate_redaction_request(body: RedactionRequest) -> None:
         # TODO - the SAS url validation should be more involved than just "valid URL."
         # We can try to use the Azure SDK to validate the URL.
         validate_callback_url(target_blob_url)
+        if obj.document.root.attachmentType == "LINK":
+            validate_document_url(str(obj.document.root.url))
 
 
 async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
@@ -122,14 +166,29 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     # progress, we can't use that context.
     # TODO(jnu): decide if we should just reject the request, or enqueue it.
 
+    # Persist inline (BASE64/TEXT) payloads to the blob store up front so the
+    # (potentially large) document content never has to be serialized into a
+    # Celery message and round-tripped through the broker. This keeps a single
+    # copy of the bytes in the store rather than several copies resident across
+    # the API, broker, and worker simultaneously. LINK documents are left alone
+    # so the worker streams them directly.
+    target = body.objects[0]
+    prefetched_storage_id: str | None = None
+    inline_bytes = inline_document_bytes(target.document)
+    if inline_bytes is not None:
+        prefetched_storage_id = await save_document(inline_bytes)
+        # Drop our local reference promptly so the decoded bytes can be freed.
+        del inline_bytes
+
     # Create a task chain to process the documents. The chain will
     # iteratively create new chains for each document in the request.
     task_chain = create_document_redaction_task(
         body.jurisdictionId,
         body.caseId,
         subj_ids_list,
-        body.objects[0],
+        target,
         renderer=body.outputFormat or OutputFormat.PDF,
+        prefetched_storage_id=prefetched_storage_id,
     )
 
     if not task_chain:

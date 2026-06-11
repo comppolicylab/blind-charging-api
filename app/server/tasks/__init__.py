@@ -12,6 +12,8 @@ from .fetch import (
     UnidentifiedFetchTask,
     fetch,
     fetch_unidentified,
+    inline_document_bytes,
+    public_link_schemes,
 )
 from .finalize import FinalizeTask, FinalizeTaskResult, finalize
 from .format import FormatTask, FormatTaskResult, format
@@ -25,6 +27,8 @@ __all__ = [
     "callback",
     "fetch",
     "fetch_unidentified",
+    "inline_document_bytes",
+    "public_link_schemes",
     "FetchTask",
     "UnidentifiedFetchTask",
     "FetchTaskResult",
