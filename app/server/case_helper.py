@@ -30,6 +30,20 @@ def get_document_sync(file_storage_id: str | None) -> bytes:
     return asyncio.run(_get())
 
 
+async def save_document(file_bytes: bytes) -> str:
+    """Save a document blob in the queue's store.
+
+    Args:
+        file_bytes: Content to save.
+
+    Returns:
+        ID in the store where the content was saved.
+    """
+    async with config.queue.store.driver() as store:
+        async with store.tx() as tx:
+            return await CaseStore.save_blob(tx, file_bytes)
+
+
 def save_document_sync(file_bytes: bytes) -> str:
     """Save the fetched document in the queue's store.
 
@@ -39,13 +53,7 @@ def save_document_sync(file_bytes: bytes) -> str:
     Returns:
         ID in the store where the content was saved.
     """
-
-    async def _save():
-        async with config.queue.store.driver() as store:
-            async with store.tx() as tx:
-                return await CaseStore.save_blob(tx, file_bytes)
-
-    return asyncio.run(_save())
+    return asyncio.run(save_document(file_bytes))
 
 
 def save_retry_state_sync(
