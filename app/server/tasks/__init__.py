@@ -12,6 +12,7 @@ from .fetch import (
     UnidentifiedFetchTask,
     fetch,
     fetch_unidentified,
+    inline_document_bytes,
 )
 from .finalize import FinalizeTask, FinalizeTaskResult, finalize
 from .format import FormatTask, FormatTaskResult, format
@@ -25,6 +26,7 @@ __all__ = [
     "callback",
     "fetch",
     "fetch_unidentified",
+    "inline_document_bytes",
     "FetchTask",
     "UnidentifiedFetchTask",
     "FetchTaskResult",

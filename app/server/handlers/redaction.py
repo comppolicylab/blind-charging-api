@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request
 from nameparser import HumanName
 
 from ..case import CaseStore
-from ..case_helper import get_retry_state, summarize_state
+from ..case_helper import get_retry_state, save_document, summarize_state
 from ..config import config
 from ..generated.models import (
     HumanName as HumanNameModel,
@@ -27,7 +27,11 @@ from ..generated.models import (
 from ..generated.models import (
     Subject as SubjectModel,
 )
-from ..tasks import create_document_redaction_task, get_result
+from ..tasks import (
+    create_document_redaction_task,
+    get_result,
+    inline_document_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,14 +126,29 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
     # progress, we can't use that context.
     # TODO(jnu): decide if we should just reject the request, or enqueue it.
 
+    # Persist inline (BASE64/TEXT) payloads to the blob store up front so the
+    # (potentially large) document content never has to be serialized into a
+    # Celery message and round-tripped through the broker. This keeps a single
+    # copy of the bytes in the store rather than several copies resident across
+    # the API, broker, and worker simultaneously. LINK documents are left alone
+    # so the worker streams them directly.
+    target = body.objects[0]
+    prefetched_storage_id: str | None = None
+    inline_bytes = inline_document_bytes(target.document)
+    if inline_bytes is not None:
+        prefetched_storage_id = await save_document(inline_bytes)
+        # Drop our local reference promptly so the decoded bytes can be freed.
+        del inline_bytes
+
     # Create a task chain to process the documents. The chain will
     # iteratively create new chains for each document in the request.
     task_chain = create_document_redaction_task(
         body.jurisdictionId,
         body.caseId,
         subj_ids_list,
-        body.objects[0],
+        target,
         renderer=body.outputFormat or OutputFormat.PDF,
+        prefetched_storage_id=prefetched_storage_id,
     )
 
     if not task_chain:

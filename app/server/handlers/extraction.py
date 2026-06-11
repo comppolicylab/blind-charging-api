@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request
 from uuid_utils import uuid7
 
+from ..case_helper import save_document
 from ..config import config
 from ..generated.models import (
     ExtractionAccepted,
@@ -11,7 +12,11 @@ from ..generated.models import (
     ExtractionResultSuccess,
     ExtractionStatus,
 )
-from ..tasks import create_document_extraction_task, get_result
+from ..tasks import (
+    create_document_extraction_task,
+    get_result,
+    inline_document_bytes,
+)
 from ..tasks.extract_callback import ExtractionCallbackTaskResult
 from .redaction import validate_callback_url
 
@@ -35,7 +40,16 @@ async def extract_documents(
         validate_callback_url(callback_url)
 
         token = str(uuid7())
-        task_chain = create_document_extraction_task(token, doc)
+        # Persist inline (BASE64) payloads to the blob store up front so the
+        # content skips the broker entirely (see redaction handler for details).
+        prefetched_storage_id: str | None = None
+        inline_bytes = inline_document_bytes(doc.document)
+        if inline_bytes is not None:
+            prefetched_storage_id = await save_document(inline_bytes)
+            del inline_bytes
+        task_chain = create_document_extraction_task(
+            token, doc, prefetched_storage_id=prefetched_storage_id
+        )
         task = task_chain.apply_async()
 
         await request.state.store.set(_task_key(token), task.id)

@@ -20,6 +20,7 @@ def create_document_redaction_task(
     subject_ids: list[str],
     object: RedactionTarget,
     renderer: OutputFormat = OutputFormat.PDF,
+    prefetched_storage_id: str | None = None,
 ) -> chain | None:
     """Create database objects representing a document redaction task.
 
@@ -29,14 +30,23 @@ def create_document_redaction_task(
         subject_ids (list[str]): The IDs of the subjects to redact.
         object (RedactionTarget): The document to redact.
         renderer (OutputFormat, optional): The output format for the redacted document.
+        prefetched_storage_id (str, optional): Blob-store id of an inline payload
+            that was persisted before dispatch. When provided, the document
+            content is not carried inline through the broker.
 
     Returns:
         chain: The Celery chain representing the redaction pipeline.
     """
+    document_id = object.document.root.documentId
+    if prefetched_storage_id is not None:
+        fetch_task = FetchTask(
+            document_id=document_id,
+            file_storage_id=prefetched_storage_id,
+        )
+    else:
+        fetch_task = FetchTask(document=object.document)
     return chain(
-        FetchTask(
-            document=object.document,
-        ).s(),
+        fetch_task.s(),
         RedactionTask(
             document_id=object.document.root.documentId,
             jurisdiction_id=jurisdiction_id,
@@ -61,13 +71,29 @@ def create_document_redaction_task(
 def create_document_extraction_task(
     token: str,
     object: ExtractionTarget,
+    prefetched_storage_id: str | None = None,
 ) -> chain:
-    """Create celery chain for extraction on one document."""
-    return chain(
-        UnidentifiedFetchTask(
+    """Create celery chain for extraction on one document.
+
+    Args:
+        token (str): The document token / id.
+        object (ExtractionTarget): The document to extract.
+        prefetched_storage_id (str, optional): Blob-store id of an inline payload
+            that was persisted before dispatch. When provided, the document
+            content is not carried inline through the broker.
+    """
+    if prefetched_storage_id is not None:
+        fetch_task = UnidentifiedFetchTask(
+            document_id=token,
+            file_storage_id=prefetched_storage_id,
+        )
+    else:
+        fetch_task = UnidentifiedFetchTask(
             document=object.document,
             document_id=token,
-        ).s(),
+        )
+    return chain(
+        fetch_task.s(),
         ExtractionTask(
             document_id=token,
         ).s(),

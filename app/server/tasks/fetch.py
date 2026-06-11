@@ -32,15 +32,23 @@ logger = get_task_logger(__name__)
 
 
 class FetchTask(BaseModel):
-    document: InputDocument
+    # When an inline (BASE64/TEXT) document is persisted to the blob store
+    # before dispatch, the heavy payload travels via ``file_storage_id`` instead
+    # of being carried inline through the broker. In that case ``document`` is
+    # omitted and ``document_id`` identifies the document. For LINK documents the
+    # ``document`` is carried through so the worker downloads it directly.
+    document: InputDocument | None = None
+    document_id: str | None = None
+    file_storage_id: str | None = None
 
     def s(self) -> Signature:
         return fetch.s(self)
 
 
 class UnidentifiedFetchTask(BaseModel):
-    document: UnidentifiedInputDocument
+    document: UnidentifiedInputDocument | None = None
     document_id: str
+    file_storage_id: str | None = None
 
     def s(self) -> Signature:
         return fetch_unidentified.s(self)
@@ -79,6 +87,16 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
     Returns:
         FetchTaskResult: The task result.
     """
+    # Inline payloads (BASE64/TEXT) are persisted to the blob store before
+    # dispatch so they don't travel through the broker. When that has happened
+    # there's nothing left to fetch -- just pass the storage id downstream.
+    if params.file_storage_id is not None:
+        return FetchTaskResult(
+            document_id=params.document_id or "",
+            file_storage_id=params.file_storage_id,
+        )
+    if params.document is None:
+        raise ValueError("FetchTask requires either a document or a file_storage_id")
     return _fetch_and_save(self, params.document.root.documentId, params.document)
 
 
@@ -97,6 +115,15 @@ def fetch(self, params: FetchTask) -> FetchTaskResult:
 )
 def fetch_unidentified(self, params: UnidentifiedFetchTask) -> FetchTaskResult:
     """Fetch the content of an unidentified input document."""
+    if params.file_storage_id is not None:
+        return FetchTaskResult(
+            document_id=params.document_id,
+            file_storage_id=params.file_storage_id,
+        )
+    if params.document is None:
+        raise ValueError(
+            "UnidentifiedFetchTask requires either a document or a file_storage_id"
+        )
     return _fetch_and_save(self, params.document_id, params.document)
 
 
@@ -125,6 +152,27 @@ def _fetch_and_save(
             document_id=document_id,
             errors=[ProcessingError.from_exception("fetch", e)],
         )
+
+
+def inline_document_bytes(
+    document: InputDocument | UnidentifiedInputDocument,
+) -> bytes | None:
+    """Decode an inline (BASE64/TEXT) document payload to raw bytes.
+
+    Returns ``None`` for non-inline attachment types (e.g. LINK), whose bytes
+    are not present in the request and should be fetched by the worker instead.
+
+    This lets the API persist inline payloads to the blob store up front so the
+    (potentially large) content never has to be serialized into a Celery
+    message and round-tripped through the broker.
+    """
+    match document.root.attachmentType:
+        case "BASE64":
+            return base64.b64decode(document.root.content)
+        case "TEXT":
+            return document.root.content.encode("utf-8")
+        case _:
+            return None
 
 
 def fetch_document_content(

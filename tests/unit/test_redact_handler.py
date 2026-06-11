@@ -1,3 +1,5 @@
+import base64
+import hashlib
 from typing import cast
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +9,11 @@ from fastapi.testclient import TestClient
 from glowplug import DbDriver
 from pydantic import AnyUrl
 
-from app.server.generated.models import DocumentLink, InputDocument, OutputFormat
+from app.server.generated.models import (
+    DocumentLink,
+    InputDocument,
+    OutputFormat,
+)
 from app.server.tasks import (
     CallbackTask,
     FetchTask,
@@ -349,3 +355,60 @@ async def test_redact_handler_multi_doc(
             b'"url": "https://test_document.pdf/"}, "targetBlobUrl": null}'
         ),
     ]
+
+
+@patch("app.server.tasks.controller.chain")
+async def test_redact_handler_base64_payload_skips_broker(
+    chain_mock: MagicMock,
+    api: TestClient,
+    exp_db: DbDriver,
+    fake_redis_store: FakeRedis,
+):
+    """Inline BASE64 content is persisted to the blob store before dispatch.
+
+    Rather than carrying the (potentially large) document inline through the
+    Celery broker, the handler decodes it once, writes it to the blob store,
+    and the fetch task carries only the storage id. This is the headroom fix
+    for the BASE64 attachment path.
+    """
+    chain_mock.return_value.apply_async.return_value = AsyncResult("fake_task_id")
+
+    raw = b"%PDF-1.4 fake document bytes"
+    storage_id = hashlib.sha256(raw).hexdigest()
+
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjects": [
+            {
+                "role": "accused",
+                "subject": {"subjectId": "sub1", "name": "jack doe"},
+            }
+        ],
+        "objects": [
+            {
+                "document": {
+                    "attachmentType": "BASE64",
+                    "documentId": "doc1",
+                    "content": base64.b64encode(raw).decode("ascii"),
+                },
+                "callbackUrl": "https://echo",
+            }
+        ],
+    }
+
+    response = api.post("/api/v1/redact", json=request)
+    assert response.status_code == 201
+
+    # The fetch task should carry only the storage id, with no inline document.
+    chain_mock.assert_called_once()
+    fetch_sig = chain_mock.mock_calls[0].args[0]
+    assert fetch_sig == fetch.s(
+        FetchTask(document_id="doc1", file_storage_id=storage_id)
+    )
+    fetch_task = fetch_sig.args[0]
+    assert fetch_task.document is None
+    assert fetch_task.file_storage_id == storage_id
+
+    # The decoded bytes (not the base64 string) live in the blob store.
+    assert fake_redis_store.get(storage_id) == raw

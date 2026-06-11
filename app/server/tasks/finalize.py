@@ -9,11 +9,12 @@ from pydantic import BaseModel
 from app.func import allf
 
 from ..case import CaseStore
-from ..case_helper import save_retry_state_sync, summarize_state
+from ..case_helper import save_document_sync, save_retry_state_sync, summarize_state
 from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import OutputFormat, RedactionTarget
 from .callback import CallbackTaskResult, get_result_sync
+from .fetch import inline_document_bytes
 from .metrics import (
     celery_counters,
     record_task_failure,
@@ -128,12 +129,22 @@ def finalize(
     if next_object:
         from .controller import create_document_redaction_task
 
+        # Keep inline (BASE64/TEXT) payloads out of the broker on the iterative
+        # multi-object path too: persist the content to the blob store and pass
+        # only its id into the next chain (mirrors the API handler).
+        prefetched_storage_id: str | None = None
+        inline_bytes = inline_document_bytes(next_object.document)
+        if inline_bytes is not None:
+            prefetched_storage_id = save_document_sync(inline_bytes)
+            del inline_bytes
+
         new_chain = create_document_redaction_task(
             params.jurisdiction_id,
             params.case_id,
             params.subject_ids,
             next_object,
             renderer=params.renderer,
+            prefetched_storage_id=prefetched_storage_id,
         )
         if not new_chain:
             # Unclear why we would get here, since we've verified that
