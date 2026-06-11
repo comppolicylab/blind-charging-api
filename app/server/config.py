@@ -91,7 +91,15 @@ class QueueConfig(BaseModel):
     task: TaskConfig = TaskConfig()
     store: StoreConfig = RedisConfig()
     broker: BrokerConfig = RedisConfig()
-    concurrency: int = 10
+    concurrency: int = 5
+    max_memory_per_child: int = 1024 * 750
+    """The maximum memory per child in KiB.
+
+    The default is tuned to a container with 4GB of RAM.
+    Before changing this, make sure to consider which celery
+    worker pool class is used, and what the `concurrency` setting is.
+    The point is to kill a child process before the container is OOM-killed.
+    """
 
 
 class ExperimentsConfig(BaseModel):

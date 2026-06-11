@@ -1,0 +1,123 @@
+# Load-testing stack for the Blind Charging API.
+#
+# Brings up realistic containers for investigating OOM limits and issues.
+#
+# Memory limits are intentionally configurable (and default to fairly small
+# values) so that OOM is reproducible on a developer laptop. Swap is pinned to
+# the memory limit (memswap_limit == mem_limit) so the kernel OOM-killer fires
+# instead of silently swapping -- this is what makes the failure observable
+# (container exits with code 137 / State.OOMKilled == true).
+#
+# Usage:
+#   cd tests/load
+#   docker compose -f docker-compose.load.yml up --build -d
+#   uv run python run_load.py [docs_dir] --concurrency 5 --num-requests 10 --label baseline
+#   docker compose -f docker-compose.load.yml down -v
+#
+# Parameters by default should mimic the Terraform configuration.
+# They can be tuned with the following variables:
+#   BC_API_MEM             API container memory limit          (default 3g)
+#   BC_WORKER_MEM          Worker container memory limit       (default 4g)
+#   BC_REDIS_MEM           Redis container memory limit        (default 1g)
+#   BC_WORKER_CONCURRENCY  Celery worker concurrency           (default 4)
+#   BC_API_WORKERS         Uvicorn workers in the API          (default 1)
+
+services:
+
+  redis:
+    image: redis:7.2.5
+    platform: linux/amd64
+    container_name: bc-load-redis
+    expose: [6379]
+    ports: ["6380:6379"]
+    mem_limit: ${BC_REDIS_MEM:-1g}
+    memswap_limit: ${BC_REDIS_MEM:-1g}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  # One-shot service to initialize the SQLite "experiments" database. The API
+  # refuses to start against a blank-slate database, so this must complete
+  # before the API/worker come up.
+  init:
+    image: bc-load-api:latest
+    platform: linux/amd64
+    container_name: bc-load-init
+    command: ["create-db", "--wipe"]
+    volumes:
+      - ./config.load.toml:/config/config.toml:ro
+      - loaddata:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  api:
+    image: bc-load-api:latest
+    platform: linux/amd64
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: bc-load-api
+    command: ["api", "--host", "0.0.0.0", "--port", "8000", "--workers", "${BC_API_WORKERS:-1}"]
+    expose: [8000]
+    ports: ["8000:8000"]
+    mem_limit: ${BC_API_MEM:-3g}
+    memswap_limit: ${BC_API_MEM:-3g}
+    # Make the OOM-killer the only relief valve, and don't restart on crash so
+    # the failure stays visible for inspection.
+    restart: "no"
+    volumes:
+      - ./config.load.toml:/config/config.toml:ro
+      - loaddata:/data
+    extra_hosts:
+      host.docker.internal: host-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+  worker:
+    image: bc-load-api:latest
+    platform: linux/amd64
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    container_name: bc-load-worker
+    command: ["worker", "--liveness-host", "0.0.0.0", "--liveness-port", "8001"]
+    expose: [8001]
+    ports: ["8001:8001"]
+    mem_limit: ${BC_WORKER_MEM:-4g}
+    memswap_limit: ${BC_WORKER_MEM:-4g}
+    restart: "no"
+    volumes:
+      - ./config.load.toml:/config/config.toml:ro
+      - loaddata:/data
+    # Allow the worker to call back to the load driver's callback server running
+    # on the host via `host.docker.internal`.
+    extra_hosts:
+      host.docker.internal: host-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+
+volumes:
+  loaddata:
+    driver_opts: {}
