@@ -31,6 +31,7 @@ from ..tasks import (
     create_document_redaction_task,
     get_result,
     inline_document_bytes,
+    public_link_schemes,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,10 @@ logger = logging.getLogger(__name__)
 # Only allow HTTP callbacks in debug mode
 _callback_schemes = {"http", "https"} if config.debug else {"https"}
 _disallowed_callback_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
+# Document links are validated against the schemes of the registered fetch
+# resolvers (excluding private ones), not the callback scheme set. localhost
+# (etc.) is still rejected outside debug to guard against SSRF.
+_disallowed_document_hosts = {"localhost", "127.0.0.1"} if not config.debug else set()
 
 
 def validate_callback_url(url: str | None) -> None:
@@ -68,10 +73,12 @@ def validate_callback_url(url: str | None) -> None:
 def validate_document_url(url: str | None) -> None:
     """Validate an inbound document LINK url.
 
-    Only external schemes (http/https, https-only outside debug) are accepted.
-    This is what prevents a client from submitting an internal ``bcstore://``
-    link (which would let them read arbitrary staged blobs by id): such links
-    are minted only internally, never accepted from a request.
+    The url scheme must match one of the publicly registered fetch resolvers
+    (see :func:`app.server.tasks.public_link_schemes`). Private resolver schemes
+    are deliberately excluded: this is what prevents a client from submitting an
+    internal ``bcstore://`` link (which would let them read arbitrary staged
+    blobs by id), since such links are minted only internally and never accepted
+    from a request.
 
     Args:
         url (str): The url to validate.
@@ -84,12 +91,15 @@ def validate_document_url(url: str | None) -> None:
     parsed = urlparse(url)
     if not parsed.scheme:
         raise HTTPException(status_code=400, detail="Invalid document URL")
-    if parsed.scheme not in _callback_schemes:
+    allowed_schemes = public_link_schemes()
+    if parsed.scheme.lower() not in allowed_schemes:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid document URL scheme (must use {_callback_schemes})",
+            detail=(
+                f"Invalid document URL scheme (must use {sorted(allowed_schemes)})"
+            ),
         )
-    if parsed.hostname in _disallowed_callback_hosts:
+    if parsed.hostname in _disallowed_document_hosts:
         raise HTTPException(status_code=400, detail="Invalid document URL host")
 
 

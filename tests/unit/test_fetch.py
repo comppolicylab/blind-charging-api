@@ -6,7 +6,20 @@ from app.server.generated.models import (
     DocumentText,
     InputDocument,
 )
-from app.server.tasks import FetchTask, FetchTaskResult, fetch
+from app.server.tasks import FetchTask, FetchTaskResult, fetch, public_link_schemes
+
+
+def test_public_link_schemes_excludes_private():
+    """Public input schemes cover the http(s) resolvers but not bcstore.
+
+    Input document urls are validated against this set, so the internal
+    ``bcstore`` scheme (registered as private) must be withheld to prevent
+    clients from submitting internal blob-store links.
+    """
+    schemes = public_link_schemes()
+    assert "http" in schemes
+    assert "https" in schemes
+    assert "bcstore" not in schemes
 
 
 @responses.activate

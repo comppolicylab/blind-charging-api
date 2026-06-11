@@ -1,4 +1,5 @@
 import base64
+from dataclasses import dataclass
 from typing import Callable, cast
 from urllib.parse import urlparse
 
@@ -52,21 +53,55 @@ BCSTORE_SCHEME = "bcstore"
 
 # Resolvers turn a link url (as a string) into raw document bytes.
 LinkResolver = Callable[[str], bytes]
-_LINK_RESOLVERS: dict[str, LinkResolver] = {}
 
 
-def register_link_resolver(scheme: str, resolver: LinkResolver) -> None:
-    """Register a resolver that fetches bytes for links of the given scheme."""
-    _LINK_RESOLVERS[scheme.lower()] = resolver
+@dataclass(frozen=True)
+class _ResolverEntry:
+    resolver: LinkResolver
+    # Private schemes are internal-only: they can be resolved by the worker but
+    # must never be accepted on an inbound document link (see ``bcstore`` note
+    # above). They are excluded from :func:`public_link_schemes`.
+    private: bool
+
+
+_LINK_RESOLVERS: dict[str, _ResolverEntry] = {}
+
+
+def register_link_resolver(
+    scheme: str,
+    resolver: LinkResolver,
+    *,
+    private: bool = False,
+) -> None:
+    """Register a resolver that fetches bytes for links of the given scheme.
+
+    Args:
+        scheme: The url scheme this resolver handles (case-insensitive).
+        resolver: Callable turning a link url into raw document bytes.
+        private: When True, the scheme is internal-only and must never be
+            accepted from an inbound request (e.g. ``bcstore``). Private schemes
+            are excluded from :func:`public_link_schemes`.
+    """
+    _LINK_RESOLVERS[scheme.lower()] = _ResolverEntry(resolver=resolver, private=private)
+
+
+def public_link_schemes() -> set[str]:
+    """Return schemes that may be submitted on an inbound document link.
+
+    This is the source of truth for input document url validation: every
+    publicly registered resolver is accepted, while private schemes (e.g. the
+    internal ``bcstore`` scheme) are withheld so clients cannot submit them.
+    """
+    return {scheme for scheme, entry in _LINK_RESOLVERS.items() if not entry.private}
 
 
 def resolve_link(url: str) -> bytes:
     """Resolve a document link url to raw bytes via the registered resolvers."""
     scheme = urlparse(url).scheme.lower()
-    resolver = _LINK_RESOLVERS.get(scheme)
-    if resolver is None:
+    entry = _LINK_RESOLVERS.get(scheme)
+    if entry is None:
         raise ValueError(f"Unsupported document link scheme: {scheme!r}")
-    return resolver(url)
+    return entry.resolver(url)
 
 
 def _resolve_http(url: str) -> bytes:
@@ -88,9 +123,15 @@ def _resolve_bcstore(url: str) -> bytes:
     return content
 
 
-register_link_resolver("http", _resolve_http)
 register_link_resolver("https", _resolve_http)
-register_link_resolver(BCSTORE_SCHEME, _resolve_bcstore)
+# Plain http is only allowed in debug; production accepts https-only document
+# links. Registering it conditionally keeps the resolver registry the single
+# source of truth for input scheme validation.
+if config.debug:
+    register_link_resolver("http", _resolve_http)
+# bcstore is internal-only: the worker resolves it, but clients must not be
+# able to submit it (it would let them read arbitrary staged blobs by id).
+register_link_resolver(BCSTORE_SCHEME, _resolve_bcstore, private=True)
 
 
 def bcstore_url(storage_id: str) -> str:
