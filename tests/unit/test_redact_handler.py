@@ -368,8 +368,8 @@ async def test_redact_handler_base64_payload_skips_broker(
 
     Rather than carrying the (potentially large) document inline through the
     Celery broker, the handler decodes it once, writes it to the blob store,
-    and the fetch task carries only the storage id. This is the headroom fix
-    for the BASE64 attachment path.
+    and the fetch task references it via an internal ``bcstore://`` link. This
+    is the headroom fix for the BASE64 attachment path.
     """
     chain_mock.return_value.apply_async.return_value = AsyncResult("fake_task_id")
 
@@ -400,15 +400,51 @@ async def test_redact_handler_base64_payload_skips_broker(
     response = api.post("/api/v1/redact", json=request)
     assert response.status_code == 201
 
-    # The fetch task should carry only the storage id, with no inline document.
+    # The fetch task should carry an internal bcstore link, not the payload.
     chain_mock.assert_called_once()
     fetch_sig = chain_mock.mock_calls[0].args[0]
     assert fetch_sig == fetch.s(
-        FetchTask(document_id="doc1", file_storage_id=storage_id)
+        FetchTask(
+            document=InputDocument(
+                root=DocumentLink(
+                    attachmentType="LINK",
+                    documentId="doc1",
+                    url=AnyUrl(f"bcstore://{storage_id}"),
+                )
+            )
+        )
     )
-    fetch_task = fetch_sig.args[0]
-    assert fetch_task.document is None
-    assert fetch_task.file_storage_id == storage_id
 
     # The decoded bytes (not the base64 string) live in the blob store.
     assert fake_redis_store.get(storage_id) == raw
+
+
+async def test_redact_handler_rejects_internal_document_scheme(
+    api: TestClient,
+    exp_db: DbDriver,
+    fake_redis_store: FakeRedis,
+):
+    """A client must not be able to submit an internal ``bcstore://`` link."""
+    request = {
+        "jurisdictionId": "jur1",
+        "caseId": "case1",
+        "subjects": [
+            {
+                "role": "accused",
+                "subject": {"subjectId": "sub1", "name": "jack doe"},
+            }
+        ],
+        "objects": [
+            {
+                "document": {
+                    "attachmentType": "LINK",
+                    "documentId": "doc1",
+                    "url": "bcstore://deadbeef",
+                },
+                "callbackUrl": "https://echo",
+            }
+        ],
+    }
+
+    response = api.post("/api/v1/redact", json=request)
+    assert response.status_code == 400

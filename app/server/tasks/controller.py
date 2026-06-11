@@ -6,7 +6,12 @@ from ..generated.models import ExtractionTarget, OutputFormat, RedactionTarget
 from .callback import CallbackTask
 from .extract import ExtractionTask
 from .extract_callback import ExtractionCallbackTask
-from .fetch import FetchTask, UnidentifiedFetchTask
+from .fetch import (
+    FetchTask,
+    UnidentifiedFetchTask,
+    make_bcstore_document,
+    make_unidentified_bcstore_document,
+)
 from .finalize import FinalizeTask
 from .format import FormatTask
 from .redact import RedactionTask
@@ -39,9 +44,11 @@ def create_document_redaction_task(
     """
     document_id = object.document.root.documentId
     if prefetched_storage_id is not None:
+        # Inline content was pre-staged in the blob store; reference it as an
+        # internal bcstore link instead of carrying the payload through the
+        # broker.
         fetch_task = FetchTask(
-            document_id=document_id,
-            file_storage_id=prefetched_storage_id,
+            document=make_bcstore_document(document_id, prefetched_storage_id),
         )
     else:
         fetch_task = FetchTask(document=object.document)
@@ -84,8 +91,8 @@ def create_document_extraction_task(
     """
     if prefetched_storage_id is not None:
         fetch_task = UnidentifiedFetchTask(
+            document=make_unidentified_bcstore_document(prefetched_storage_id),
             document_id=token,
-            file_storage_id=prefetched_storage_id,
         )
     else:
         fetch_task = UnidentifiedFetchTask(

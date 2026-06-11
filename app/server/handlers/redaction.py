@@ -65,6 +65,34 @@ def validate_callback_url(url: str | None) -> None:
         raise HTTPException(status_code=400, detail="Invalid callback URL host")
 
 
+def validate_document_url(url: str | None) -> None:
+    """Validate an inbound document LINK url.
+
+    Only external schemes (http/https, https-only outside debug) are accepted.
+    This is what prevents a client from submitting an internal ``bcstore://``
+    link (which would let them read arbitrary staged blobs by id): such links
+    are minted only internally, never accepted from a request.
+
+    Args:
+        url (str): The url to validate.
+
+    Raises:
+        HTTPException: If the url is invalid.
+    """
+    if not url:
+        return
+    parsed = urlparse(url)
+    if not parsed.scheme:
+        raise HTTPException(status_code=400, detail="Invalid document URL")
+    if parsed.scheme not in _callback_schemes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid document URL scheme (must use {_callback_schemes})",
+        )
+    if parsed.hostname in _disallowed_callback_hosts:
+        raise HTTPException(status_code=400, detail="Invalid document URL host")
+
+
 def validate_redaction_request(body: RedactionRequest) -> None:
     """Validate a redaction request.
 
@@ -83,6 +111,8 @@ def validate_redaction_request(body: RedactionRequest) -> None:
         # TODO - the SAS url validation should be more involved than just "valid URL."
         # We can try to use the Azure SDK to validate the URL.
         validate_callback_url(target_blob_url)
+        if obj.document.root.attachmentType == "LINK":
+            validate_document_url(str(obj.document.root.url))
 
 
 async def redact_documents(*, request: Request, body: RedactionRequest) -> None:

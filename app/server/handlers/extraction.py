@@ -18,7 +18,7 @@ from ..tasks import (
     inline_document_bytes,
 )
 from ..tasks.extract_callback import ExtractionCallbackTaskResult
-from .redaction import validate_callback_url
+from .redaction import validate_callback_url, validate_document_url
 
 
 def _task_key(token: str) -> str:
@@ -38,6 +38,8 @@ async def extract_documents(
     for doc in body.documents:
         callback_url = str(doc.callbackUrl) if doc.callbackUrl else None
         validate_callback_url(callback_url)
+        if doc.document.root.attachmentType == "LINK":
+            validate_document_url(str(doc.document.root.url))
 
         token = str(uuid7())
         # Persist inline (BASE64) payloads to the blob store up front so the

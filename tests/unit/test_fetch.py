@@ -37,6 +37,34 @@ def test_fetch_link():
 
 
 @responses.activate
+def test_fetch_bcstore_link_short_circuits():
+    """A bcstore link passes its storage id through without loading bytes.
+
+    No HTTP resolver is registered for the bcstore scheme, so if the fetch task
+    tried to *download* it (rather than short-circuit), this would error. The
+    storage id should come straight back as the result.
+    """
+    storage_id = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+
+    params = FetchTask(
+        document=InputDocument(
+            root=DocumentLink(
+                documentId="doc1",
+                attachmentType="LINK",
+                url=f"bcstore://{storage_id}",
+            )
+        )
+    )
+
+    result = fetch.s(params).apply()
+
+    assert result.get() == FetchTaskResult(
+        document_id="doc1",
+        file_storage_id=storage_id,
+    )
+
+
+@responses.activate
 def test_fetch_link_error_code():
     responses.add(
         responses.GET,
