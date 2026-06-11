@@ -35,7 +35,7 @@ dependencies = [
     "fakeredis>=2.24.1",
     "azure-monitor-opentelemetry>=1.8.8,<2.0.0",
     "opentelemetry-instrumentation-celery<1.0,>=0.49b1",
-    "certifi<2025.0.0,>=2024.12.14",
+    "certifi>=2026.5.20,<2027.0.0",
     "alligater>=0.5.0,<1.0.0",
     "kombu @ git+https://github.com/jnu/kombu.git@a37798c43c740ac7bc8253915588f675e45bd04b",
     "celery>=5.6,<6.0.0",
