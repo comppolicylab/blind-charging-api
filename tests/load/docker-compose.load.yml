@@ -30,8 +30,8 @@ services:
     container_name: bc-load-redis
     expose: [6379]
     ports: ["6380:6379"]
-    mem_limit: ${BC_REDIS_MEM:-1g}
-    memswap_limit: ${BC_REDIS_MEM:-1g}
+    mem_limit: ${BC_REDIS_MEM:-4g}
+    memswap_limit: ${BC_REDIS_MEM:-4g}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
