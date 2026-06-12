@@ -196,13 +196,14 @@ async def test_redact_multiple_documents_same_id(
     callback_server: MockCallbackServer,
     logger: Logger,
 ):
-    """Two distinct documents that happen to share a documentId.
+    """Two objects submitted under the same documentId must each get a callback.
 
-    Each object is a separate document (different content/URL) that the client
-    submitted under the same `documentId`. Both should still receive a
-    callback, but the de-duplication in `get_next_object_sync` skips any object
-    whose documentId already has a (non-failed) task -- so only the first
-    object is ever processed.
+    Each object is a separate document (its own callback URL) that the client
+    submitted under the same `documentId`. A previous implementation popped the
+    next object off the work queue and skipped it if its documentId already had
+    an in-flight (non-failed) task, which collapsed objects sharing a
+    documentId into a single callback. Both objects must now receive a
+    callback.
     """
     request = {
         "jurisdictionId": "jur1",
