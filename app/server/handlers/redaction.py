@@ -195,8 +195,14 @@ async def redact_documents(*, request: Request, body: RedactionRequest) -> None:
         # Unclear why we would ever get here, but throw an error just in case.
         raise HTTPException(status_code=500, detail="Failed to create redaction task")
 
-    # Save the list of objects that need to be redacted for future reference.
-    await store.save_objects_list(body.objects)
+    # Enqueue the *remaining* objects (everything except the one we are
+    # dispatching right now) as a FIFO work queue. Each document is processed
+    # sequentially: when one document finalizes it pops the next object off
+    # this queue and starts its chain. The first object is dispatched directly
+    # below and is deliberately not enqueued, so every queued object is popped
+    # and processed exactly once -- this is what keeps documents that happen to
+    # share a documentId from being collapsed into a single callback.
+    await store.save_objects_list(body.objects[1:])
 
     # Start the task chain
     task = task_chain.apply_async()
