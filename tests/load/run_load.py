@@ -33,6 +33,8 @@ artifacts to a timestamped directory under ``--results-dir`` (default
   * ``memory.csv``   -- the raw per-container memory/CPU time series,
   * ``summary.json`` -- run config, per-container peaks/limits, and outcome,
   * ``memory.svg``   -- a memory-over-time graph (with memory-limit lines).
+  * ``redaction-results/`` -- optional decoded callback documents when
+    ``--save-redaction-results`` is passed.
 
 To compare runs (e.g. before/after a fix), overlay one container's memory
 across every recorded run with ``--compare``.
@@ -96,6 +98,12 @@ _MEM_UNITS = {
     "TIB": 1024**4,
 }
 _MEM_RE = re.compile(r"^([\d.]+)\s*([KMGT]?I?B)$", re.IGNORECASE)
+_OUTPUT_EXTENSIONS = {
+    "PDF": ".pdf",
+    "TEXT": ".txt",
+    "HTML": ".html",
+    "JSON": ".json",
+}
 
 
 def human_to_bytes(s: str) -> float:
@@ -128,6 +136,7 @@ class CallbackRecord:
     body_bytes: int
     received_at: float
     error: str | None = None
+    result_path: str | None = None
 
 
 class CallbackCollector:
@@ -139,10 +148,20 @@ class CallbackCollector:
     base64 document, so its size is itself interesting for the memory story).
     """
 
-    def __init__(self, host: str, port: int):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        redaction_results_dir: Path | None = None,
+        output_format: str = "PDF",
+    ):
         self._records: dict[str, CallbackRecord] = {}
         self._lock = threading.Lock()
         self._cv = threading.Condition(self._lock)
+        self._redaction_results_dir = redaction_results_dir
+        self._output_format = output_format
+        if self._redaction_results_dir is not None:
+            self._redaction_results_dir.mkdir(parents=True, exist_ok=True)
 
         collector = self
 
@@ -153,6 +172,7 @@ class CallbackCollector:
             def do_POST(self):
                 length = int(self.headers.get("Content-Length", 0))
                 raw = self.rfile.read(length) if length else b""
+                payload = None
                 try:
                     payload = json.loads(raw)
                     doc_id = payload.get("inputDocumentId", "<unknown>")
@@ -160,6 +180,7 @@ class CallbackCollector:
                     err = payload.get("error")
                 except Exception:
                     doc_id, status, err = "<unparseable>", "<unparseable>", None
+                result_path = collector._save_redaction_result(doc_id, raw, payload)
                 collector._record(
                     CallbackRecord(
                         document_id=doc_id,
@@ -167,6 +188,7 @@ class CallbackCollector:
                         body_bytes=len(raw),
                         received_at=time.monotonic(),
                         error=err,
+                        result_path=result_path,
                     )
                 )
                 self.send_response(200)
@@ -191,6 +213,54 @@ class CallbackCollector:
         with self._cv:
             self._records[rec.document_id] = rec
             self._cv.notify_all()
+
+    def _save_redaction_result(
+        self, document_id: str, raw: bytes, payload: Any | None
+    ) -> str | None:
+        if self._redaction_results_dir is None:
+            return None
+        safe_doc_id = re.sub(r"[^a-zA-Z0-9._-]+", "-", document_id).strip("-")
+        if not safe_doc_id:
+            safe_doc_id = "unknown"
+        data, suffix = self._redaction_result_bytes(raw, payload)
+        path = (
+            self._redaction_results_dir
+            / f"{safe_doc_id}-{uuid.uuid4().hex[:8]}{suffix}"
+        )
+        try:
+            path.write_bytes(data)
+        except OSError as e:
+            print(f"WARNING: failed to save redaction result for {document_id}: {e}")
+            return None
+        return str(path)
+
+    def _redaction_result_bytes(
+        self, raw: bytes, payload: Any | None
+    ) -> tuple[bytes, str]:
+        if not isinstance(payload, dict):
+            return raw, ".callback.json"
+        if payload.get("status") != "COMPLETE":
+            return raw, ".error.json"
+
+        redacted_doc = payload.get("redactedDocument")
+        if not isinstance(redacted_doc, dict):
+            return raw, ".callback.json"
+
+        attachment_type = redacted_doc.get("attachmentType")
+        content = redacted_doc.get("content")
+        if attachment_type == "BASE64" and isinstance(content, str):
+            try:
+                data = base64.b64decode(content, validate=True)
+            except Exception as e:
+                print(f"WARNING: failed to decode redaction result: {e}")
+                return raw, ".callback.json"
+            return data, _OUTPUT_EXTENSIONS.get(self._output_format, ".bin")
+        if attachment_type == "TEXT" and isinstance(content, str):
+            return content.encode("utf-8"), ".txt"
+        if attachment_type == "JSON":
+            return json.dumps(content, indent=2).encode("utf-8"), ".json"
+
+        return raw, ".callback.json"
 
     def wait_for(self, document_ids: set[str], timeout: float) -> None:
         """Block until callbacks for all ``document_ids`` arrive or timeout."""
@@ -519,6 +589,7 @@ class LoadConfig:
     results_dir: Path
     label: str
     write_graph: bool
+    save_redaction_results: bool
     attachment_type: str = "BASE64"
     doc_server_host: str = "0.0.0.0"
     doc_server_port: int = 9998
@@ -746,6 +817,16 @@ def parse_args(argv: list[str]) -> LoadConfig:
         default=os.environ.get("BC_LOAD_NO_GRAPH", "").lower() in ("1", "true", "yes"),
         help="Skip rendering the memory-over-time graph (CSV/JSON still written).",
     )
+    p.add_argument(
+        "--save-redaction-results",
+        action="store_true",
+        default=os.environ.get("BC_LOAD_SAVE_REDACTION_RESULTS", "").lower()
+        in ("1", "true", "yes"),
+        help=(
+            "Save decoded redacted documents from callbacks under each run's "
+            "results directory (env: BC_LOAD_SAVE_REDACTION_RESULTS)."
+        ),
+    )
     args = p.parse_args(argv)
 
     extensions = tuple(
@@ -767,6 +848,7 @@ def parse_args(argv: list[str]) -> LoadConfig:
         results_dir=Path(args.results_dir).expanduser(),
         label=args.label.strip(),
         write_graph=not args.no_graph,
+        save_redaction_results=args.save_redaction_results,
         attachment_type=args.attachment_type.upper(),
         doc_server_host=args.doc_server_host,
         doc_server_port=args.doc_server_port,
@@ -923,6 +1005,12 @@ def _slugify(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
+def _run_dir_for(cfg: LoadConfig, started_at: float) -> Path:
+    stamp = datetime.fromtimestamp(started_at or time.time()).strftime("%Y%m%d-%H%M%S")
+    name = f"{stamp}-{_slugify(cfg.label)}" if cfg.label else stamp
+    return cfg.results_dir / name
+
+
 def _nice_ticks(vmax: float, count: int = 5) -> list[float]:
     """Return ~`count` evenly spaced 'nice' tick values from 0..>=vmax."""
     if vmax <= 0:
@@ -1077,13 +1165,15 @@ def _line_chart_svg(
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
-def write_artifacts(cfg: LoadConfig, report: RunReport) -> Path:
+def write_artifacts(
+    cfg: LoadConfig, report: RunReport, run_dir: Path | None = None
+) -> Path:
     """Persist CSV + JSON (+ optional SVG graph) for this run; return the dir."""
     stamp = datetime.fromtimestamp(report.started_at or time.time()).strftime(
         "%Y%m%d-%H%M%S"
     )
-    name = f"{stamp}-{_slugify(cfg.label)}" if cfg.label else stamp
-    run_dir = cfg.results_dir / name
+    if run_dir is None:
+        run_dir = _run_dir_for(cfg, report.started_at)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # --- memory.csv: wide format, one row per sample tick --------------------
@@ -1115,6 +1205,7 @@ def write_artifacts(cfg: LoadConfig, report: RunReport) -> Path:
             "num_requests": cfg.num_requests or len(report.results),
             "output_format": cfg.output_format,
             "attachment_type": cfg.attachment_type,
+            "save_redaction_results": cfg.save_redaction_results,
         },
         "requests": {
             "submitted": len(report.results),
@@ -1134,6 +1225,12 @@ def write_artifacts(cfg: LoadConfig, report: RunReport) -> Path:
         },
         "files": {"memory_csv": csv_path.name},
     }
+    redaction_results_dir = run_dir / "redaction-results"
+    if cfg.save_redaction_results and redaction_results_dir.is_dir():
+        summary["files"]["redaction_results_dir"] = redaction_results_dir.name
+        summary["files"]["redaction_results_count"] = sum(
+            1 for path in redaction_results_dir.iterdir() if path.is_file()
+        )
     graph_path = run_dir / "memory.svg"
     if cfg.write_graph and report.ticks:
         _render_run_graph(cfg, report, graph_path)
@@ -1314,9 +1411,11 @@ def _maybe_run_compare(argv: list[str]) -> int | None:
     )
 
 
-def _emit_artifacts(cfg: LoadConfig, report: RunReport) -> None:
+def _emit_artifacts(
+    cfg: LoadConfig, report: RunReport, run_dir: Path | None = None
+) -> None:
     try:
-        run_dir = write_artifacts(cfg, report)
+        run_dir = write_artifacts(cfg, report, run_dir)
     except Exception as e:
         print(f"\nWARNING: failed to write artifacts: {type(e).__name__}: {e}")
         return
@@ -1324,6 +1423,9 @@ def _emit_artifacts(cfg: LoadConfig, report: RunReport) -> None:
     graph = run_dir / "memory.svg"
     if graph.is_file():
         print(f"  memory graph: {graph}")
+    redaction_results = run_dir / "redaction-results"
+    if redaction_results.is_dir():
+        print(f"  redaction results: {redaction_results}")
     print(
         "  compare runs: uv run python tests/load/run_load.py --compare "
         f"--results-dir {cfg.results_dir}"
@@ -1420,13 +1522,22 @@ def main(argv: list[str]) -> int:
     _ensure_api_healthy(cfg)
     encoded, doc_server = _prepare_attachments(cfg, docs)
 
-    callbacks = CallbackCollector(cfg.callback_host, cfg.callback_port)
+    started_at = time.time()
+    run_dir = _run_dir_for(cfg, started_at) if cfg.save_redaction_results else None
+    redaction_results_dir = (
+        run_dir / "redaction-results" if run_dir is not None else None
+    )
+    callbacks = CallbackCollector(
+        cfg.callback_host,
+        cfg.callback_port,
+        redaction_results_dir,
+        cfg.output_format,
+    )
     callbacks.start()
     monitor = DockerMonitor(CONTAINERS)
     monitor.start()
 
     results: list[RequestResult] = []
-    started_at = time.time()
     t0 = time.monotonic()
     try:
         results, submitted_doc_ids = _submit_requests(cfg, docs, encoded, num_requests)
@@ -1452,7 +1563,7 @@ def main(argv: list[str]) -> int:
         started_at=started_at,
     )
     rc = print_report(cfg, report)
-    _emit_artifacts(cfg, report)
+    _emit_artifacts(cfg, report, run_dir)
     return rc
 
 
