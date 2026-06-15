@@ -53,12 +53,12 @@ _callback_timeout = config.queue.task.callback_timeout_seconds
 
 
 @queue.task(
+    bind=True,
     task_track_started=True,
     task_time_limit=_callback_timeout + 10,
     task_soft_time_limit=_callback_timeout,
     max_retries=5,
     retry_backoff=True,
-    autoretry_for=(Exception,),
     default_retry_delay=30,
     on_retry=allf(save_retry_state_sync, record_task_retry),
     on_failure=record_task_failure,
@@ -66,7 +66,7 @@ _callback_timeout = config.queue.task.callback_timeout_seconds
     before_start=record_task_start,
 )
 def callback(
-    format_result: FormatTaskResult, params: CallbackTask
+    self, format_result: FormatTaskResult, params: CallbackTask
 ) -> CallbackTaskResult:
     """Post callbacks to the client as requested."""
     if params.callback_url:
@@ -90,11 +90,19 @@ def callback(
                 )
             )
         else:
-            doc = get_result_sync(
-                format_result.jurisdiction_id,
-                format_result.case_id,
-                format_result.document_id,
-            )
+            result_errors: list[ProcessingError] = []
+            try:
+                doc = get_result_sync(
+                    format_result.jurisdiction_id,
+                    format_result.case_id,
+                    format_result.document_id,
+                )
+            except Exception as e:
+                logger.exception("Error getting redaction result")
+                doc = None
+                result_errors.append(
+                    ProcessingError.from_exception("callback.get_result", e)
+                )
             if not doc:
                 body = RedactionResult(
                     RedactionResultError(
@@ -102,7 +110,11 @@ def callback(
                         caseId=format_result.case_id,
                         inputDocumentId=format_result.document_id,
                         maskedSubjects=masked_subjects,
-                        error="Redaction result not found",
+                        error=(
+                            format_errors(result_errors)
+                            if result_errors
+                            else "Redaction result not found"
+                        ),
                         status="ERROR",
                     )
                 )
@@ -117,16 +129,36 @@ def callback(
                         status="COMPLETE",
                     )
                 )
-        response = requests.post(
-            params.callback_url,
-            json=body.model_dump(mode="json"),
-        )
         try:
+            response = requests.post(
+                params.callback_url,
+                json=body.model_dump(mode="json"),
+            )
             response.raise_for_status()
             celery_counters.record_callback(True)
-        except Exception:
+        except Exception as e:
             celery_counters.record_callback(False)
-            raise
+            if self.request.retries < self.max_retries:
+                logger.warning(
+                    "Callback failed for %s; retrying before continuing.",
+                    format_result.document_id,
+                )
+                raise self.retry(exc=e) from e
+
+            logger.error(
+                "Callback failed for %s after %s retries; continuing redaction queue.",
+                format_result.document_id,
+                self.max_retries,
+            )
+            logger.exception(e)
+            error_response = getattr(e, "response", None)
+            return CallbackTaskResult(
+                status_code=(
+                    error_response.status_code if error_response is not None else 0
+                ),
+                response=error_response.text if error_response is not None else str(e),
+                formatted=format_result,
+            )
 
         return CallbackTaskResult(
             status_code=response.status_code,
