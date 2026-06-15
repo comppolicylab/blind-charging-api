@@ -111,16 +111,16 @@ wheels = [
 
 [[package]]
 name = "alembic"
-version = "1.13.3"
+version = "1.18.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mako" },
     { name = "sqlalchemy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/94/a2/840c3b84382dce8624bc2f0ee67567fc74c32478d0c5a5aea981518c91c3/alembic-1.13.3.tar.gz", hash = "sha256:203503117415561e203aa14541740643a611f641517f0209fcae63e9fa09f1a2", size = 1921223, upload-time = "2024-09-23T14:52:14.593Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/13/8b084e0f2efb0275a1d534838844926f798bd766566b1375174e2448cd31/alembic-1.18.4.tar.gz", hash = "sha256:cb6e1fd84b6174ab8dbb2329f86d631ba9559dd78df550b57804d607672cedbc", size = 2056725, upload-time = "2026-02-10T16:00:47.195Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/12/58f4f11385fddafef5d6f7bfaaf2f42899c8da6b4f95c04b7c3b744851a8/alembic-1.13.3-py3-none-any.whl", hash = "sha256:908e905976d15235fae59c9ac42c4c5b75cfcefe3d27c0fbf7ae15a37715d80e", size = 233217, upload-time = "2024-09-23T14:52:18.183Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/29/6533c317b74f707ea28f8d633734dbda2119bbadfc61b2f3640ba835d0f7/alembic-1.18.4-py3-none-any.whl", hash = "sha256:a5ed4adcf6d8a4cb575f3d759f071b03cd6e5c7618eb796cb52497be25bfe19a", size = 263893, upload-time = "2026-02-10T16:00:49.997Z" },
 ]
 
 [[package]]
@@ -490,7 +490,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.0,<4.0.0" },
     { name = "aioodbc", specifier = ">=0.5.0,<1.0.0" },
     { name = "aiosqlite", specifier = ">=0.20.0,<1.0.0" },
-    { name = "alembic", specifier = ">=1.13.3,<=2.0.0" },
+    { name = "alembic", specifier = ">=1.18.4,<=2.0.0" },
     { name = "alligater", specifier = ">=0.5.0,<1.0.0" },
     { name = "argon2-cffi", specifier = ">=25.1.0,<26.0.0" },
     { name = "azure-monitor-opentelemetry", specifier = ">=1.8.8,<2.0.0" },
@@ -528,7 +528,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "alembic", specifier = ">=1.13.2,<2.0.0" },
+    { name = "alembic", specifier = ">=1.18.4,<2.0.0" },
     { name = "fakeredis", specifier = ">=2.23.3,<3.0.0" },
     { name = "mypy", specifier = ">=2.1.0,<3.0.0" },
     { name = "pre-commit", specifier = ">=4.6.0,<5.0.0" },
