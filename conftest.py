@@ -91,12 +91,21 @@ def sqlite_db_path(request, logger) -> Generator[str, None, None]:
         logger.debug("Using existing SQLite database: %s", db_path)
         with open(db_path, "w") as f:
             f.write("")
+        os.chmod(db_path, 0o666)
         yield db_path
     else:
         logger.debug("Creating temporary SQLite database ...")
-        with tempfile.NamedTemporaryFile() as tmp_db:
-            logger.debug("Using temporary SQLite database: %s", tmp_db.name)
-            yield tmp_db.name
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # The real Celery worker runs in Docker and may not share the host
+            # user's uid. SQLite also creates journal/WAL sidecar files next to
+            # the DB, so both the DB file and its directory need to be writable.
+            os.chmod(tmp_dir, 0o777)
+            db_path = os.path.join(tmp_dir, "test.sqlite")
+            with open(db_path, "w") as f:
+                f.write("")
+            os.chmod(db_path, 0o666)
+            logger.debug("Using temporary SQLite database: %s", db_path)
+            yield db_path
 
 
 @pytest.fixture
