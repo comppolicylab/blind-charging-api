@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.func import allf
 
 from ..case import CaseStore
-from ..case_helper import save_document_sync, save_retry_state_sync
+from ..case_helper import save_document_sync, save_retry_state_sync, summarize_state
 from ..config import config
 from ..db import DocumentStatus
 from ..generated.models import OutputFormat, RedactionTarget
@@ -22,7 +22,7 @@ from .metrics import (
     record_task_start,
     record_task_success,
 )
-from .queue import ProcessingError, queue
+from .queue import ProcessingError, get_result, queue
 from .serializer import register_type
 
 logger = logging.getLogger(__name__)
@@ -177,28 +177,14 @@ def format_errors(errors: list[ProcessingError]) -> str | None:
 
 
 def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget | None:
-    """Get the next object to redact for a case.
-
-    Objects are stored as a FIFO work queue when the request is received. The
-    very first object is dispatched immediately by the API handler and is
-    therefore never placed on the queue; every other object is enqueued and
-    then processed, one at a time, by popping it here as each preceding
-    document finalizes.
-
-    Because each queued object is popped exactly once, there is no need to
-    de-duplicate against documents that are already in flight. (A previous
-    implementation skipped any popped object whose ``documentId`` already had a
-    task, which silently dropped distinct documents that happened to share a
-    ``documentId`` -- they never got processed and so never produced a
-    callback.)
+    """Get the next objects to redact for a case.
 
     Args:
         jurisdiction_id (str): The jurisdiction ID.
         case_id (str): The case ID.
 
     Returns:
-        RedactionTarget: The next object to redact, or None if the queue is
-        empty (all documents have been dispatched).
+        RedactionTarget: The next object to redact, or None.
     """
 
     async def _get_objects() -> RedactionTarget | None:
@@ -207,15 +193,36 @@ def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget 
             async with store.tx() as tx:
                 cs = CaseStore(tx)
                 await cs.init(jurisdiction_id, case_id)
-                next_object = await cs.pop_object()
-                if not next_object:
-                    logging.debug("No more objects to process, all done.")
-                    return None
-                logging.debug(
-                    f"Found next object for {jurisdiction_id}:{case_id}: "
-                    f"{next_object.document.root.documentId}"
-                )
-                return next_object
+                doc_tasks = await cs.get_doc_tasks()
+                logging.debug(f"Found {len(doc_tasks)} existing task(s).")
+
+                while True:
+                    next_object = await cs.pop_object()
+                    if not next_object:
+                        logging.debug("No more objects to check, all done processing.")
+                        return None
+                    # Validate that the next object needs to be redacted.
+                    existing_tasks = doc_tasks.get(next_object.document.root.documentId)
+                    if not existing_tasks:
+                        logging.debug(
+                            f"Found next object for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId}"
+                        )
+                        return next_object
+
+                    summary = summarize_state([get_result(t) for t in existing_tasks])
+                    if summary.simple_state == "FAILURE":
+                        logging.debug(
+                            f"Found failed task for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId}. Retrying."
+                        )
+                        return next_object
+                    else:
+                        logging.debug(
+                            f"Found existing tasks for {jurisdiction_id}:{case_id}: "
+                            f"{next_object.document.root.documentId} "
+                            f"({summary.simple_state}). Skipping."
+                        )
 
     return asyncio.run(_get_objects())
 

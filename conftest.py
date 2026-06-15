@@ -461,21 +461,6 @@ def real_queue(celery_setup, config):
     # ``Celery.backend`` is a cached property stored on the instance; drop it so
     # it is rebuilt from the updated ``result_backend`` URL.
     queue.__dict__.pop("backend", None)
-    # The broker connection/producer pools are cached on the app and are *not*
-    # rebuilt when ``broker_url`` changes. Each test stands up fresh broker
-    # containers on new ports, so a pool left over from a previous test points
-    # at a torn-down broker and ``apply_async`` fails with "connection
-    # refused". Tear the pools down so they are lazily recreated against the
-    # current test's broker.
-    try:
-        if queue._pool is not None:
-            queue._pool.force_close_all()
-    except Exception:
-        pass
-    queue._pool = None
-    # ``producer_pool`` is delegated to the app's cached ``amqp`` object; drop
-    # the cached ``amqp`` so the producer pool is rebuilt against the new pool.
-    queue.__dict__.pop("amqp", None)
 
     return celery_setup
 

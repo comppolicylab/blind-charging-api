@@ -116,9 +116,15 @@ async def test_redact_handler(
         b'"nickname": "", "suffix": "", "title": ""}'
     )
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
-    # The single object is dispatched immediately, so nothing is left on the
-    # work queue.
-    assert fake_redis_store.llen("jur1:case1:objects") == 0
+    queue_len = fake_redis_store.llen("jur1:case1:objects")
+    assert queue_len == 1
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
+        (
+            b'{"callbackUrl": "https://echo/", '
+            b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
+            b'"url": "https://test_document.pdf/"}, "targetBlobUrl": null}'
+        ),
+    ]
 
 
 @patch("app.server.tasks.controller.chain")
@@ -208,9 +214,15 @@ async def test_redact_handler_no_callback(
         b'"nickname": "", "suffix": "", "title": ""}'
     )
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
-    # The single object is dispatched immediately, so nothing is left on the
-    # work queue.
-    assert fake_redis_store.llen("jur1:case1:objects") == 0
+    queue_len = fake_redis_store.llen("jur1:case1:objects")
+    assert queue_len == 1
+    assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
+        (
+            b'{"callbackUrl": null, '
+            b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
+            b'"url": "https://test_document.pdf/"}, "targetBlobUrl": null}'
+        ),
+    ]
 
     # Now check the response from the sync API
     sync_response = api.get("/api/v1/redact/jur1/case1")
@@ -329,16 +341,18 @@ async def test_redact_handler_multi_doc(
         b'"nickname": "", "suffix": "", "title": ""}'
     )
     assert fake_redis_store.hgetall("jur1:case1:task") == {b"doc1": b"fake_task_id"}
-    # Only the *non-dispatched* objects are enqueued for later processing. The
-    # first object (doc1) is dispatched immediately and is not placed on the
-    # queue, so the queue contains just doc2.
     queue_len = fake_redis_store.llen("jur1:case1:objects")
-    assert queue_len == 1
+    assert queue_len == 2
     assert fake_redis_store.lrange("jur1:case1:objects", 0, cast(int, queue_len)) == [
         (
             b'{"callbackUrl": "https://echo/2", '
             b'"document": {"attachmentType": "LINK", "documentId": "doc2", '
             b'"url": "https://test_document2.pdf/"}, "targetBlobUrl": null}'
+        ),
+        (
+            b'{"callbackUrl": "https://echo/1", '
+            b'"document": {"attachmentType": "LINK", "documentId": "doc1", '
+            b'"url": "https://test_document.pdf/"}, "targetBlobUrl": null}'
         ),
     ]
 

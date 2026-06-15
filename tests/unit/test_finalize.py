@@ -403,13 +403,17 @@ def test_finalize_no_experiments_more_objects(chain_mock, config, fake_redis_sto
 
     chain_mock.return_value.apply_async.return_value = AsyncResult("new_task_id")
 
-    # The queue holds only the objects that still need processing. The current
-    # doc (doc1) was dispatched directly and is not on the queue; doc2 is the
-    # next object waiting to be processed.
+    # Add two docs to the queue. One is the current doc, the other is the next doc.
     fake_redis_store.rpush(
         "jur1:case1:objects",
         '{"callbackUrl": "https://echo/2", "document": '
         '{"attachmentType": "LINK", "documentId": "doc2", '
+        '"url": "https://test_document.pdf/"}, "targetBlobUrl": null}',
+    )
+    fake_redis_store.rpush(
+        "jur1:case1:objects",
+        '{"callbackUrl": "https://echo/1", "document": '
+        '{"attachmentType": "LINK", "documentId": "doc1", '
         '"url": "https://test_document.pdf/"}, "targetBlobUrl": null}',
     )
     # Set a task ID for the current doc
