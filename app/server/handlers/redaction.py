@@ -114,7 +114,14 @@ def validate_redaction_request(body: RedactionRequest) -> None:
     """
     if not body.objects:
         raise HTTPException(status_code=400, detail="No objects to redact")
+    unique_document_ids = set[str]()
     for obj in body.objects:
+        doc_id = obj.document.root.documentId
+        if doc_id in unique_document_ids:
+            raise HTTPException(
+                status_code=400, detail=f"Duplicate document ID: {doc_id}"
+            )
+        unique_document_ids.add(doc_id)
         callback_url = str(obj.callbackUrl) if obj.callbackUrl else None
         target_blob_url = str(obj.targetBlobUrl) if obj.targetBlobUrl else None
         validate_callback_url(callback_url)

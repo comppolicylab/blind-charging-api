@@ -1,6 +1,7 @@
 import logging
 import os
 import tempfile
+import time
 from datetime import datetime
 from typing import IO, TYPE_CHECKING, AsyncGenerator, Callable, Generator, cast
 from urllib.parse import urlparse
@@ -90,12 +91,21 @@ def sqlite_db_path(request, logger) -> Generator[str, None, None]:
         logger.debug("Using existing SQLite database: %s", db_path)
         with open(db_path, "w") as f:
             f.write("")
+        os.chmod(db_path, 0o666)
         yield db_path
     else:
         logger.debug("Creating temporary SQLite database ...")
-        with tempfile.NamedTemporaryFile() as tmp_db:
-            logger.debug("Using temporary SQLite database: %s", tmp_db.name)
-            yield tmp_db.name
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # The real Celery worker runs in Docker and may not share the host
+            # user's uid. SQLite also creates journal/WAL sidecar files next to
+            # the DB, so both the DB file and its directory need to be writable.
+            os.chmod(tmp_dir, 0o777)
+            db_path = os.path.join(tmp_dir, "test.sqlite")
+            with open(db_path, "w") as f:
+                f.write("")
+            os.chmod(db_path, 0o666)
+            logger.debug("Using temporary SQLite database: %s", db_path)
+            yield db_path
 
 
 @pytest.fixture
@@ -444,8 +454,39 @@ def api(config: "Config", exp_db, now, request) -> Generator[TestClient, None, N
             yield api
 
 
+def _wait_for_redis(url: str, *, label: str, logger, timeout: float = 30.0) -> None:
+    """Block until a Redis instance accepts connections on the host.
+
+    ``pytest-celery`` reports the broker/backend containers' mapped host ports
+    as soon as the containers exist, but the published port can briefly refuse
+    connections before Redis is actually listening (or while a fresh per-test
+    container is still coming up). The test process runs on the host and enqueues
+    tasks over that mapped port, so without this wait the first enqueue can fail
+    with ``kombu.exceptions.OperationalError: ... Connection refused``.
+    """
+    import redis
+
+    deadline = time.monotonic() + timeout
+    last_err: Exception | None = None
+    client = redis.Redis.from_url(url)
+    try:
+        while time.monotonic() < deadline:
+            try:
+                if client.ping():
+                    logger.debug("%s ready at %s", label, url)
+                    return
+            except redis.exceptions.RedisError as e:
+                last_err = e
+                time.sleep(0.25)
+        raise TimeoutError(
+            f"{label} not reachable at {url} after {timeout:.0f}s: {last_err!r}"
+        )
+    finally:
+        client.close()
+
+
 @pytest.fixture
-def real_queue(celery_setup, config):
+def real_queue(celery_setup, config, logger):
     """Fixture to provide a real Celery queue for testing.
 
     The module-level ``queue`` Celery app reads its broker and result backend
@@ -461,6 +502,18 @@ def real_queue(celery_setup, config):
     # ``Celery.backend`` is a cached property stored on the instance; drop it so
     # it is rebuilt from the updated ``result_backend`` URL.
     queue.__dict__.pop("backend", None)
+    # The broker connection pool and the AMQP producer pool are cached on the
+    # app from the *previous* test and still point at that test's broker, which
+    # has since been torn down. Without clearing them the first enqueue in this
+    # test reconnects to the dead broker and fails with a "Connection refused"
+    # ``OperationalError`` (mirrors what Celery itself does in ``_after_fork``).
+    queue._pool = None
+    queue.__dict__.pop("amqp", None)
+
+    # The per-test broker/backend containers may not be accepting host-side
+    # connections yet; wait for both before handing the queue to the test.
+    _wait_for_redis(config.queue.broker.url, label="broker", logger=logger)
+    _wait_for_redis(config.queue.store.url, label="result backend", logger=logger)
 
     return celery_setup
 

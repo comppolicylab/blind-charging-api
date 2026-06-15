@@ -1,5 +1,7 @@
 import json
+from unittest.mock import patch
 
+import requests
 import responses
 from fakeredis import FakeRedis
 from pydantic import AnyUrl
@@ -155,6 +157,86 @@ def test_callback_with_callback_with_error(fake_redis_store: FakeRedis):
     cb = CallbackTask(callback_url="http://callback.test.local")
 
     result = callback.s(fmt_result, cb).apply()
+    assert result.get() == CallbackTaskResult(
+        status_code=200,
+        response='{"status": "ok"}',
+        formatted=fmt_result,
+    )
+
+
+def test_callback_delivery_failure_returns_result_after_retries_exhausted(
+    monkeypatch,
+):
+    monkeypatch.setattr(callback, "max_retries", 0)
+
+    fmt_result = FormatTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        errors=[ProcessingError(message="error", task="task", exception="Exception")],
+    )
+
+    cb = CallbackTask(callback_url="http://callback.test.local")
+
+    with patch(
+        "app.server.tasks.callback.requests.post",
+        side_effect=requests.RequestException("network down"),
+    ):
+        result = callback.s(fmt_result, cb).apply()
+
+    assert result.get() == CallbackTaskResult(
+        status_code=0,
+        response="network down",
+        formatted=fmt_result,
+    )
+
+
+@responses.activate
+def test_callback_result_lookup_failure_posts_error(fake_redis_store: FakeRedis):
+    fake_redis_store.hset("jur1:case1:mask", mapping={"sub1": "Subject 1"})
+
+    fmt_result = FormatTaskResult(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        document_id="doc1",
+        errors=[],
+    )
+
+    responses.add(
+        responses.POST,
+        "http://callback.test.local",
+        json={"status": "ok"},
+        status=200,
+        match=[
+            matchers.json_params_matcher(
+                {
+                    "jurisdictionId": "jur1",
+                    "caseId": "case1",
+                    "inputDocumentId": "doc1",
+                    "maskedSubjects": [{"subjectId": "sub1", "alias": "Subject 1"}],
+                    "error": json.dumps(
+                        [
+                            {
+                                "message": "redis down",
+                                "task": "callback.get_result",
+                                "exception": "RuntimeError",
+                            }
+                        ]
+                    ),
+                    "status": "ERROR",
+                }
+            ),
+        ],
+    )
+
+    cb = CallbackTask(callback_url="http://callback.test.local")
+
+    with patch(
+        "app.server.tasks.callback.get_result_sync",
+        side_effect=RuntimeError("redis down"),
+    ):
+        result = callback.s(fmt_result, cb).apply()
+
     assert result.get() == CallbackTaskResult(
         status_code=200,
         response='{"status": "ok"}',
