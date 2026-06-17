@@ -1,12 +1,12 @@
 locals {
   # Choose DBs for Redis storage. Ideally it's nice to separate concerns into
-  # different databases. But the Enterprise cluster only actually supports 1
+  # different databases. But Enterprise and Managed Redis only support 1
   # database (!), so we just have to stuff everything in there.
   # NOTE(jnu): careful about changing this, as it will impact existing deployments.
   # (This is the reason I've kept them separate for non-enterprise SKUs, since that
   # is how they were originally deployed.)
   redis_store_db  = "0"
-  redis_broker_db = local.redis_needs_enterprise_cache ? "0" : "1"
+  redis_broker_db = local.redis_uses_single_database ? "0" : "1"
 
   # Database configuration segment
   db_config = <<EOF
@@ -148,7 +148,7 @@ retention_time_seconds = ${var.queue_store_retention}
 engine = "redis"
 host = "${local.redis_fqdn}"
 ssl = true
-cluster = ${local.redis_needs_enterprise_cache}
+cluster = ${local.redis_uses_cluster_client}
 port = ${local.redis_port}
 password = "${local.redis_access_key}"
 db = ${local.redis_store_db}
@@ -156,7 +156,7 @@ db = ${local.redis_store_db}
 [queue.broker]
 engine = "redis"
 ssl = true
-cluster = ${local.redis_needs_enterprise_cache}
+cluster = ${local.redis_uses_cluster_client}
 host = "${local.redis_fqdn}"
 port = ${local.redis_port}
 password = "${local.redis_access_key}"

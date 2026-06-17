@@ -448,11 +448,23 @@ C is the default, which refers to the "Standard" SKU.
 
 Use "E" to refer to the "Enterprise" SKU, and set the capacity sku accordingly.
 
+Use "M", "B", "X", or "A" to refer to Azure Managed Redis Memory Optimized,
+Balanced, Compute Optimized, or Flash Optimized SKUs, respectively.
+
 For example, the following will correspond to the `Enterprise_E5` SKU:
   redis_sku_family = "E"
   redis_capacity_sku = 5
 
+The following will correspond to the `MemoryOptimized_M10` Azure Managed Redis SKU:
+  redis_sku_family = "M"
+  redis_capacity_sku = 10
+
 EOF
+
+  validation {
+    condition     = can(regex("^(A|B|C|E|F|M|P|X)$", var.redis_sku_family))
+    error_message = "redis_sku_family must be one of A, B, C, E, F, M, P, or X."
+  }
 }
 
 variable "redis_capacity_sku" {
@@ -465,6 +477,26 @@ We currently recommend C4 as a nice balance of memory and cost.
 
 https://azure.microsoft.com/en-us/pricing/details/cache/
 EOF
+}
+
+variable "redis_clustering_policy" {
+  type        = string
+  default     = "NoCluster"
+  description = <<EOF
+Clustering policy for Azure Managed Redis.
+
+This only applies when redis_sku_family is one of M, B, X, or A.
+
+Use "NoCluster" for a nonclustered Managed Redis instance, "OSSCluster" for
+cluster-aware Redis clients, or "EnterpriseCluster" for Enterprise clustering.
+
+Changing this value recreates the Managed Redis default database and loses Redis data.
+EOF
+
+  validation {
+    condition     = can(regex("^(NoCluster|OSSCluster|EnterpriseCluster)$", var.redis_clustering_policy))
+    error_message = "redis_clustering_policy must be one of NoCluster, OSSCluster, or EnterpriseCluster."
+  }
 }
 
 variable "redis_enterprise_vms" {

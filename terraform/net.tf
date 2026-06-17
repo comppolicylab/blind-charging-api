@@ -152,9 +152,11 @@ resource "azurerm_private_dns_zone" "redis" {
     # https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns
     "enterprise,commercial" = "privatelink.redisenterprise.cache.azure.net",
     "enterprise,usgov"      = "privatelink.redisenterprise.cache.usgovcloudapi.net",
+    "managed,commercial"    = "privatelink.redis.azure.net",
+    "managed,usgov"         = "privatelink.redis.azure.usgovcloudapi.net",
     "standard,commercial"   = "privatelink.redis.cache.windows.net",
     "standard,usgov"        = "privatelink.redis.cache.usgovcloudapi.net",
-  }, format("%s,%s", local.redis_needs_enterprise_cache ? "enterprise" : "standard", local.is_gov_cloud ? "usgov" : "commercial"))
+  }, format("%s,%s", local.redis_is_managed_redis ? "managed" : (local.redis_needs_enterprise_cache ? "enterprise" : "standard"), local.is_gov_cloud ? "usgov" : "commercial"))
   resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }
