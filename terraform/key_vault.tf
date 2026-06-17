@@ -21,7 +21,7 @@ resource "azurerm_key_vault" "main" {
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
   enabled_for_deployment          = true
-  enable_rbac_authorization       = true
+  rbac_authorization_enabled      = true
   soft_delete_retention_days      = 7
   purge_protection_enabled        = true
   # TODO(jnu): ideally public network access is locked down, but it
@@ -42,7 +42,7 @@ resource "azurerm_key_vault" "oai" {
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
   enabled_for_deployment          = true
-  enable_rbac_authorization       = true
+  rbac_authorization_enabled      = true
   soft_delete_retention_days      = 7
   purge_protection_enabled        = true
   sku_name                        = "premium"
