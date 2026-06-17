@@ -198,7 +198,7 @@ resource "azurerm_private_endpoint" "redis" {
     name                           = "redis-psc"
     private_connection_resource_id = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].id : azapi_resource.redis[0].id
     subresource_names = [
-      local.redis_needs_enterprise_cache || local.redis_is_managed_redis ? "redisEnterprise" : "redisCache"
+      local.redis_needs_enterprise_cache ? "redisEnterprise" : "redisCache"
     ]
     is_manual_connection = false
   }
