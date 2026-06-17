@@ -110,16 +110,12 @@ def finalize(
     celery_counters.record_job(bool(final_errors))
 
     if config.experiments.enabled:
-        with config.experiments.store.driver.sync_session() as session:
-            status = DocumentStatus(
-                jurisdiction_id=format_result.jurisdiction_id,
-                case_id=format_result.case_id,
-                document_id=format_result.document_id,
-                status="ERROR" if final_errors else "COMPLETE",
-                error=format_errors(final_errors),
-            )
-            session.add(status)
-            session.commit()
+        save_document_status_sync(
+            format_result.jurisdiction_id,
+            format_result.case_id,
+            format_result.document_id,
+            final_errors,
+        )
 
     # Queue up the next document for processing now, if there is one.
     next_task: AsyncResult | None = None
@@ -174,6 +170,32 @@ def format_errors(errors: list[ProcessingError]) -> str | None:
     if not errors:
         return None
     return json.dumps([err.model_dump() for err in errors])
+
+
+def save_document_status_sync(
+    jurisdiction_id: str,
+    case_id: str,
+    document_id: str,
+    errors: list[ProcessingError],
+) -> None:
+    try:
+        with config.experiments.store.driver.sync_session() as session:
+            status = DocumentStatus(
+                jurisdiction_id=jurisdiction_id,
+                case_id=case_id,
+                document_id=document_id,
+                status="ERROR" if errors else "COMPLETE",
+                error=format_errors(errors),
+            )
+            session.add(status)
+            session.commit()
+    except Exception:
+        logger.exception(
+            "Failed to save document status for %s:%s:%s",
+            jurisdiction_id,
+            case_id,
+            document_id,
+        )
 
 
 def get_next_object_sync(jurisdiction_id: str, case_id: str) -> RedactionTarget | None:
