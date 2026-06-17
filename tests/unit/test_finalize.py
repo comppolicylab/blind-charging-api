@@ -396,6 +396,74 @@ def test_finalize_preserves_upstream_errors_without_verifying(
         assert ds[0].status == "ERROR"
 
 
+@patch("app.server.tasks.finalize.config.experiments.store.driver.sync_session")
+@patch("app.server.tasks.controller.chain")
+def test_finalize_status_write_failure_still_processes_next_object(
+    chain_mock, sync_session_mock, config, exp_db, fake_redis_store
+):
+    config.experiments.enabled = True
+    _seed_result_doc(fake_redis_store)
+    sync_session_mock.side_effect = RuntimeError("db unavailable")
+    chain_mock.return_value.apply_async.return_value = AsyncResult("new_task_id")
+
+    fake_redis_store.rpush(
+        "jur1:case1:objects",
+        '{"callbackUrl": "https://echo/2", "document": '
+        '{"attachmentType": "LINK", "documentId": "doc2", '
+        '"url": "https://test_document.pdf/"}, "targetBlobUrl": null}',
+    )
+    fake_redis_store.rpush(
+        "jur1:case1:objects",
+        '{"callbackUrl": "https://echo/1", "document": '
+        '{"attachmentType": "LINK", "documentId": "doc1", '
+        '"url": "https://test_document.pdf/"}, "targetBlobUrl": null}',
+    )
+    fake_redis_store.hset("jur1:case1:task", "doc1", "fake_task_id")
+
+    cb = CallbackTaskResult(
+        status_code=200,
+        response="ok",
+        formatted=FormatTaskResult(
+            document=OutputDocument(
+                root=DocumentLink(
+                    documentId="doc1",
+                    attachmentType="LINK",
+                    url="http://blob.test.local/abc123",
+                )
+            ),
+            jurisdiction_id="jur1",
+            case_id="case1",
+            document_id="doc1",
+            errors=[],
+        ),
+    )
+    ft = FinalizeTask(
+        jurisdiction_id="jur1",
+        case_id="case1",
+        subject_ids=[],
+        renderer="PDF",
+    )
+
+    result = finalize.s(cb, ft).apply()
+
+    assert result.get() == FinalizeTaskResult.model_validate(
+        {
+            "jurisdiction_id": "jur1",
+            "case_id": "case1",
+            "document_id": "doc1",
+            "document": {
+                "documentId": "doc1",
+                "attachmentType": "LINK",
+                "url": "http://blob.test.local/abc123",
+            },
+            "errors": [],
+            "next_task_id": "new_task_id",
+        }
+    )
+    assert fake_redis_store.llen("jur1:case1:objects") == 0
+    assert fake_redis_store.hget("jur1:case1:task", "doc2") == b"new_task_id"
+
+
 @patch("app.server.tasks.controller.chain")
 def test_finalize_no_experiments_more_objects(chain_mock, config, fake_redis_store):
     config.experiments.enabled = False
