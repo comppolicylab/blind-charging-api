@@ -108,6 +108,25 @@ az group show --name $tfstate_resource_group &> /dev/null || \
   az group create --name $tfstate_resource_group --location $location --tags "$TAGS"
 
 UPN=$(az account show --query user.name -o tsv)
+
+ensure_role_assignment () {
+  local assignee="$1"
+  local role="$2"
+  local scope="$3"
+
+  if [ "$(az role assignment list --assignee "$assignee" --role "$role" --scope "$scope" --query 'length(@)' -o tsv)" = "0" ]; then
+    az role assignment create --assignee "$assignee" --role "$role" --scope "$scope" > /dev/null
+    ROLE_ASSIGNMENT_CREATED=true
+  fi
+}
+
+wait_for_rbac_if_needed () {
+  if [ "$ROLE_ASSIGNMENT_CREATED" = true ]; then
+    echo "Waiting for Azure RBAC role assignments to propagate ..."
+    sleep 30
+  fi
+}
+
 # Create the key vault if it doesn't exist
 az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group &> /dev/null || \
   az keyvault create --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --location $location \
@@ -118,21 +137,23 @@ az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group 
   --enabled-for-template-deployment true \
   --enable-purge-protection true \
   --retention-days 90 \
-  --enable-rbac-authorization false \
+  --enable-rbac-authorization true \
   --sku "premium" \
   --tags "$TAGS"
 
-# Ensure purge protection is enabled (for keyvaults created with older version of script)
+# Ensure purge protection and RBAC are enabled (for keyvaults created with older version of script)
 az keyvault update --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
   --enable-purge-protection true \
   --retention-days 90 \
-  --enable-rbac-authorization false
+  --enable-rbac-authorization true
 
-# Ensure current user has create key access to vault
-az keyvault set-policy --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
-  --upn $UPN \
-  --key-permissions create get list setrotationpolicy update delete \
-  --secret-permissions get list set delete
+KEYVAULT_ID=$(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query id -o tsv)
+
+# Ensure current user has access to manage keys and secrets in the vault.
+ROLE_ASSIGNMENT_CREATED=false
+ensure_role_assignment "$UPN" "Key Vault Crypto Officer" "$KEYVAULT_ID"
+ensure_role_assignment "$UPN" "Key Vault Secrets Officer" "$KEYVAULT_ID"
+wait_for_rbac_if_needed
 
 
 tput setaf 3
@@ -188,11 +209,11 @@ az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resour
 # Ensure the account uses a system-assigned identity
 az storage account update --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --identity-type SystemAssigned
 
-# Ensure the access policy is set so that the storage account can access the key vault
+# Ensure the storage account can use the key vault key for encryption.
 STORAGE_ACCOUNT_PRINCIPAL_ID=$(az storage account show --name $STORAGE_ACCOUNT --resource-group $tfstate_resource_group --query 'identity.principalId' -o tsv)
-az keyvault set-policy --name $KEYVAULT_NAME --resource-group $tfstate_resource_group \
-  --object-id $STORAGE_ACCOUNT_PRINCIPAL_ID \
-  --key-permissions get wrapKey unwrapKey
+ROLE_ASSIGNMENT_CREATED=false
+ensure_role_assignment "$STORAGE_ACCOUNT_PRINCIPAL_ID" "Key Vault Crypto Service Encryption User" "$KEYVAULT_ID"
+wait_for_rbac_if_needed
 
 # Ensure that encryption via user-managed key is configured on the account
 KEYVAULT_URI=$(az keyvault show --name $KEYVAULT_NAME --resource-group $tfstate_resource_group --query properties.vaultUri -o tsv)
