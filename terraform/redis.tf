@@ -88,6 +88,12 @@ resource "azapi_resource" "redis" {
     local.redis_cache_name,
     local.redis_resource_type,
   ]
+
+  timeouts {
+    create = "45m"
+    update = "45m"
+    delete = "45m"
+  }
 }
 
 // For the Enterprise SKU, we need to create a database cluster separately.
