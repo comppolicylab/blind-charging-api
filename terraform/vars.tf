@@ -37,6 +37,12 @@ variable "db_password" {
   description = "Admin password for the MSSQL database. This can be any strong string and should be rotated periodically."
 }
 
+variable "db_max_size_gb" {
+  type        = number
+  default     = 5
+  description = "Database storage size (GB)"
+}
+
 variable "location" {
   type        = string
   default     = "usgovvirginia"
