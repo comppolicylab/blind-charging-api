@@ -19,6 +19,12 @@ this_dir = pathlib.Path(__file__).parent
 sample_data_dir = this_dir.parent.parent / "app" / "server" / "sample_data"
 sample_pdf = sample_data_dir / "simple.pdf"
 sample_ocr = sample_data_dir / "simple.ocr.txt"
+blank_png = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
+    b"\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfe"
+    b"\xdc\xccY\xe7\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def test_redact(fake_redis_store: FakeRedis):
@@ -83,7 +89,7 @@ def test_redact_errors():
 
 
 def test_redact_new_errors(fake_redis_store: FakeRedis):
-    fake_redis_store.set("abc123", b"unreadable")
+    fake_redis_store.set("abc123", blank_png)
     fetch_result = FetchTaskResult(
         document_id="doc1",
         file_storage_id="abc123",
