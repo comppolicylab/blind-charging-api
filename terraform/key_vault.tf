@@ -21,7 +21,7 @@ resource "azurerm_key_vault" "main" {
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
   enabled_for_deployment          = true
-  enable_rbac_authorization       = false
+  enable_rbac_authorization       = true
   soft_delete_retention_days      = 7
   purge_protection_enabled        = true
   # TODO(jnu): ideally public network access is locked down, but it
@@ -30,58 +30,6 @@ resource "azurerm_key_vault" "main" {
   # NOTE(jnu) - premium is required for HSM keys
   sku_name  = "premium"
   tenant_id = azurerm_user_assigned_identity.admin.tenant_id
-
-  access_policy {
-    tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
-    certificate_permissions = [
-      "Create",
-      "Delete",
-      "DeleteIssuers",
-      "Get",
-      "GetIssuers",
-      "Import",
-      "List",
-      "ListIssuers",
-      "ManageContacts",
-      "ManageIssuers",
-      "Purge",
-      "SetIssuers",
-      "Update",
-    ]
-    secret_permissions = ["Get", "Set", "Delete", "Purge", "Recover", "List"]
-    key_permissions = [
-      "Get",
-      "Update",
-      "Create",
-      "Delete",
-      "List",
-      "Restore",
-      "Recover",
-      "UnwrapKey",
-      "WrapKey",
-      "Purge",
-      "Encrypt",
-      "Decrypt",
-      "Sign",
-      "Verify",
-      "GetRotationPolicy",
-      "SetRotationPolicy"
-    ]
-  }
-
-  access_policy {
-    tenant_id          = azurerm_user_assigned_identity.admin.tenant_id
-    object_id          = azurerm_user_assigned_identity.admin.principal_id
-    key_permissions    = ["Get", "WrapKey", "UnwrapKey"]
-    secret_permissions = ["Get", "List", "Backup", "Restore", "Recover"]
-  }
-
-  access_policy {
-    tenant_id          = azurerm_user_assigned_identity.gateway.tenant_id
-    object_id          = azurerm_user_assigned_identity.gateway.principal_id
-    secret_permissions = ["Get"]
-  }
 }
 
 # NOTE(jnu): When OpenAI is deployed in a separate location from the main resources,
@@ -94,40 +42,49 @@ resource "azurerm_key_vault" "oai" {
   enabled_for_disk_encryption     = true
   enabled_for_template_deployment = true
   enabled_for_deployment          = true
-  enable_rbac_authorization       = false
+  enable_rbac_authorization       = true
   soft_delete_retention_days      = 7
   purge_protection_enabled        = true
   sku_name                        = "premium"
   tenant_id                       = azurerm_user_assigned_identity.admin.tenant_id
+}
 
-  access_policy {
-    tenant_id          = data.azurerm_client_config.current.tenant_id
-    object_id          = data.azurerm_client_config.current.object_id
-    secret_permissions = ["Get", "Set", "Delete", "Purge", "Recover", "List"]
-    key_permissions = [
-      "Get",
-      "Create",
-      "Delete",
-      "List",
-      "Restore",
-      "Recover",
-      "UnwrapKey",
-      "WrapKey",
-      "Purge",
-      "Encrypt",
-      "Decrypt",
-      "Sign",
-      "Verify",
-      "GetRotationPolicy",
-      "SetRotationPolicy"
-    ]
-  }
+resource "azurerm_role_assignment" "current_key_vault_admin" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
 
-  access_policy {
-    tenant_id       = azurerm_user_assigned_identity.admin.tenant_id
-    object_id       = azurerm_user_assigned_identity.admin.principal_id
-    key_permissions = ["Get", "WrapKey", "UnwrapKey"]
-  }
+resource "azurerm_role_assignment" "admin_key_vault_crypto" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.admin.principal_id
+}
+
+resource "azurerm_role_assignment" "admin_key_vault_secrets" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.admin.principal_id
+}
+
+resource "azurerm_role_assignment" "gateway_key_vault_secrets" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.gateway.principal_id
+}
+
+resource "azurerm_role_assignment" "current_oai_key_vault_admin" {
+  count                = local.needs_openai_kv ? 1 : 0
+  scope                = azurerm_key_vault.oai[0].id
+  role_definition_name = "Key Vault Administrator"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_role_assignment" "admin_oai_key_vault_crypto" {
+  count                = local.needs_openai_kv ? 1 : 0
+  scope                = azurerm_key_vault.oai[0].id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.admin.principal_id
 }
 
 resource "azurerm_key_vault_key" "encryption" {
@@ -136,6 +93,10 @@ resource "azurerm_key_vault_key" "encryption" {
   key_type     = "RSA-HSM"
   key_size     = 2048
   key_opts     = ["unwrapKey", "wrapKey", "decrypt", "encrypt", "sign", "verify"]
+  depends_on = [
+    azurerm_role_assignment.current_key_vault_admin,
+    azurerm_role_assignment.admin_key_vault_crypto,
+  ]
 
   rotation_policy {
     automatic {
@@ -158,6 +119,10 @@ resource "azurerm_key_vault_key" "oai" {
   key_type     = "RSA-HSM"
   key_size     = 2048
   key_opts     = ["unwrapKey", "wrapKey", "decrypt", "encrypt", "sign", "verify"]
+  depends_on = [
+    azurerm_role_assignment.current_oai_key_vault_admin,
+    azurerm_role_assignment.admin_oai_key_vault_crypto,
+  ]
 
   rotation_policy {
     automatic {
