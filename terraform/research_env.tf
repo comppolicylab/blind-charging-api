@@ -42,6 +42,10 @@ resource "azurerm_key_vault_secret" "research_config" {
   name         = "research-config"
   key_vault_id = azurerm_key_vault.main.id
   value        = local.research_env_toml
+  depends_on = [
+    azurerm_role_assignment.current_key_vault_admin,
+    azurerm_role_assignment.admin_key_vault_secrets,
+  ]
 }
 
 resource "azurerm_key_vault_secret" "research_password" {
@@ -49,6 +53,10 @@ resource "azurerm_key_vault_secret" "research_password" {
   name         = "research-password"
   key_vault_id = azurerm_key_vault.main.id
   value        = var.research_password
+  depends_on = [
+    azurerm_role_assignment.current_key_vault_admin,
+    azurerm_role_assignment.admin_key_vault_secrets,
+  ]
 }
 
 resource "azurerm_container_app" "research" {

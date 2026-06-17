@@ -45,12 +45,20 @@ resource "azurerm_key_vault_secret" "app_config" {
   name         = "app-config"
   key_vault_id = azurerm_key_vault.main.id
   value        = local.app_config_toml
+  depends_on = [
+    azurerm_role_assignment.current_key_vault_admin,
+    azurerm_role_assignment.admin_key_vault_secrets,
+  ]
 }
 
 resource "azurerm_key_vault_secret" "registry_password" {
   name         = "registry-password"
   key_vault_id = azurerm_key_vault.main.id
   value        = var.registry_password
+  depends_on = [
+    azurerm_role_assignment.current_key_vault_admin,
+    azurerm_role_assignment.admin_key_vault_secrets,
+  ]
 }
 
 resource "azurerm_container_app" "main" {
