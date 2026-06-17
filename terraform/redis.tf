@@ -210,7 +210,7 @@ resource "azurerm_private_endpoint" "redis" {
 }
 
 locals {
-  redis_fqdn       = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].hostname : azapi_resource.redis[0].output.hostname
-  redis_access_key = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].default_database[0].primary_access_key : azapi_resource_action.redis_keys[0].output.primarKey
-  redis_port       = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].default_database[0].port : (local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].output.port : azapi_resource.redis[0].output.port)
+  redis_fqdn       = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].hostname : azapi_resource.redis[0].output.properties.hostName
+  redis_access_key = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].default_database[0].primary_access_key : azapi_resource_action.redis_keys[0].output.primaryKey
+  redis_port       = local.redis_is_managed_redis ? azurerm_managed_redis.redis[0].default_database[0].port : (local.redis_needs_enterprise_cache ? azapi_resource.redis_dbs[0].output.properties.port : azapi_resource.redis[0].output.properties.sslPort)
 }
