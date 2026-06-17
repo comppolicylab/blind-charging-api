@@ -136,12 +136,6 @@ resource "azurerm_managed_redis" "redis" {
     azurerm_role_assignment.admin_key_vault_crypto,
   ]
 
-  lifecycle {
-    precondition {
-      condition     = !local.is_gov_cloud
-      error_message = "Azure Managed Redis is not currently available in Azure Government. Use C, P, E, or F for redis_sku_family."
-    }
-  }
 }
 
 // For the Enterprise SKU, we need to create a database cluster separately.
