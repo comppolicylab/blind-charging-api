@@ -39,7 +39,7 @@ variable "db_password" {
 
 variable "db_max_size_gb" {
   type        = number
-  default     = 5
+  default     = 20
   description = "Database storage size (GB)"
 }
 
