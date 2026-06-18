@@ -60,6 +60,17 @@ variable "mssql_low_storage_alert_threshold_percent" {
   }
 }
 
+variable "gateway_failed_requests_alert_threshold" {
+  type        = number
+  default     = 10
+  description = "Failed gateway requests over the alert window that triggers the Application Gateway failed requests alert."
+
+  validation {
+    condition     = var.gateway_failed_requests_alert_threshold > 0
+    error_message = "gateway_failed_requests_alert_threshold must be greater than 0."
+  }
+}
+
 variable "location" {
   type        = string
   default     = "usgovvirginia"

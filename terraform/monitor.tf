@@ -120,6 +120,30 @@ resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
   }
 }
 
+resource "azurerm_monitor_metric_alert" "gateway_failed_requests" {
+  count               = length(var.alert_emails) > 0 && local.create_app_gateway ? 1 : 0
+  name                = lower(format("%s-gateway-failed-requests", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_application_gateway.public[0].id]
+  description         = "Alert when the Application Gateway observes more than ${var.gateway_failed_requests_alert_threshold} failed requests in 15 minutes."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.Network/applicationGateways"
+    metric_name      = "FailedRequests"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = var.gateway_failed_requests_alert_threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+  }
+}
+
 resource "azurerm_monitor_private_link_scope" "main" {
   name                  = lower(format("%s-ampls", local.application_insights_name))
   resource_group_name   = azurerm_resource_group.main.name
