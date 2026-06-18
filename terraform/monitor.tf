@@ -96,8 +96,21 @@ resource "azurerm_monitor_action_group" "email_alerts" {
   }
 }
 
+resource "azurerm_monitor_action_group" "resource_owner_alerts" {
+  name                = lower(format("%s-resource-owner-alerts", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  short_name          = "owneralerts"
+  tags                = var.tags
+
+  arm_role_receiver {
+    name                    = "email-resource-owner"
+    role_id                 = "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+    use_common_alert_schema = true
+  }
+}
+
 resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
-  count               = length(var.alert_emails) > 0 ? 1 : 0
+  count               = 1
   name                = lower(format("%s-sql-low-storage", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_mssql_database.main.id]
@@ -116,12 +129,20 @@ resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
   }
 
   action {
-    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
   }
 }
 
 resource "azurerm_monitor_metric_alert" "gateway_failed_requests" {
-  count               = length(var.alert_emails) > 0 && local.create_app_gateway ? 1 : 0
+  count               = local.create_app_gateway ? 1 : 0
   name                = lower(format("%s-gateway-failed-requests", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_application_gateway.public[0].id]
@@ -140,12 +161,20 @@ resource "azurerm_monitor_metric_alert" "gateway_failed_requests" {
   }
 
   action {
-    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
   }
 }
 
 resource "azurerm_monitor_metric_alert" "container_app_replica_restarts" {
-  count               = length(var.alert_emails) > 0 ? 1 : 0
+  count               = 1
   name                = lower(format("%s-container-app-restarts", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_container_app.main.id]
@@ -164,12 +193,20 @@ resource "azurerm_monitor_metric_alert" "container_app_replica_restarts" {
   }
 
   action {
-    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
   }
 }
 
 resource "azurerm_monitor_metric_alert" "redis_used_memory" {
-  count               = length(var.alert_emails) > 0 ? 1 : 0
+  count               = 1
   name                = lower(format("%s-redis-used-memory", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azapi_resource.redis.id]
@@ -188,7 +225,15 @@ resource "azurerm_monitor_metric_alert" "redis_used_memory" {
   }
 
   action {
-    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
   }
 }
 
