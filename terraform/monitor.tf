@@ -237,6 +237,39 @@ resource "azurerm_monitor_metric_alert" "redis_used_memory" {
   }
 }
 
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "key_vault_certificate_near_expiry" {
+  name                 = lower(format("%s-kv-cert-near-expiry", local.name_prefix))
+  resource_group_name  = azurerm_resource_group.main.name
+  location             = azurerm_resource_group.main.location
+  scopes               = [azurerm_log_analytics_workspace.main.id]
+  description          = "Alert when Key Vault emits a certificate near-expiry audit event."
+  severity             = 2
+  evaluation_frequency = "PT1H"
+  window_duration      = "PT1H"
+  enabled              = true
+  tags                 = var.tags
+
+  criteria {
+    query = <<-QUERY
+      AzureDiagnostics
+      | where ResourceId =~ "${azurerm_key_vault.main.id}"
+      | where Category == "AuditEvent"
+      | where OperationName in~ ("CertificateNearExpiry", "CertificateNearExpiryEventGridNotification")
+    QUERY
+
+    time_aggregation_method = "Count"
+    operator                = "GreaterThan"
+    threshold               = 0
+  }
+
+  action {
+    action_groups = concat(
+      [azurerm_monitor_action_group.resource_owner_alerts.id],
+      azurerm_monitor_action_group.email_alerts[*].id,
+    )
+  }
+}
+
 resource "azurerm_monitor_private_link_scope" "main" {
   name                  = lower(format("%s-ampls", local.application_insights_name))
   resource_group_name   = azurerm_resource_group.main.name
