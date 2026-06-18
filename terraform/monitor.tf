@@ -78,6 +78,44 @@ resource "azurerm_application_insights" "main" {
   internet_ingestion_enabled = false
 }
 
+resource "azurerm_monitor_action_group" "mssql_low_storage" {
+  count               = var.mssql_low_storage_alert_email == null ? 0 : 1
+  name                = lower(format("%s-sql-storage-ag", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  short_name          = "sqlstorage"
+  tags                = var.tags
+
+  email_receiver {
+    name                    = "mssql-low-storage"
+    email_address           = var.mssql_low_storage_alert_email
+    use_common_alert_schema = true
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
+  count               = var.mssql_low_storage_alert_email == null ? 0 : 1
+  name                = lower(format("%s-sql-low-storage", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_mssql_database.main.id]
+  description         = "Alert when the MSSQL database storage usage is above ${var.mssql_low_storage_alert_threshold_percent}%."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.mssql_low_storage_alert_threshold_percent
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.mssql_low_storage[0].id
+  }
+}
+
 resource "azurerm_monitor_private_link_scope" "main" {
   name                  = lower(format("%s-ampls", local.application_insights_name))
   resource_group_name   = azurerm_resource_group.main.name

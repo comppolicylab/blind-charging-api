@@ -43,6 +43,24 @@ variable "db_max_size_gb" {
   description = "Database storage size (GB)"
 }
 
+variable "mssql_low_storage_alert_email" {
+  type        = string
+  default     = null
+  nullable    = true
+  description = "Email address to notify when the MSSQL database storage usage exceeds the configured threshold. If unset, no email alert is created."
+}
+
+variable "mssql_low_storage_alert_threshold_percent" {
+  type        = number
+  default     = 90
+  description = "Storage usage percentage that triggers the MSSQL low disk space alert."
+
+  validation {
+    condition     = var.mssql_low_storage_alert_threshold_percent > 0 && var.mssql_low_storage_alert_threshold_percent <= 100
+    error_message = "mssql_low_storage_alert_threshold_percent must be greater than 0 and less than or equal to 100."
+  }
+}
+
 variable "location" {
   type        = string
   default     = "usgovvirginia"
