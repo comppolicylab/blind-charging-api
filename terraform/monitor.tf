@@ -78,6 +78,165 @@ resource "azurerm_application_insights" "main" {
   internet_ingestion_enabled = false
 }
 
+resource "azurerm_monitor_action_group" "email_alerts" {
+  count               = length(var.alert_emails) > 0 ? 1 : 0
+  name                = lower(format("%s-email-alerts", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  short_name          = "emailalerts"
+  tags                = var.tags
+
+  dynamic "email_receiver" {
+    for_each = var.alert_emails
+
+    content {
+      name                    = format("email-alert-%s", email_receiver.key)
+      email_address           = email_receiver.value
+      use_common_alert_schema = true
+    }
+  }
+}
+
+resource "azurerm_monitor_action_group" "resource_owner_alerts" {
+  name                = lower(format("%s-resource-owner-alerts", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  short_name          = "owneralerts"
+  tags                = var.tags
+
+  arm_role_receiver {
+    name                    = "email-resource-owner"
+    role_id                 = "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+    use_common_alert_schema = true
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
+  count               = 1
+  name                = lower(format("%s-sql-low-storage", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_mssql_database.main.id]
+  description         = "Alert when the MSSQL database storage usage is above ${var.mssql_low_storage_alert_threshold_percent}%."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.Sql/servers/databases"
+    metric_name      = "storage_percent"
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = var.mssql_low_storage_alert_threshold_percent
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "gateway_failed_requests" {
+  count               = local.create_app_gateway ? 1 : 0
+  name                = lower(format("%s-gateway-failed-requests", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_application_gateway.public[0].id]
+  description         = "Alert when the Application Gateway observes more than ${var.gateway_failed_requests_alert_threshold} failed requests in 15 minutes."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.Network/applicationGateways"
+    metric_name      = "FailedRequests"
+    aggregation      = "Total"
+    operator         = "GreaterThan"
+    threshold        = var.gateway_failed_requests_alert_threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "container_app_replica_restarts" {
+  count               = 1
+  name                = lower(format("%s-container-app-restarts", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_container_app.main.id]
+  description         = "Alert when the Container App observes a replica restart count above ${var.container_app_replica_restart_alert_threshold}."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.App/containerApps"
+    metric_name      = "RestartCount"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.container_app_replica_restart_alert_threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "redis_used_memory" {
+  count               = 1
+  name                = lower(format("%s-redis-used-memory", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azapi_resource.redis.id]
+  description         = "Alert when Azure Redis Cache used memory is above ${var.redis_used_memory_alert_threshold_percent}%."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise" : "Microsoft.Cache/redis"
+    metric_name      = "usedmemorypercentage"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.redis_used_memory_alert_threshold_percent
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.resource_owner_alerts.id
+  }
+
+  dynamic "action" {
+    for_each = azurerm_monitor_action_group.email_alerts
+
+    content {
+      action_group_id = action.value.id
+    }
+  }
+}
+
 resource "azurerm_monitor_private_link_scope" "main" {
   name                  = lower(format("%s-ampls", local.application_insights_name))
   resource_group_name   = azurerm_resource_group.main.name
