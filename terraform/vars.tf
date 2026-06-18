@@ -446,6 +446,8 @@ Family of Azure Redis Cache SKU to use for deployment.
 
 C is the default, which refers to the "Standard" SKU.
 
+Use "B" to refer to the "Basic" SKU. So B4 will correspond to Basic_C4.
+
 Use "E" to refer to the "Enterprise" SKU, and set the capacity sku accordingly.
 
 For example, the following will correspond to the `Enterprise_E5` SKU:

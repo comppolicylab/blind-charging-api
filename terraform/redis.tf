@@ -3,13 +3,18 @@ locals {
   redis_needs_enterprise_cache = var.redis_sku_family == "E" || var.redis_sku_family == "F"
   redis_enterprise_api_version = "2024-09-01-preview"
   redis_managed_api_version    = "2024-11-01"
+  # We use "B" to reference Basic
+  redis_sku_real_family = lookup({
+    B = "C",
+  }, var.redis_sku_family, var.redis_sku_family)
   redis_sku_name = lookup({
     E = "Enterprise",
     F = "EnterpriseFlash",
     C = "Standard",
+    B = "Basic",
     P = "Premium",
   }, var.redis_sku_family, "Standard")
-  redis_enterprise_full_name = "${local.redis_sku_name}_${var.redis_sku_family}${var.redis_capacity_sku}"
+  redis_enterprise_full_name = "${local.redis_sku_name}_${local.redis_sku_real_family}${var.redis_capacity_sku}"
   redis_resource_type        = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise@${local.redis_enterprise_api_version}" : "Microsoft.Cache/redis@${local.redis_managed_api_version}"
   redis_db_resource_type     = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise/databases@${local.redis_enterprise_api_version}" : "Microsoft.Cache/redis/databases@${local.redis_managed_api_version}"
 
@@ -45,7 +50,7 @@ locals {
       publicNetworkAccess = "Disabled"
       sku = {
         name     = local.redis_sku_name
-        family   = var.redis_sku_family
+        family   = local.redis_sku_real_family
         capacity = var.redis_capacity_sku
       }
 
