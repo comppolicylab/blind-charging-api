@@ -144,6 +144,54 @@ resource "azurerm_monitor_metric_alert" "gateway_failed_requests" {
   }
 }
 
+resource "azurerm_monitor_metric_alert" "container_app_replica_restarts" {
+  count               = length(var.alert_emails) > 0 ? 1 : 0
+  name                = lower(format("%s-container-app-restarts", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azurerm_container_app.main.id]
+  description         = "Alert when the Container App observes a replica restart count above ${var.container_app_replica_restart_alert_threshold}."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.App/containerApps"
+    metric_name      = "RestartCount"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.container_app_replica_restart_alert_threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+  }
+}
+
+resource "azurerm_monitor_metric_alert" "redis_used_memory" {
+  count               = length(var.alert_emails) > 0 ? 1 : 0
+  name                = lower(format("%s-redis-used-memory", local.name_prefix))
+  resource_group_name = azurerm_resource_group.main.name
+  scopes              = [azapi_resource.redis.id]
+  description         = "Alert when Azure Redis Cache used memory is above ${var.redis_used_memory_alert_threshold_percent}%."
+  severity            = 2
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = local.redis_needs_enterprise_cache ? "Microsoft.Cache/redisEnterprise" : "Microsoft.Cache/redis"
+    metric_name      = "usedmemorypercentage"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = var.redis_used_memory_alert_threshold_percent
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
+  }
+}
+
 resource "azurerm_monitor_private_link_scope" "main" {
   name                  = lower(format("%s-ampls", local.application_insights_name))
   resource_group_name   = azurerm_resource_group.main.name

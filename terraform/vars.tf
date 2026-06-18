@@ -71,6 +71,28 @@ variable "gateway_failed_requests_alert_threshold" {
   }
 }
 
+variable "container_app_replica_restart_alert_threshold" {
+  type        = number
+  default     = 3
+  description = "Replica restart count that triggers the Container App unusual replica restarts alert."
+
+  validation {
+    condition     = var.container_app_replica_restart_alert_threshold > 0
+    error_message = "container_app_replica_restart_alert_threshold must be greater than 0."
+  }
+}
+
+variable "redis_used_memory_alert_threshold_percent" {
+  type        = number
+  default     = 90
+  description = "Used memory percentage that triggers the Azure Redis Cache memory usage alert."
+
+  validation {
+    condition     = var.redis_used_memory_alert_threshold_percent > 0 && var.redis_used_memory_alert_threshold_percent <= 100
+    error_message = "redis_used_memory_alert_threshold_percent must be greater than 0 and less than or equal to 100."
+  }
+}
+
 variable "location" {
   type        = string
   default     = "usgovvirginia"
