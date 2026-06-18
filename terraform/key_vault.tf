@@ -32,6 +32,16 @@ resource "azurerm_key_vault" "main" {
   tenant_id = azurerm_user_assigned_identity.admin.tenant_id
 }
 
+resource "azurerm_monitor_diagnostic_setting" "key_vault" {
+  name                       = "key-vault"
+  target_resource_id         = azurerm_key_vault.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category = "AuditEvent"
+  }
+}
+
 # NOTE(jnu): When OpenAI is deployed in a separate location from the main resources,
 # we need a dedicated key vault in that location.
 resource "azurerm_key_vault" "oai" {
