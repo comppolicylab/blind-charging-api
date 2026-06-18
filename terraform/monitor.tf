@@ -78,18 +78,18 @@ resource "azurerm_application_insights" "main" {
   internet_ingestion_enabled = false
 }
 
-resource "azurerm_monitor_action_group" "mssql_low_storage" {
-  count               = length(var.mssql_low_storage_alert_emails) > 0 ? 1 : 0
-  name                = lower(format("%s-sql-storage-ag", local.name_prefix))
+resource "azurerm_monitor_action_group" "email_alerts" {
+  count               = length(var.alert_emails) > 0 ? 1 : 0
+  name                = lower(format("%s-email-alerts", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
-  short_name          = "sqlstorage"
+  short_name          = "emailalerts"
   tags                = var.tags
 
   dynamic "email_receiver" {
-    for_each = var.mssql_low_storage_alert_emails
+    for_each = var.alert_emails
 
     content {
-      name                    = format("mssql-low-storage-%s", email_receiver.key)
+      name                    = format("email-alert-%s", email_receiver.key)
       email_address           = email_receiver.value
       use_common_alert_schema = true
     }
@@ -97,7 +97,7 @@ resource "azurerm_monitor_action_group" "mssql_low_storage" {
 }
 
 resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
-  count               = length(var.mssql_low_storage_alert_emails) > 0 ? 1 : 0
+  count               = length(var.alert_emails) > 0 ? 1 : 0
   name                = lower(format("%s-sql-low-storage", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_mssql_database.main.id]
@@ -116,7 +116,7 @@ resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
   }
 
   action {
-    action_group_id = azurerm_monitor_action_group.mssql_low_storage[0].id
+    action_group_id = azurerm_monitor_action_group.email_alerts[0].id
   }
 }
 
