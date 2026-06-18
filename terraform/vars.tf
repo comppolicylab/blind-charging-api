@@ -43,11 +43,10 @@ variable "db_max_size_gb" {
   description = "Database storage size (GB)"
 }
 
-variable "mssql_low_storage_alert_email" {
-  type        = string
-  default     = null
-  nullable    = true
-  description = "Email address to notify when the MSSQL database storage usage exceeds the configured threshold. If unset, no email alert is created."
+variable "mssql_low_storage_alert_emails" {
+  type        = list(string)
+  default     = []
+  description = "Email addresses to notify when the MSSQL database storage usage exceeds the configured threshold. If empty, no email alert is created."
 }
 
 variable "mssql_low_storage_alert_threshold_percent" {

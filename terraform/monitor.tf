@@ -79,21 +79,25 @@ resource "azurerm_application_insights" "main" {
 }
 
 resource "azurerm_monitor_action_group" "mssql_low_storage" {
-  count               = var.mssql_low_storage_alert_email == null ? 0 : 1
+  count               = length(var.mssql_low_storage_alert_emails) > 0 ? 1 : 0
   name                = lower(format("%s-sql-storage-ag", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   short_name          = "sqlstorage"
   tags                = var.tags
 
-  email_receiver {
-    name                    = "mssql-low-storage"
-    email_address           = var.mssql_low_storage_alert_email
-    use_common_alert_schema = true
+  dynamic "email_receiver" {
+    for_each = var.mssql_low_storage_alert_emails
+
+    content {
+      name                    = format("mssql-low-storage-%s", email_receiver.key)
+      email_address           = email_receiver.value
+      use_common_alert_schema = true
+    }
   }
 }
 
 resource "azurerm_monitor_metric_alert" "mssql_low_storage" {
-  count               = var.mssql_low_storage_alert_email == null ? 0 : 1
+  count               = length(var.mssql_low_storage_alert_emails) > 0 ? 1 : 0
   name                = lower(format("%s-sql-low-storage", local.name_prefix))
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_mssql_database.main.id]
