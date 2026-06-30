@@ -88,7 +88,7 @@ def update_schema_for_docs(
             break
 
         if in_description and line.startswith("  ") and not line.startswith("    "):
-            lines.insert(index, f"    Generated from {git_reference}.\n")
+            lines.insert(index, f"\n    Docs generated from `{git_reference}`\n")
             added_git_reference = True
             in_description = False
             current_index = index + 1
