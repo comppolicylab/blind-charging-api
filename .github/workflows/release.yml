@@ -133,3 +133,64 @@ jobs:
           curl -X POST -H 'Content-Type: application/json' \
             --data "{\"text\": \"$MSG\", \"blocks\": [{\"type\":\"section\", \"text\": {\"type\": \"plain_text\", \"text\": \"$MSG\", \"emoji\": true}}]}" \
             $SLACK_WEBHOOK
+
+  # Generate static API docs for GitHub Pages and commit them back to main
+  docs:
+    needs: [tag, docker, release]
+    if: needs.tag.outputs.api_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          lfs: false
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "RBC Bot (GitHub Actions)"
+          git config user.email "jnudell+rbcbot@hks.harvard.edu"
+          git fetch --tags --force
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Set up Python3.x
+        uses: actions/setup-python@v6
+
+      - name: Install development dependencies
+        run: uv sync --locked --dev
+
+      - name: Generate API docs
+        run: uv run python scripts/generate_api_docs.py
+
+      - name: Fix docs generation lint issues
+        run: |
+          uv run pre-commit run ruff --files scripts/generate_api_docs.py || true
+          uv run pre-commit run ruff-format --files scripts/generate_api_docs.py || true
+          uv run pre-commit run trailing-whitespace --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml || true
+          uv run pre-commit run end-of-file-fixer --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml docs/.nojekyll || true
+
+      - name: Verify docs generation lint
+        run: |
+          uv run pre-commit run ruff --files scripts/generate_api_docs.py
+          uv run pre-commit run ruff-format --files scripts/generate_api_docs.py
+          uv run pre-commit run trailing-whitespace --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml
+          uv run pre-commit run end-of-file-fixer --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml docs/.nojekyll
+
+      - name: Commit and push docs
+        env:
+          API_VERSION: ${{ needs.tag.outputs.api_version }}
+        run: |
+          git add docs scripts/generate_api_docs.py
+
+          if git diff --cached --quiet; then
+            echo "API docs are already up to date"
+            exit 0
+          fi
+
+          git commit -m "[auto] Update API docs for v$API_VERSION"
+          git push origin HEAD:main
