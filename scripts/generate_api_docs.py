@@ -1,6 +1,5 @@
 """Generate static API documentation for GitHub Pages."""
 
-import subprocess
 import tomllib
 from pathlib import Path
 from textwrap import dedent
@@ -43,41 +42,12 @@ def get_app_version() -> str:
     return pyproject["project"]["version"]
 
 
-def git_output(*args: str, check: bool = True) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(ROOT), *args],
-        capture_output=True,
-        check=check,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
-def get_git_reference() -> str:
-    tag = git_output("describe", "--exact-match", "--tags", "HEAD", check=False)
-    is_dirty = bool(git_output("status", "--short"))
-    dirty_suffix = " (dirty)" if is_dirty else ""
-
-    if tag:
-        return f"git tag {tag}{dirty_suffix}"
-
-    sha = git_output("rev-parse", "--short", "HEAD")
-    return f"git sha {sha}{dirty_suffix}"
-
-
-def update_schema_for_docs(
-    schema_text: str,
-    app_version: str,
-    git_reference: str,
-) -> str:
+def update_schema_version(schema_text: str, app_version: str) -> str:
     lines = schema_text.splitlines(keepends=True)
     in_info = False
-    in_description = False
     schema_version = None
-    added_git_reference = False
 
     for index, line in enumerate(lines):
-        current_index = index
         stripped_line = line.strip()
 
         if stripped_line == "info:" and not line.startswith(" "):
@@ -87,29 +57,15 @@ def update_schema_for_docs(
         if in_info and stripped_line and not line.startswith(" "):
             break
 
-        if in_description and line.startswith("  ") and not line.startswith("    "):
-            lines.insert(index, f"\n    Docs generated from `{git_reference}`\n")
-            added_git_reference = True
-            in_description = False
-            current_index = index + 1
-
-        if in_info and stripped_line == "description: |":
-            in_description = True
-            continue
-
         if in_info and line.startswith("  version:"):
             schema_version = line.split(":", maxsplit=1)[1].strip().strip("'\"")
             line_ending = "\n" if line.endswith("\n") else ""
             composite_version = f"api-v{app_version};schema-v{schema_version}"
-            lines[current_index] = f"  version: {composite_version}{line_ending}"
-
-        if schema_version is not None and added_git_reference:
+            lines[index] = f"  version: {composite_version}{line_ending}"
             break
 
     if schema_version is None:
         raise ValueError("OpenAPI schema is missing info.version")
-    if not added_git_reference:
-        raise ValueError("OpenAPI schema is missing info.description")
 
     return "".join(lines)
 
@@ -121,7 +77,7 @@ def main() -> None:
     DOCS_DIR.mkdir(exist_ok=True)
     schema_text = SCHEMA_PATH.read_text(encoding="utf-8")
     DOCS_SCHEMA_PATH.write_text(
-        update_schema_for_docs(schema_text, get_app_version(), get_git_reference()),
+        update_schema_version(schema_text, get_app_version()),
         encoding="utf-8",
     )
     INDEX_PATH.write_text(INDEX_HTML, encoding="utf-8")
