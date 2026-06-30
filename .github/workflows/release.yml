@@ -31,7 +31,7 @@ jobs:
           git config http.extraHeader "Authorization: Basic $(echo -n $GITHUB_TOKEN | base64)"
           git fetch --tags
 
-      - name: Tag API based on pyproject.toml version
+      - name: Determine API release
         id: api
         run: |
           API_VERSION=$(cat pyproject.toml | grep '^version' | awk '{print$3}' | sed 's/"//g')
@@ -49,10 +49,48 @@ jobs:
             echo "Tag api-$API_VERSION already exists"
             echo "release=false" >> "$GITHUB_OUTPUT"
           else
-            git tag -a "api-$API_VERSION" -m "[auto] API version $API_VERSION"
-            echo "Tagged api-$API_VERSION"
             echo "release=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Install uv
+        if: steps.api.outputs.release == 'true'
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Set up Python3.x
+        if: steps.api.outputs.release == 'true'
+        uses: actions/setup-python@v6
+
+      - name: Install development dependencies
+        if: steps.api.outputs.release == 'true'
+        run: uv sync --locked --dev
+
+      - name: Generate API docs
+        if: steps.api.outputs.release == 'true'
+        run: uv run python scripts/generate_api_docs.py
+
+      - name: Run pre-commit checks
+        if: steps.api.outputs.release == 'true'
+        run: uv run pre-commit run --show-diff-on-failure --files docs/.nojekyll docs/index.html docs/openapi.yaml
+
+      - name: Commit generated docs
+        if: steps.api.outputs.release == 'true'
+        run: |
+          git add docs scripts/generate_api_docs.py
+
+          if git diff --cached --quiet; then
+            echo "API docs are already up to date"
+            exit 0
+          fi
+
+          API_VERSION=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          git commit -m "[auto] Update API docs for v$API_VERSION"
+
+      - name: Tag API based on pyproject.toml version
+        if: steps.api.outputs.release == 'true'
+        run: |
+          API_VERSION="${{ steps.api.outputs.version }}"
+          git tag -a "api-$API_VERSION" -m "[auto] API version $API_VERSION"
+          echo "Tagged api-$API_VERSION"
 
       - name: Tag schema based on openapi.yaml
         run: |
@@ -133,64 +171,3 @@ jobs:
           curl -X POST -H 'Content-Type: application/json' \
             --data "{\"text\": \"$MSG\", \"blocks\": [{\"type\":\"section\", \"text\": {\"type\": \"plain_text\", \"text\": \"$MSG\", \"emoji\": true}}]}" \
             $SLACK_WEBHOOK
-
-  # Generate static API docs for GitHub Pages and commit them back to main
-  docs:
-    needs: [tag, docker, release]
-    if: needs.tag.outputs.api_release == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          fetch-depth: 0
-          fetch-tags: true
-          lfs: false
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Configure git
-        run: |
-          git config user.name "RBC Bot (GitHub Actions)"
-          git config user.email "jnudell+rbcbot@hks.harvard.edu"
-          git fetch --tags --force
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
-
-      - name: Set up Python3.x
-        uses: actions/setup-python@v6
-
-      - name: Install development dependencies
-        run: uv sync --locked --dev
-
-      - name: Generate API docs
-        run: uv run python scripts/generate_api_docs.py
-
-      - name: Fix docs generation lint issues
-        run: |
-          uv run pre-commit run ruff --files scripts/generate_api_docs.py || true
-          uv run pre-commit run ruff-format --files scripts/generate_api_docs.py || true
-          uv run pre-commit run trailing-whitespace --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml || true
-          uv run pre-commit run end-of-file-fixer --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml docs/.nojekyll || true
-
-      - name: Verify docs generation lint
-        run: |
-          uv run pre-commit run ruff --files scripts/generate_api_docs.py
-          uv run pre-commit run ruff-format --files scripts/generate_api_docs.py
-          uv run pre-commit run trailing-whitespace --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml
-          uv run pre-commit run end-of-file-fixer --files scripts/generate_api_docs.py docs/index.html docs/openapi.yaml docs/.nojekyll
-
-      - name: Commit and push docs
-        env:
-          API_VERSION: ${{ needs.tag.outputs.api_version }}
-        run: |
-          git add docs scripts/generate_api_docs.py
-
-          if git diff --cached --quiet; then
-            echo "API docs are already up to date"
-            exit 0
-          fi
-
-          git commit -m "[auto] Update API docs for v$API_VERSION"
-          git push origin HEAD:main
