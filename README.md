@@ -96,7 +96,7 @@ curl <api_host>/api/v1/redact -k -X POST -D - -H 'Content-Type: application/json
       "document": {
         "attachmentType": "LINK",
         "documentId": "doc1",
-        "url": "<api_host>/sample_data/hard.pdf"
+        "url": "<api_host>/sample_data/simple.pdf"
       },
       "callbackUrl": "<your_callback_host>"
     }

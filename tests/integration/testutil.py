@@ -172,7 +172,7 @@ class MockCallbackServer(BackgroundServer):
 
     def _return_test_document(self):
         # Return a pdf from the `sample_data` directory, relative to this file
-        fn = "P441852-response-documents.pdf"
+        fn = "simple.pdf"
 
         async def stream_file():
             with open(SAMPLE_DATA_DIR / fn, "rb") as f:
