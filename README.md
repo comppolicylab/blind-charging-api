@@ -202,6 +202,16 @@ If you are able to access the api via a web browser (e.g., over VPN inside a vne
 
 Use `uv` for installing dependencies and running the application.
 
+### API Documentation
+
+Generate the static API documentation served by GitHub Pages:
+
+```zsh
+uv run python scripts/generate_api_docs.py
+```
+
+The generated site is written to `docs/` from `app/schema/openapi.yaml`.
+
 ### Testing
 
 Use `pytest` to run tests: `uv run pytest`.
