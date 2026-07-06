@@ -29,7 +29,7 @@ dependencies = [
     "flower<3.0.0,>=2.0.1",
     "argon2-cffi>=25.1.0,<26.0.0",
     "opentelemetry-sdk<2.0.0,>=1.27.0",
-    "opentelemetry-api<2.0.0,>=1.27.0",
+    "opentelemetry-api>=1.43.0,<2.0.0",
     "python-hcl2>=8.1.2,<9.0.0",
     "alembic>=1.18.4,<=2.0.0",
     "fakeredis>=2.36.1",
