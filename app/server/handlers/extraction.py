@@ -35,18 +35,12 @@ async def extract_documents(
     now = await request.state.store.time()
     expires_at = now + config.queue.task.retention_time_seconds
 
-    unique_document_ids = set[str]()
     for doc in body.documents:
         callback_url = str(doc.callbackUrl) if doc.callbackUrl else None
         validate_callback_url(callback_url)
         if doc.document.root.attachmentType == "LINK":
             validate_document_url(str(doc.document.root.url))
-        doc_id = doc.document.root.documentId
-        if doc_id in unique_document_ids:
-            raise HTTPException(
-                status_code=400, detail=f"Duplicate document ID: {doc_id}"
-            )
-        unique_document_ids.add(doc_id)
+
         token = str(uuid7())
         # Persist inline (BASE64) payloads to the blob store up front so the
         # content skips the broker entirely (see redaction handler for details).
