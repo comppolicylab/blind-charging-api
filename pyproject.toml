@@ -35,7 +35,7 @@ dependencies = [
     "fakeredis>=2.36.1",
     "azure-monitor-opentelemetry>=1.8.8,<2.0.0",
     "opentelemetry-instrumentation-celery<1.0,>=0.49b1",
-    "certifi>=2026.5.20,<2027.0.0",
+    "certifi>=2026.6.17,<2027.0.0",
     "alligater>=0.5.0,<1.0.0",
     "kombu==5.6.2",
     "celery>=5.6,<6.0.0",
