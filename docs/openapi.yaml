@@ -4,7 +4,7 @@ info:
   title: Blind Charging API
   description: |
     This API lets an application communicate with the CPL Blind Charging module via an HTTP REST API.
-  version: api-v0.13.3;schema-v0.9.0
+  version: api-v0.13.4;schema-v0.9.0
   contact:
     name: Joe Nudell
     email: jnudell@hks.harvard.edu
