@@ -157,12 +157,19 @@ def extract(
                 ]
             }
         )
-        print("PIPELINE CFG", pipeline_cfg)
 
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))
         output_buffer = io.BytesIO()
-        pipeline.run({"in": {"buffer": input_buffer}, "out": {"buffer": output_buffer}})
+        pipeline.run(
+            {
+                "debug": config.debug,
+                "report_usage": config.track_usage,
+                "estimate_cost": config.track_usage,
+                "in": {"buffer": input_buffer},
+                "out": {"buffer": output_buffer},
+            }
+        )
 
         extracted_report = parse_extracted_report(output_buffer.getvalue())
         return ExtractionTaskResult(

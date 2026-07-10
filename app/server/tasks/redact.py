@@ -129,6 +129,9 @@ def redact(
         # Run the pipeline with memory I/O.
         ctx = pipeline.run(
             {
+                "debug": config.debug,
+                "report_usage": config.track_usage,
+                "estimate_cost": config.track_usage,
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
                 "redact": {"placeholders": placeholders},

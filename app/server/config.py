@@ -126,6 +126,7 @@ class RedactionParamsConfig(BaseModel):
 
 class Config(BaseSettings):
     debug: bool = False
+    track_usage: bool = False
     queue: QueueConfig = QueueConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
     metrics: MetricsConfig = NoMetricsConfig()
