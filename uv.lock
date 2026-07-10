@@ -394,8 +394,8 @@ wheels = [
 
 [[package]]
 name = "bc2"
-version = "0.8.2"
-source = { git = "https://github.com/comppolicylab/bc2.git#1061e4b929b0d6c487bb5befddd53e2bd0234f5b" }
+version = "0.8.3"
+source = { git = "https://github.com/comppolicylab/bc2.git#a14c4c00d3044c90fabb9ba48f257d4af5295b1a" }
 dependencies = [
     { name = "azure-ai-documentintelligence" },
     { name = "azure-identity" },

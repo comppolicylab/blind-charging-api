@@ -127,6 +127,7 @@ class RedactionParamsConfig(BaseModel):
 class Config(BaseSettings):
     debug: bool = False
     track_usage: bool = False
+    azure_cost_region: str | None = None
     queue: QueueConfig = QueueConfig()
     experiments: ExperimentsConfig = ExperimentsConfig()
     metrics: MetricsConfig = NoMetricsConfig()

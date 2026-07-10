@@ -22,6 +22,7 @@ from .metrics import (
 )
 from .queue import ProcessingError, queue
 from .serializer import register_type
+from .usage import print_usage_summary
 
 logger = get_task_logger(__name__)
 
@@ -161,15 +162,18 @@ def extract(
         pipeline = Pipeline(pipeline_cfg)
         input_buffer = io.BytesIO(get_document_sync(fetch_result.file_storage_id))
         output_buffer = io.BytesIO()
-        pipeline.run(
+        ctx = pipeline.run(
             {
                 "debug": config.debug,
                 "report_usage": config.track_usage,
-                "estimate_cost": config.track_usage,
+                "estimate_cost": config.azure_cost_region is not None,
+                "azure_region": config.azure_cost_region,
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
             }
         )
+
+        print_usage_summary(getattr(ctx, "usage", None), enabled=config.debug)
 
         extracted_report = parse_extracted_report(output_buffer.getvalue())
         return ExtractionTaskResult(
