@@ -502,7 +502,7 @@ requires-dist = [
     { name = "gunicorn", specifier = ">=26.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "kombu", git = "https://github.com/jnu/kombu?rev=a37798c43c740ac7bc8253915588f675e45bd04b" },
-    { name = "nameparser", specifier = ">=1.1.3,<2.0.0" },
+    { name = "nameparser", specifier = ">=1.3.0,<2.0.0" },
     { name = "openai", specifier = ">=2.17" },
     { name = "opentelemetry-api", specifier = ">=1.43.0,<2.0.0" },
     { name = "opentelemetry-instrumentation-celery", specifier = ">=0.49b1,<1.0" },
@@ -1341,11 +1341,11 @@ wheels = [
 
 [[package]]
 name = "nameparser"
-version = "1.1.3"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ee/f6/418a49f9e7a6d98f938e712b1356eaff2247bc1ce679a851ac0d02022330/nameparser-1.1.3.tar.gz", hash = "sha256:aa2400ad71ccf8070675b40311a257c934659f91854b154e1ba6c264761c049d", size = 36504, upload-time = "2023-09-21T00:12:05.522Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/1f/1d23a2c8c03c6f6fa072b09ba57e96884506bf5393f4750efe8de25afcd6/nameparser-1.3.0.tar.gz", hash = "sha256:12b027988d97867aa0d96d362e49cc5381346dec92536cb8e3eee9a8ce8ef14d", size = 94465, upload-time = "2026-07-06T06:37:04.451Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/41/dd01b1f0ccffe618efe2d66ecde6964b0fada9d0f4891542675a9e722498/nameparser-1.1.3-py2.py3-none-any.whl", hash = "sha256:08ccda98681d59751c82052d52f185bc52f99d43e87d46b85c015a9096ecfa66", size = 24669, upload-time = "2023-09-21T00:12:04.174Z" },
+    { url = "https://files.pythonhosted.org/packages/23/85/3b5e36d8c3efbdd19cccdb186a47f70401c3169350e20a3fbc50e6e09885/nameparser-1.3.0-py3-none-any.whl", hash = "sha256:bb44f29e50bb817b121633c79ac04f1a3a516719556d10bcb945972d8b6e238a", size = 45790, upload-time = "2026-07-06T06:37:03.22Z" },
 ]
 
 [[package]]
