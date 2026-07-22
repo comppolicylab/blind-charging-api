@@ -36,6 +36,7 @@ from .metrics import (
 )
 from .queue import ProcessingError, queue
 from .serializer import register_type
+from .usage import print_usage_summary
 
 logger = get_task_logger(__name__)
 
@@ -129,6 +130,10 @@ def redact(
         # Run the pipeline with memory I/O.
         ctx = pipeline.run(
             {
+                "debug": config.debug,
+                "report_usage": config.track_usage,
+                "estimate_cost": config.azure_cost_region is not None,
+                "azure_region": config.azure_cost_region,
                 "in": {"buffer": input_buffer},
                 "out": {"buffer": output_buffer},
                 "redact": {"placeholders": placeholders},
@@ -138,6 +143,8 @@ def redact(
                 },
             }
         )
+
+        print_usage_summary(ctx.usage, enabled=config.debug)
 
         # Check quality metrics to see if we should reject this redaction.
         if ctx.quality:
