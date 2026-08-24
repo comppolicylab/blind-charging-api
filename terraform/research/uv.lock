@@ -4,8 +4,8 @@ requires-python = ">=3.12, <4.0"
 
 [[package]]
 name = "alligater"
-version = "0.5.0"
-source = { git = "https://github.com/comppolicylab/alligater.git#503f0633a144e9596edc2103e7befd308bc1d724" }
+version = "0.5.3"
+source = { git = "https://github.com/comppolicylab/alligater.git#8f07b9def5a634f1e192fadb4154131f05d973bd" }
 dependencies = [
     { name = "antlr4-python3-runtime" },
     { name = "mmh3" },
